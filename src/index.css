@@ -554,6 +554,10 @@
 
   .leaflet-container {
     font-family: inherit;
+    /* Trap Leaflet's internal z-indexes (controls default to 1000) in their own
+       stacking context so the attribution/zoom chrome can't punch through app
+       overlays like the Notes sheet (z-50) sitting above the map. */
+    isolation: isolate;
   }
 
   /* Keep OSM tiles in their natural color rendering */
