@@ -323,7 +323,7 @@ const translations: Record<string, Record<Lang, string>> = {
   'landing.mod.habits.title': { zh: '无负担的习惯', en: 'Habits without guilt' },
   'landing.mod.habits.body': { zh: '把可重复的日常作为生活的一部分呈现，而不是让你羞愧的连签机器。', en: 'Keep repeatable routines visible as part of life, not as a streak machine designed to shame you.' },
   'landing.private.title': { zh: '默认私密', en: 'Private by default' },
-  'landing.private.body': { zh: '它被打造成个人的记忆系统，不是社交动态，也不是又一层公开表演。', en: 'Built as a personal memory system, not a social feed and not another public performance layer.' },
+  'landing.private.body': { zh: '它被打造成个人的记忆系统，不是社交动态，也不是又一层公开表演。你的证据可随时一键导出为 JSON——即使有一天我们不在了，它仍然属于你。', en: 'Built as a personal memory system, not a social feed and not another public performance layer. Export everything as JSON anytime — even if we disappear, your evidence stays yours.' },
   // Landing — product positioning, how-it-works, narrative
   'landing.product.h2': { zh: '为你的每日计划而生的私人记忆层', en: 'A private memory layer for your daily planning' },
   'landing.product.body': {

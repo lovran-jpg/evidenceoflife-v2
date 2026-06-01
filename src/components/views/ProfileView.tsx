@@ -13,6 +13,7 @@ import {
   Check,
   ChevronRight,
   Clock3,
+  Download,
   MapPin,
   Pencil,
   RefreshCw,
@@ -29,6 +30,7 @@ import { toast } from 'sonner';
 import { GoogleCalendarButton } from '@/components/GoogleCalendarButton';
 import { supabase } from '@/integrations/supabase/client';
 import { TAG_CATEGORY_ICONS } from '@/lib/autoTag';
+import { buildEvidenceExport, serializeEvidenceExport, evidenceExportFilename } from '@/lib/exportEvidence';
 import { format } from 'date-fns';
 import { DayRecord, Moment } from '@/types';
 import { Todo } from '@/hooks/useTodos';
@@ -132,6 +134,29 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
       .sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime())
       .slice(0, 3);
   }, [dues]);
+
+  const handleExportEvidence = () => {
+    try {
+      const now = new Date();
+      const data = buildEvidenceExport(moments, now);
+      const blob = new Blob([serializeEvidenceExport(data)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = evidenceExportFilename(now);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      toast.success(
+        lang === 'zh'
+          ? `已导出 ${data.counts.moments} 条记忆·${data.counts.days} 天`
+          : `Exported ${data.counts.moments} moments · ${data.counts.days} days`,
+      );
+    } catch {
+      toast.error(lang === 'zh' ? '导出失败，请重试' : 'Export failed, please try again');
+    }
+  };
 
   const randomMemory = useMemo(() => {
     const pastMoments = moments.filter(m => m.date !== todayStr && (m.text || m.emoji));
@@ -391,6 +416,21 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
                 </div>
 
                 <LifeReminderCard lang={lang} />
+
+                <div className="rounded-[24px] border border-border/55 bg-card/72 p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/45">Your Data</p>
+                  <p className="mt-1 text-[12px] text-muted-foreground/58">
+                    {lang === 'zh'
+                      ? '私密优先。随时把全部记忆导出为一份 JSON——即使有一天我们不在了，它仍然属于你。'
+                      : 'Private by default. Export everything as one JSON file anytime — even if we disappear, your evidence stays yours.'}
+                  </p>
+                  <button
+                    onClick={handleExportEvidence}
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-border/65 bg-background px-3 py-2 text-[12px] font-semibold text-muted-foreground hover:text-foreground"
+                  >
+                    <Download size={13} /> {lang === 'zh' ? '导出我的证据' : 'Export my evidence'}
+                  </button>
+                </div>
               </div>
             </div>
           </section>
