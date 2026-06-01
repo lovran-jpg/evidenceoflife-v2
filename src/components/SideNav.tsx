@@ -33,12 +33,25 @@ const tabConfig: { id: TabType; icon: typeof Clock3; labelKey: string }[] = [
   { id: 'map', icon: MapPin, labelKey: 'nav.places' },
 ];
 
-// Sheet-opener quick-access buttons (open as overlays, not full pages)
-const sheetConfig: { id: TabType; icon: typeof Clock3; shortLabel: string; hint: string }[] = [
-  { id: 'dues', icon: Pin, shortLabel: 'Deadlines', hint: 'Due dates & urgent work' },
-  { id: 'habits', icon: Repeat, shortLabel: 'Habits', hint: 'Repeatable routines' },
-  { id: 'notes', icon: StickyNote, shortLabel: 'Notes', hint: 'Lists, images, reminders' },
-  { id: 'linkup', icon: Link2, shortLabel: 'Links', hint: 'Collections & references' },
+// Sheet-opener quick-access buttons, grouped by the role each plays in the
+// Plan → Live → Capture → Revisit loop. "Evidence" holds the material that
+// proves a day actually happened; "Obligations" holds what keeps life moving.
+type SheetItem = { id: TabType; icon: typeof Clock3; shortLabel: string; hint: string };
+const sheetGroups: { label: string; items: SheetItem[] }[] = [
+  {
+    label: 'Evidence',
+    items: [
+      { id: 'notes', icon: StickyNote, shortLabel: 'Notes', hint: 'Lists, images, reminders' },
+      { id: 'linkup', icon: Link2, shortLabel: 'Links', hint: 'Collections & references' },
+    ],
+  },
+  {
+    label: 'Obligations',
+    items: [
+      { id: 'dues', icon: Pin, shortLabel: 'Deadlines', hint: 'Due dates & urgent work' },
+      { id: 'habits', icon: Repeat, shortLabel: 'Habits', hint: 'Repeatable routines' },
+    ],
+  },
 ];
 const TAB_ORDER_KEY = 'side-nav-tab-order';
 
@@ -212,6 +225,12 @@ export function SideNav({ activeTab, activeSheet, onTabChange }: SideNavProps) {
         </div>
 
         <nav className={cn('mt-3 flex flex-col gap-1', expanded ? 'px-1.5' : 'px-2')}>
+          {/* Daily loop: full-page core surfaces (plan → live → capture → revisit) */}
+          {expanded && (
+            <span className="mb-0.5 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/45">
+              Daily loop
+            </span>
+          )}
           {/* Primary nav tabs */}
           {orderedTabs.map(({ id, icon: Icon, labelKey }) => (
             <button
@@ -259,75 +278,83 @@ export function SideNav({ activeTab, activeSheet, onTabChange }: SideNavProps) {
             </button>
           ))}
 
-          {/* Utility library: sheet openers, visually separate from full-page navigation */}
+          {/* Utility library: sheet openers grouped by role (Evidence / Obligations) */}
           {expanded ? (
-            <div className="mt-3 rounded-[18px] border border-border/55 bg-background/55 p-1.5 shadow-[0_8px_24px_hsl(var(--foreground)/0.035)]">
-              <div className="mb-1 flex items-center justify-between px-2 py-1">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/45">
-                  Library
-                </span>
-                <span className="text-[10px] text-muted-foreground/35">4</span>
-              </div>
-              <div className="space-y-0.5">
-                {sheetConfig.map(({ id, icon: Icon, shortLabel, hint }) => {
-                  const isOpen = activeSheet != null && SHEET_KEY_BY_TAB[id] === activeSheet;
-                  return (
-                  <button
-                    key={id}
-                    onClick={() => onTabChange(id)}
-                    title={`${shortLabel} · ${hint}`}
-                    aria-current={isOpen ? 'true' : undefined}
-                    className={cn(
-                      "group/lib flex min-h-11 w-full items-center gap-2.5 rounded-[14px] px-2.5 py-2 text-left transition-colors",
-                      isOpen
-                        ? "bg-[hsl(var(--surface-soft-hover))] text-foreground"
-                        : "text-[hsl(var(--text-soft))] hover:bg-[hsl(var(--surface-soft-hover))] hover:text-foreground"
-                    )}
-                  >
-                    <span className={cn(
-                      "flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[10px] bg-[hsl(var(--surface-soft))] transition-colors group-hover/lib:text-foreground",
-                      isOpen ? "text-foreground" : "text-muted-foreground/75"
-                    )}>
-                      <Icon size={17} strokeWidth={isOpen ? 1.95 : 1.65} />
+            <div className="mt-3 space-y-2">
+              {sheetGroups.map((group) => (
+                <div key={group.label} className="rounded-[18px] border border-border/55 bg-background/55 p-1.5 shadow-[0_8px_24px_hsl(var(--foreground)/0.035)]">
+                  <div className="mb-1 flex items-center justify-between px-2 py-1">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/45">
+                      {group.label}
                     </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[13px] font-semibold leading-none text-inherit">
-                        {shortLabel}
-                      </span>
-                      <span className="mt-1 block truncate text-[10px] font-medium leading-none text-muted-foreground/45">
-                        {hint}
-                      </span>
-                    </span>
-                    <ChevronRight size={13} className="flex-shrink-0 text-muted-foreground/25 transition-colors group-hover/lib:text-muted-foreground/55" />
-                  </button>
-                  );
-                })}
-              </div>
+                    <span className="text-[10px] text-muted-foreground/35">{group.items.length}</span>
+                  </div>
+                  <div className="space-y-0.5">
+                    {group.items.map(({ id, icon: Icon, shortLabel, hint }) => {
+                      const isOpen = activeSheet != null && SHEET_KEY_BY_TAB[id] === activeSheet;
+                      return (
+                      <button
+                        key={id}
+                        onClick={() => onTabChange(id)}
+                        title={`${shortLabel} · ${hint}`}
+                        aria-current={isOpen ? 'true' : undefined}
+                        className={cn(
+                          "group/lib flex min-h-11 w-full items-center gap-2.5 rounded-[14px] px-2.5 py-2 text-left transition-colors",
+                          isOpen
+                            ? "bg-[hsl(var(--surface-soft-hover))] text-foreground"
+                            : "text-[hsl(var(--text-soft))] hover:bg-[hsl(var(--surface-soft-hover))] hover:text-foreground"
+                        )}
+                      >
+                        <span className={cn(
+                          "flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[10px] bg-[hsl(var(--surface-soft))] transition-colors group-hover/lib:text-foreground",
+                          isOpen ? "text-foreground" : "text-muted-foreground/75"
+                        )}>
+                          <Icon size={17} strokeWidth={isOpen ? 1.95 : 1.65} />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[13px] font-semibold leading-none text-inherit">
+                            {shortLabel}
+                          </span>
+                          <span className="mt-1 block truncate text-[10px] font-medium leading-none text-muted-foreground/45">
+                            {hint}
+                          </span>
+                        </span>
+                        <ChevronRight size={13} className="flex-shrink-0 text-muted-foreground/25 transition-colors group-hover/lib:text-muted-foreground/55" />
+                      </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
             <>
-              <div className="my-1 h-px bg-border/35 mx-1" />
-              <div className="flex flex-col gap-1 rounded-[14px] bg-background/35 py-1">
-                {sheetConfig.map(({ id, icon: Icon, shortLabel, hint }) => {
-                  const isOpen = activeSheet != null && SHEET_KEY_BY_TAB[id] === activeSheet;
-                  return (
-                  <button
-                    key={id}
-                    onClick={() => onTabChange(id)}
-                    title={`${shortLabel} · ${hint}`}
-                    aria-current={isOpen ? 'true' : undefined}
-                    className={cn(
-                      "flex h-9 w-9 items-center justify-center self-center rounded-[10px] transition-colors",
-                      isOpen
-                        ? "bg-[hsl(var(--surface-soft-hover))] text-foreground"
-                        : "text-[hsl(var(--text-soft))] hover:bg-[hsl(var(--surface-soft-hover))] hover:text-foreground"
-                    )}
-                  >
-                    <Icon size={19} strokeWidth={isOpen ? 1.95 : 1.65} />
-                  </button>
-                  );
-                })}
-              </div>
+              {sheetGroups.map((group) => (
+                <div key={group.label}>
+                  <div className="my-1 h-px bg-border/35 mx-1" />
+                  <div className="flex flex-col gap-1 rounded-[14px] bg-background/35 py-1">
+                    {group.items.map(({ id, icon: Icon, shortLabel, hint }) => {
+                      const isOpen = activeSheet != null && SHEET_KEY_BY_TAB[id] === activeSheet;
+                      return (
+                      <button
+                        key={id}
+                        onClick={() => onTabChange(id)}
+                        title={`${shortLabel} · ${hint}`}
+                        aria-current={isOpen ? 'true' : undefined}
+                        className={cn(
+                          "flex h-9 w-9 items-center justify-center self-center rounded-[10px] transition-colors",
+                          isOpen
+                            ? "bg-[hsl(var(--surface-soft-hover))] text-foreground"
+                            : "text-[hsl(var(--text-soft))] hover:bg-[hsl(var(--surface-soft-hover))] hover:text-foreground"
+                        )}
+                      >
+                        <Icon size={19} strokeWidth={isOpen ? 1.95 : 1.65} />
+                      </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </>
           )}
         </nav>
