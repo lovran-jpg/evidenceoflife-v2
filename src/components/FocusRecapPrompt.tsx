@@ -19,13 +19,22 @@ interface FocusRecapPromptProps {
   onSkip: () => void;
 }
 
-function formatMinutes(sec: number): string {
-  const min = Math.max(1, Math.round(sec / 60));
-  return String(min);
+// Human duration for the recap summary — hours+minutes for long sessions so a
+// forgotten/long timer reads as "2 小时 31 分钟" instead of "151 分钟".
+function formatDuration(sec: number, lang: string): string {
+  const totalMin = Math.max(1, Math.round(sec / 60));
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  if (lang === 'zh') {
+    if (h === 0) return `${m} 分钟`;
+    return m > 0 ? `${h} 小时 ${m} 分钟` : `${h} 小时`;
+  }
+  if (h === 0) return `${m} min`;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
 export function FocusRecapPrompt({ title, workingSec, completed, onSave, onSkip }: FocusRecapPromptProps) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [note, setNote] = useState('');
   const [mood, setMood] = useState('');
 
@@ -59,7 +68,7 @@ export function FocusRecapPrompt({ title, workingSec, completed, onSave, onSkip 
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
           {t('focusRecap.summary')
-            .replace('{min}', formatMinutes(workingSec))
+            .replace('{duration}', formatDuration(workingSec, lang))
             .replace('{task}', title)}
         </p>
 

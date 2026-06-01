@@ -229,7 +229,7 @@ const translations: Record<string, Record<Lang, string>> = {
   // Focus recap prompt (capture trigger after a focus session ends)
   'focusRecap.titleDone': { zh: '完成了一次专注', en: 'Focus session done' },
   'focusRecap.titleSaved': { zh: '这段时间已留下', en: 'That time is saved' },
-  'focusRecap.summary': { zh: '你在「{task}」上专注了 {min} 分钟。', en: 'You focused {min} min on "{task}".' },
+  'focusRecap.summary': { zh: '你在「{task}」上专注了 {duration}。', en: 'You focused {duration} on "{task}".' },
   'focusRecap.moodQuestion': { zh: '感觉如何？', en: 'How did it feel?' },
   'focusRecap.noteQuestion': { zh: '做成了什么？（可选）', en: 'What got done? (optional)' },
   'focusRecap.notePlaceholder': { zh: '一句话留下证据，未来的你会想起来。', en: 'One line of evidence future-you will thank you for.' },
