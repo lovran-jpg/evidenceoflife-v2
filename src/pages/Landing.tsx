@@ -6,11 +6,15 @@ import {
   CalendarClock,
   CalendarDays,
   CheckCircle2,
+  Clock3,
   Images,
+  Link2,
   Layers,
   MapPin,
   NotebookPen,
+  Pin,
   PlayCircle,
+  Repeat,
   Route,
   ShieldCheck,
   Sparkles,
@@ -79,6 +83,11 @@ const featurePillars = [
 
 const productModules = [
   {
+    icon: Clock3,
+    title: 'Today timeline',
+    body: 'A single surface for plans, imported events, todos and recorded moments across your waking hours.',
+  },
+  {
     icon: Timer,
     title: 'Focus sessions',
     body: 'Log real work time from a pomodoro-style session and attach it to the day it happened.',
@@ -94,9 +103,24 @@ const productModules = [
     body: 'Bring Google Calendar events into your timeline so plans and reality can meet in one place.',
   },
   {
+    icon: Pin,
+    title: 'Deadlines and dues',
+    body: 'Track urgent work, multi-step obligations, reminders, photos and links without losing them in notes.',
+  },
+  {
+    icon: Repeat,
+    title: 'Habits without guilt',
+    body: 'Keep repeatable routines visible as part of life, not as a streak machine designed to shame you.',
+  },
+  {
     icon: MapPin,
     title: 'Place memory',
     body: 'Tag restaurants, cafes, parks, museums and trips, then rediscover them on a personal map.',
+  },
+  {
+    icon: Link2,
+    title: 'Links and references',
+    body: 'Save useful links with previews so the references around a day stay connected to the day itself.',
   },
   {
     icon: Images,
@@ -114,13 +138,19 @@ const useCases = [
   'People who end the week asking, "What did I actually do?"',
   'Builders, students and freelancers who want proof of progress without a rigid productivity system.',
   'Travelers, parents and reflective people who want memories organized by day and place.',
-  'Anyone tired of streak guilt, over-optimized dashboards and blank journal pages.',
+  'Anyone juggling deadlines, routines, notes and links but wanting one calm daily record.',
 ];
 
 const outcomes = [
   ['Less reconstruction', 'Stop piecing together your day from calendar events, screenshots and chat history.'],
   ['More honest progress', 'See planned time, focused time and lived moments side by side.'],
   ['A richer archive', 'Turn ordinary days into searchable evidence instead of letting them disappear.'],
+];
+
+const marketAngles = [
+  ['Against todo apps', 'Todos stop at intention. Evidence of Life keeps intention and outcome together.'],
+  ['Against journals', 'Blank pages are high friction. Here, memory grows from the work you already planned and finished.'],
+  ['Against habit trackers', 'Streaks optimize compliance. This product preserves context, progress and lived texture.'],
 ];
 
 const framePresets: Record<string, { scale: number; x: number; y: number; width: string; height: string }> = {
@@ -169,7 +199,7 @@ export default function Landing() {
 
           <nav className="hidden items-center gap-6 text-sm font-medium text-[#7b675a] md:flex">
             <a className="transition-colors hover:text-[#c9784e]" href="#product">Product</a>
-            <a className="transition-colors hover:text-[#c9784e]" href="#use-cases">Use cases</a>
+            <a className="transition-colors hover:text-[#c9784e]" href="#positioning">Positioning</a>
             <a className="transition-colors hover:text-[#c9784e]" href="#how-it-works">How it works</a>
           </nav>
 
@@ -209,8 +239,8 @@ export default function Landing() {
 
             <p className="mt-6 max-w-2xl text-pretty text-lg leading-8 text-[#6d594d]">
               Evidence of Life helps you plan the day, record what actually happened,
-              and revisit it through a calendar, map and memory timeline. It is productivity
-              with a receipt - built for people who want proof they lived, not another scorecard.
+              and revisit it through a timeline, calendar, map, photos, deadlines, habits and links.
+              It is productivity with a receipt - built for people who want proof they lived, not another scorecard.
             </p>
 
             <div className="mt-9 flex w-full flex-col items-center justify-center gap-3 sm:flex-row">
@@ -296,10 +326,10 @@ export default function Landing() {
         <section className="border-y border-[rgba(124,82,56,0.08)] bg-[rgba(255,250,244,0.62)]">
           <div className="mx-auto grid max-w-5xl grid-cols-2 gap-6 px-6 py-10 text-center sm:grid-cols-4 lg:px-8">
             {[
-              ['Plan + memory', 'one continuous flow'],
+              ['Today timeline', 'plans and moments together'],
               ['Focus + recap', 'actual time, real context'],
+              ['Dues + habits', 'obligations without chaos'],
               ['Calendar + map', 'browse by when and where'],
-              ['Private archive', 'no posting, no pressure'],
             ].map(([stat, label]) => (
               <div key={label}>
                 <div className="text-xl font-semibold tracking-tight text-[#c9784e]">{stat}</div>
@@ -321,8 +351,9 @@ export default function Landing() {
               </h2>
               <p className="mt-4 text-lg leading-8 text-[#6d594d]">
                 Most tools ask you to choose: plan in one app, focus in another,
-                journal somewhere else, then search photos later. Evidence of Life
-                connects those fragments into one private product loop: plan, live, remember.
+                journal somewhere else, track deadlines in a notes app, save links in a browser,
+                then search photos later. Evidence of Life connects those fragments into one
+                private product loop: plan, live, remember.
               </p>
             </div>
 
@@ -358,15 +389,15 @@ export default function Landing() {
           </div>
         </section>
 
-        <section id="use-cases" className="border-t border-[rgba(124,82,56,0.08)] bg-[rgba(255,250,244,0.55)]">
+        <section id="positioning" className="border-t border-[rgba(124,82,56,0.08)] bg-[rgba(255,250,244,0.55)]">
           <div className="mx-auto grid max-w-6xl gap-10 px-6 py-24 lg:grid-cols-[1fr_0.9fr] lg:px-8">
             <div>
               <div className="inline-flex items-center gap-2 rounded-full bg-white/70 px-3 py-1 text-sm font-semibold text-[#c9784e]">
                 <Layers size={14} />
-                Who it is for
+                Marketing angle
               </div>
               <h2 className="mt-5 text-3xl font-semibold tracking-[-0.03em] text-[#2d221d] sm:text-4xl">
-                Built for days that are too full to remember manually
+                A new category between productivity and memory
               </h2>
               <p className="mt-4 text-lg leading-8 text-[#6d594d]">
                 The product is not trying to be therapy, enterprise project management,
@@ -374,7 +405,17 @@ export default function Landing() {
                 what your time became.
               </p>
 
-              <div className="mt-8 grid gap-3">
+              <div className="mt-8 grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+                {marketAngles.map(([title, body]) => (
+                  <div key={title} className="rounded-2xl border border-[rgba(124,82,56,0.1)] bg-white/70 p-4">
+                    <h3 className="font-semibold text-[#342821]">{title}</h3>
+                    <p className="mt-2 text-sm leading-6 text-[#786457]">{body}</p>
+                  </div>
+                ))}
+              </div>
+
+              <h3 className="mt-10 text-lg font-semibold text-[#342821]">Best-fit users</h3>
+              <div className="mt-4 grid gap-3">
                 {useCases.map((useCase) => (
                   <div key={useCase} className="flex gap-3 rounded-2xl border border-[rgba(124,82,56,0.1)] bg-white/70 p-4">
                     <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-[#c9784e]" />

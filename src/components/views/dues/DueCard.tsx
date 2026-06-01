@@ -84,7 +84,6 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
   // Color theming: Deadline = warm orange, Habit = cool teal
   const isHabit = due.habit_category !== null;
   const accentColor = !isHabit ? '#e8825a' : '#2dd4bf';
-  const accentBg = !isHabit ? 'rgba(232,130,90,0.08)' : 'rgba(45,212,191,0.08)';
   const accentBorder = !isHabit ? 'rgba(232,130,90,0.25)' : 'rgba(45,212,191,0.25)';
   const trackedLinkCountTotal = (due.links || []).reduce((sum, link) => sum + (link.count || 0), 0);
   const hasPerLinkCounts = isHabit && (due.links || []).length > 0;
