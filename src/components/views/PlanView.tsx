@@ -417,16 +417,13 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
 
   const activeCategoryStyle = isDoing
     ? isDark
-      // Dark active: the previous full-card mid-saturation wash turned
-      // muddy brown over near-black and the 50%-alpha border read as a
-      // loud outline. Instead: a CRISP full-saturation left accent bar
-      // (inset shadow, follows the radius) carries the color identity,
-      // while the surface stays a soft tint that FADES TO TRANSPARENT so
-      // it never blocks up into mud. Border + outer glow are whisper-soft.
+      // Dark active: no border, no accent bar — just a clean, even warm
+      // surface so the row reads as "live" without any muddy gradient or
+      // loud outline. The flat low-alpha tint over near-black stays warm
+      // (not brown) and the white title keeps full contrast on top.
       ? {
-          background: `linear-gradient(100deg, ${activeColor}26 0%, ${activeColor}0D 42%, transparent 78%)`,
-          borderColor: `${activeColor}33`,
-          boxShadow: `inset 3px 0 0 0 ${activeColor}, 0 6px 22px -8px ${activeColor}40`,
+          background: `${activeColor}1A`,
+          borderColor: 'transparent',
         }
       : {
           background: `linear-gradient(135deg, ${activeColor}18 0%, ${activeColor}09 100%)`,
@@ -548,7 +545,7 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
                   <button
                     type="button"
                     className={cn(
-                      "items-center gap-1 rounded-full px-1.5 py-[2px] text-[10px] font-medium transition-colors hover:brightness-95 dark:saturate-[0.78] dark:opacity-90",
+                      "items-center gap-1 rounded-full px-1.5 py-[2px] text-[10px] font-medium transition-colors hover:brightness-95 dark:saturate-[0.85] dark:!text-foreground/80 dark:!bg-white/[0.06]",
                       hasExplicitWorkType ? "inline-flex" : "hidden group-hover:inline-flex"
                     )}
                     style={{ color: hexWithAlpha(workTypeMeta.color, 'B3'), backgroundColor: `${workTypeMeta.bg}73` }}
