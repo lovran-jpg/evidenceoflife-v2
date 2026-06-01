@@ -378,9 +378,25 @@ export function PlanDrift({ allTodos, completedTodos, allMoments, todayDateStr, 
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
   const prevRhythmPresetIdRef = useRef<string | undefined>(undefined);
   const isDarkMode = useIsDarkMode();
+
+  // A still-running timer's contribution grows with wall-clock time. Re-tick on a
+  // coarse interval (focused total is minute-granular) so the headline keeps climbing
+  // instead of freezing until the next data refresh.
+  const isRealToday = new Date(`${todayDateStr}T00:00:00`).toDateString() === new Date().toDateString();
+  const hasRunningTimer =
+    (allTodos || []).some(t => t.date === todayDateStr && t.timer_started_at && !t.timer_ended_at) ||
+    (allMoments || []).some(m => m.date === todayDateStr && m.timer_started_at && !m.timer_ended_at);
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (!isRealToday || !hasRunningTimer) return;
+    const id = setInterval(() => setTick(n => n + 1), 30000);
+    return () => clearInterval(id);
+  }, [isRealToday, hasRunningTimer]);
+
   const { planned: chartPlanned, actual: chartActual } = useMemo(
     () => buildExecutionSlots(allTodos, allMoments, todayDateStr),
-    [allTodos, allMoments, todayDateStr],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allTodos, allMoments, todayDateStr, tick],
   );
   const bestStretchLabel = useMemo(() => computeBestStretch(chartActual), [chartActual]);
   const chartNowMin = useMemo(() => {
@@ -403,7 +419,8 @@ export function PlanDrift({ allTodos, completedTodos, allMoments, todayDateStr, 
     if (!allTodos || !completedTodos) return null;
     const todayMoments = (allMoments || []).filter(m => m.date === todayDateStr);
     return computeDrift(allTodos, completedTodos, todayMoments, todayDateStr);
-  }, [allTodos, completedTodos, allMoments, todayDateStr]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allTodos, completedTodos, allMoments, todayDateStr, tick]);
 
   if (!drift) return null;
 
