@@ -257,6 +257,14 @@ const translations: Record<string, Record<Lang, string>> = {
   'onThisDay.daysAgo': { zh: '{n} 天前', en: '{n} days ago' },
   'onThisDay.revisit': { zh: '重温这一天', en: 'Revisit this day' },
   'onThisDay.noText': { zh: '一段被留下的瞬间', en: 'A moment you kept' },
+  // Weekly Evidence Digest — Progress Principle, no streak pressure
+  'weekly.title': { zh: '这一周', en: 'This week' },
+  'weekly.activeDays': { zh: '记录天数', en: 'days recorded' },
+  'weekly.focusMin': { zh: '专注分钟', en: 'focus min' },
+  'weekly.moments': { zh: '瞬间', en: 'moments' },
+  'weekly.photos': { zh: '照片', en: 'photos' },
+  'weekly.places': { zh: '地点', en: 'places' },
+  'weekly.kept': { zh: '本周留住的', en: 'Kept this week' },
   // SideNav phase groups
   'sidenav.dailyLoop': { zh: '每日循环', en: 'Daily loop' },
   'sidenav.evidence': { zh: '生活证据', en: 'Evidence' },

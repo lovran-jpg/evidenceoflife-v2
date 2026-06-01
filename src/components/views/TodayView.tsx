@@ -67,6 +67,7 @@ import {
 } from './today/TodayRecapParts';
 import { EvidenceReviewCard } from './today/EvidenceReviewCard';
 import { OnThisDayCard } from './today/OnThisDayCard';
+import { WeeklyDigestCard } from './today/WeeklyDigestCard';
 
 type MomentEditUpdates = Partial<Omit<Moment, 'location'>> & {
   location?: Moment['location'] | null;
@@ -1195,6 +1196,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
               selectedDate={selectedDate}
               onRevisit={(dateStr) => onSelectedDateChange(new Date(`${dateStr}T00:00:00`))}
             />
+            <WeeklyDigestCard moments={historyMoments ?? []} selectedDate={selectedDate} />
             {onTodayModeChange && (
               <div className="flex items-center justify-between pt-3 border-t border-border/20 mt-2">
                 <span className="text-[11px] text-muted-foreground/50">
