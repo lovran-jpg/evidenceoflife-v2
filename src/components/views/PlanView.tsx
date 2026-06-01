@@ -417,10 +417,16 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
 
   const activeCategoryStyle = isDoing
     ? isDark
+      // Dark active: the previous full-card mid-saturation wash turned
+      // muddy brown over near-black and the 50%-alpha border read as a
+      // loud outline. Instead: a CRISP full-saturation left accent bar
+      // (inset shadow, follows the radius) carries the color identity,
+      // while the surface stays a soft tint that FADES TO TRANSPARENT so
+      // it never blocks up into mud. Border + outer glow are whisper-soft.
       ? {
-          background: `linear-gradient(135deg, ${activeColor}3D 0%, ${activeColor}1F 100%)`,
-          borderColor: `${activeColor}80`,
-          boxShadow: `0 0 0 1px ${activeColor}38, 0 8px 26px ${activeColor}24`,
+          background: `linear-gradient(100deg, ${activeColor}26 0%, ${activeColor}0D 42%, transparent 78%)`,
+          borderColor: `${activeColor}33`,
+          boxShadow: `inset 3px 0 0 0 ${activeColor}, 0 6px 22px -8px ${activeColor}40`,
         }
       : {
           background: `linear-gradient(135deg, ${activeColor}18 0%, ${activeColor}09 100%)`,
