@@ -65,6 +65,7 @@ import {
   ImportedEventTimeEditor,
   LifeReplay,
 } from './today/TodayRecapParts';
+import { EvidenceReviewCard } from './today/EvidenceReviewCard';
 
 type MomentEditUpdates = Partial<Omit<Moment, 'location'>> & {
   location?: Moment['location'] | null;
@@ -312,6 +313,23 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
       return aTime - bTime;
     });
   }, [todayMoments]);
+
+  // The end-of-day reflection answer, stored as a special moment tagged
+  // 'daily-reflection' so it can be surfaced once per day in the review card.
+  const dailyReflection = useMemo(
+    () => sortedMoments.find(m => m.tags?.includes('daily-reflection')) ?? null,
+    [sortedMoments]
+  );
+
+  const handleSaveReflection = (text: string) => {
+    void onAddMoment({
+      text,
+      emoji: '💛',
+      photos: [],
+      tags: ['daily-reflection'],
+      isSpecial: true,
+    });
+  };
 
   // Calculate non-overlapping time coverage percentage
   const timeRecordedPct = useMemo(() => {
@@ -1144,6 +1162,13 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
       <div ref={recapContentRef} className="recap-readable-ui px-4 sm:px-5 lg:px-6 flex-1 overflow-y-auto mt-1 pb-40">
         <div className="lg:grid lg:grid-cols-[minmax(260px,3fr)_minmax(0,7fr)] lg:gap-6 lg:items-start">
           <div className="mb-5 lg:mb-0 flex flex-col gap-3">
+            <EvidenceReviewCard
+              moments={sortedMoments}
+              todosDone={todosDone}
+              todosTotal={todosTotal}
+              reflection={dailyReflection}
+              onSaveReflection={handleSaveReflection}
+            />
             <DailyHabitTracker
               habits={recapHabits}
               selectedDateStr={selectedDateStr}
