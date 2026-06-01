@@ -40,7 +40,6 @@ const DEFAULT_TABS: Tab[] = [
 ];
 
 const TABS_KEY = 'sticky-tabs-v1';
-const CARD_SPANS_KEY = 'sticky-card-spans';
 
 function loadTabs(): Tab[] {
   try {
@@ -55,15 +54,6 @@ function loadTabs(): Tab[] {
 
 function saveTabs(tabs: Tab[]) {
   localStorage.setItem(TABS_KEY, JSON.stringify(tabs));
-}
-
-function loadCardSpans(): Record<string, number> {
-  try { return JSON.parse(localStorage.getItem(CARD_SPANS_KEY) || '{}'); }
-  catch { return {}; }
-}
-
-function saveCardSpans(spans: Record<string, number>) {
-  localStorage.setItem(CARD_SPANS_KEY, JSON.stringify(spans));
 }
 
 function fileToDataUrl(file: File): Promise<string> {
@@ -89,8 +79,6 @@ async function getPastedImages(clipboardItems: DataTransferItemList): Promise<st
 function NoteCard({
   note,
   config,
-  span = 1,
-  onChangeSpan,
   onAddItem,
   onRenameItem,
   onAttachItemLink,
@@ -105,8 +93,6 @@ function NoteCard({
 }: {
   note: StickyNote;
   config: StyleConfig;
-  span?: number;
-  onChangeSpan?: (span: number) => void;
   onAddItem: (text: string, options?: { images?: string[]; links?: MomentLinkPreview[] }) => void;
   onRenameItem: (itemId: string, text: string) => void;
   onAttachItemLink: (itemId: string, link: MomentLinkPreview) => void;
@@ -130,26 +116,6 @@ function NoteCard({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const rot = config.rotate[parseInt(note.id.slice(-4), 16) % config.rotate.length];
-  const dragStartXRef = useRef(0);
-  const dragStartSpanRef = useRef(1);
-
-  const handleResizeMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dragStartXRef.current = e.clientX;
-    dragStartSpanRef.current = span;
-    const onMouseMove = (ev: MouseEvent) => {
-      const dx = ev.clientX - dragStartXRef.current;
-      const newSpan = Math.max(1, Math.min(3, dragStartSpanRef.current + Math.round(dx / 280)));
-      onChangeSpan?.(newSpan);
-    };
-    const onMouseUp = () => {
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-    };
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-  };
 
   const buildLinkPreview = async (rawValue: string): Promise<MomentLinkPreview | null> => {
     const url = normalizeUrl(rawValue);
@@ -299,18 +265,6 @@ function NoteCard({
       )}
       style={{ transform: `rotate(${rot}deg)` }}
     >
-      {/* Resize handle */}
-      {onChangeSpan && (
-        <div
-          className="absolute right-0 top-0 bottom-0 w-3 flex flex-col items-center justify-center gap-[3px] cursor-col-resize opacity-0 group-hover/card:opacity-40 hover:!opacity-80 transition-opacity z-20"
-          onMouseDown={handleResizeMouseDown}
-          title="Drag to resize"
-        >
-          <div className={cn('w-[3px] h-3 rounded-full', config.header)} />
-          <div className={cn('w-[3px] h-3 rounded-full', config.header)} />
-          <div className={cn('w-[3px] h-3 rounded-full', config.header)} />
-        </div>
-      )}
       {/* Tape strip */}
       <div
         draggable
@@ -560,7 +514,6 @@ export function StickyNotesView() {
   const [newNoteTitle, setNewNoteTitle] = useState('');
   const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
   const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
-  const [cardSpans, setCardSpans] = useState<Record<string, number>>(() => loadCardSpans());
 
   // Migrate from old category order if needed
   useEffect(() => {
@@ -577,7 +530,6 @@ export function StickyNotesView() {
   }, []);
 
   useEffect(() => { saveTabs(tabs); }, [tabs]);
-  useEffect(() => { saveCardSpans(cardSpans); }, [cardSpans]);
 
   // Ensure activeTabId is valid
   useEffect(() => {
@@ -635,10 +587,6 @@ export function StickyNotesView() {
 
   const handleCycleColor = (id: string) => {
     setTabs(prev => prev.map(t => t.id === id ? { ...t, colorIndex: (t.colorIndex + 1) % COLOR_PALETTES.length } : t));
-  };
-
-  const handleChangeSpan = (noteId: string, span: number) => {
-    setCardSpans(prev => ({ ...prev, [noteId]: span }));
   };
 
   return (
@@ -740,33 +688,32 @@ export function StickyNotesView() {
 
       {/* Board */}
       <div className="flex-1 overflow-y-auto px-5 pt-4 pb-4">
-        {/* Cards grid — 3-column base, cards can span 1-3 */}
+        {/* Cards — masonry columns, each card sizes to its own content */}
         {filtered.length === 0 ? (
           <div className="mt-12 text-center">
             <p className="text-3xl mb-2">📝</p>
             <p className="text-sm text-muted-foreground">{t('notes.empty')}</p>
           </div>
         ) : (
-          <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))' }}>
+          <div
+            className="[column-gap:1.25rem] [column-width:230px]"
+            style={{ columnFill: 'balance' }}
+          >
             {filtered.map(note => {
-              const span = Math.max(1, Math.min(3, cardSpans[note.id] || 1));
               return (
                 <div
                   key={note.id}
-                  style={{ gridColumn: `span ${span}` }}
                   onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
                   onDrop={e => {
                     e.preventDefault();
                     if (draggedNoteId && draggedNoteId !== note.id) reorderNote(draggedNoteId, note.id);
                     setDraggedNoteId(null);
                   }}
-                  className={cn('transition-opacity', draggedNoteId === note.id && 'opacity-60')}
+                  className={cn('mb-5 break-inside-avoid transition-opacity', draggedNoteId === note.id && 'opacity-60')}
                 >
                   <NoteCard
                     note={note}
                     config={config}
-                    span={span}
-                    onChangeSpan={s => handleChangeSpan(note.id, s)}
                     onAddItem={(text, opts) => addItem(note.id, text, opts)}
                     onRenameItem={(itemId, text) => renameItem(note.id, itemId, text)}
                     onAttachItemLink={(itemId, link) => attachItemLink(note.id, itemId, link)}
