@@ -260,10 +260,10 @@ function NoteCard({
   return (
     <div
       className={cn(
-        'group/card relative flex flex-col gap-2 rounded-sm shadow-md p-3 transition-transform duration-200 hover:scale-[1.01] hover:shadow-lg hover:z-10',
+        'group/card relative flex flex-col gap-2 rounded-sm shadow-md p-3 transition-transform duration-200 rotate-[var(--note-rot)] hover:scale-[1.02] hover:shadow-lg hover:z-10',
         config.bg, config.border, 'border',
       )}
-      style={{ transform: `rotate(${rot}deg)` }}
+      style={{ '--note-rot': `${rot}deg` } as React.CSSProperties}
     >
       {/* Tape strip */}
       <div
