@@ -11,13 +11,18 @@ import { validatePhotoFile } from '@/lib/photoValidation';
 import { useProfile } from '@/hooks/useProfile';
 import { showUndoToast } from '@/lib/undoToast';
 
+// Warm, brand-aligned pastel palettes so sticky notes read as part of the
+// same cream/terracotta/sage world as the rest of the app — not bolted-on
+// generic Post-it colors. Still six distinct hues for differentiation.
+// `text` doubles as the currentColor source for borders/checkboxes/link tints,
+// so it stays a readable mid-tone of each hue.
 const COLOR_PALETTES = [
-  { bg: 'bg-[#dbeafe]', border: 'border-blue-200', header: 'bg-[#bfdbfe]', text: 'text-blue-900' },
-  { bg: 'bg-[#fef9c3]', border: 'border-yellow-200', header: 'bg-[#fde68a]', text: 'text-yellow-900' },
-  { bg: 'bg-[#dcfce7]', border: 'border-green-200', header: 'bg-[#bbf7d0]', text: 'text-green-900' },
-  { bg: 'bg-[#fce7f3]', border: 'border-pink-200', header: 'bg-[#fbcfe8]', text: 'text-pink-900' },
-  { bg: 'bg-[#ede9fe]', border: 'border-purple-200', header: 'bg-[#ddd6fe]', text: 'text-purple-900' },
-  { bg: 'bg-[#fef3c7]', border: 'border-orange-200', header: 'bg-[#fed7aa]', text: 'text-orange-900' },
+  { bg: 'bg-[#FCF3EC]', border: 'border-[#EBCFBE]', header: 'bg-[#F3DECB]', text: 'text-[#B66A47]' }, // Peach
+  { bg: 'bg-[#F1F7F2]', border: 'border-[#CFE2D8]', header: 'bg-[#DCEBE0]', text: 'text-[#4E8B6A]' }, // Sage
+  { bg: 'bg-[#FBF6E9]', border: 'border-[#E6DDC6]', header: 'bg-[#F0E6CC]', text: 'text-[#A8852F]' }, // Cream
+  { bg: 'bg-[#FBF0F0]', border: 'border-[#ECD2D2]', header: 'bg-[#F3DEDE]', text: 'text-[#B5687A]' }, // Rose
+  { bg: 'bg-[#F5F3FB]', border: 'border-[#D8D5EC]', header: 'bg-[#E6E2F5]', text: 'text-[#7565B3]' }, // Lavender
+  { bg: 'bg-[#EFF4F8]', border: 'border-[#CDDCE8]', header: 'bg-[#DCE7F0]', text: 'text-[#4E7C9B]' }, // Dusty blue
 ];
 
 const ROTATE_POOLS = [
