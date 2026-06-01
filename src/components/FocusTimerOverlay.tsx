@@ -471,15 +471,11 @@ export function FocusTimerOverlay({
                   </button>
                   <button
                     onClick={() => setShowStopConfirm(true)}
-                    className="flex h-10 w-10 items-center justify-center rounded-full border transition-colors hover:brightness-[0.98]"
-                    style={{
-                      borderColor: colorWithAlpha(treeColor, 0.22),
-                      backgroundColor: colorWithAlpha(treeColor, 0.1),
-                      color: treeColor,
-                    }}
+                    className="flex h-11 w-11 items-center justify-center rounded-full text-white shadow-[0_4px_14px_hsl(var(--foreground)/0.12)] transition-[filter] hover:brightness-[1.06]"
+                    style={{ backgroundColor: treeColor }}
                     title="Stop"
                   >
-                    <Square size={16} />
+                    <Square size={16} className="fill-current" />
                   </button>
                   <button
                     onClick={handleCancel}
