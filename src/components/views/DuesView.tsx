@@ -435,9 +435,6 @@ export function DuesView({
     : activeDues.length;
   const hasFutureCommitments = visibleActiveCount > 0;
   const viewTitle = lockedMode ? (isDeadlineMode ? 'Deadlines' : 'Habits') : 'Commitments';
-  const viewSubtitle = lockedMode
-    ? (isDeadlineMode ? 'Due once. Pull the next one into Today.' : 'Small repeatable routines.')
-    : 'Deadlines are due once. Habits repeat.';
 
   const noDateDeadlines = activeDeadlines.filter(d => !d.due_date);
 
@@ -524,9 +521,6 @@ export function DuesView({
         <div className="mb-3 flex items-end justify-between gap-3 pr-24">
           <div className="min-w-0">
             <h2 className="text-[19px] font-semibold tracking-[-0.03em] text-foreground">{viewTitle}</h2>
-            <p className="mt-0.5 text-[11px] font-medium text-muted-foreground/48">
-              {viewSubtitle}
-            </p>
           </div>
           <div className={cn(
             'rounded-full px-2.5 py-1 text-[11px] font-semibold',
@@ -544,9 +538,6 @@ export function DuesView({
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div className="min-w-0">
               <h2 className="text-[19px] font-semibold tracking-[-0.03em] text-foreground">{viewTitle}</h2>
-              <p className="mt-0.5 text-[11px] font-medium text-muted-foreground/48">
-                {viewSubtitle}
-              </p>
             </div>
           {!lockedMode && (
           <div className="flex gap-1.5">
