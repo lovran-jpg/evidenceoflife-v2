@@ -131,7 +131,7 @@ class MapDetailErrorBoundary extends Component<
                 {this.props.lang === 'zh' ? '地点详情' : 'Place details'}
               </h2>
               <p className="text-[11px] text-muted-foreground/60">
-                {this.props.lang === 'zh' ? '这张详情卡暂时打不开，但不会再把整页弄崩。' : 'This detail card failed to load, but the rest of the page is safe.'}
+                {this.props.lang === 'zh' ? '详情暂时打不开' : "This detail card couldn't load."}
               </p>
             </div>
           </div>
@@ -1414,11 +1414,11 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
               <p className="mt-2 text-[12px] leading-6 text-muted-foreground/65">
                 {mapPreviewFailed
                   ? (lang === 'zh'
-                    ? '地图层单独降级了，但地点列表和详情仍然可用。'
-                    : 'Only the map layer fell back safely. The place list and detail view still work.')
+                    ? '地点列表和详情仍可用'
+                    : 'The place list and detail view still work.')
                   : (lang === 'zh'
-                    ? '先保住地点列表和详情稳定可用，我再单独把地图交互修回来。'
-                    : 'The list and place details are kept stable first while the interactive map is being fixed.')}
+                    ? '地点列表和详情仍可用'
+                    : 'The place list and detail view still work.')}
               </p>
             </div>
           </div>
@@ -1641,7 +1641,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                             <div className="text-center">
                               <p className="text-sm font-medium text-foreground/85">{showPlaceDetail.name}</p>
                               <p className="mt-2 text-[12px] leading-5 text-muted-foreground/65">
-                                {lang === 'zh' ? '详情里的地图预览先临时关闭，下面的照片和记录还可以正常看。' : 'The map preview is temporarily disabled here, but the photos and notes below still work.'}
+                                {lang === 'zh' ? '地图预览暂时关闭' : 'Map preview unavailable'}
                               </p>
                             </div>
                           )}
@@ -1653,7 +1653,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                           <div>
                             <p className="text-sm font-medium text-foreground/85">{showPlaceDetail.name}</p>
                             <p className="mt-1 text-[12px] text-muted-foreground/65">
-                              {lang === 'zh' ? '地图预览暂时不可用，但下面的照片和记录还在。' : 'Map preview is unavailable right now, but your photos and notes are still here.'}
+                              {lang === 'zh' ? '地图预览暂时不可用' : 'Map preview unavailable'}
                             </p>
                           </div>
                         </div>
@@ -1729,7 +1729,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                           </div>
                           {sortedVisits.length === 0 ? (
                             <p className="rounded-[20px] border border-dashed border-border/40 px-4 py-10 text-center text-[12px] leading-6 text-muted-foreground/65">
-                              {lang === 'zh' ? '这里还没有可展示的到访记录。' : 'No visit notes are available for this place yet.'}
+                              {lang === 'zh' ? '还没有到访记录' : 'No visits yet'}
                             </p>
                           ) : (
                             <div className="space-y-3">
