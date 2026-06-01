@@ -1,5 +1,5 @@
 import { useMemo, useState, useRef, useCallback, useEffect, ChangeEvent } from 'react';
-import { autoClassifyTag } from '@/lib/autoTag';
+import { autoClassifyTag, TAG_CATEGORY_ICONS } from '@/lib/autoTag';
 import { addDays, format, parseISO, startOfWeek, subDays } from 'date-fns';
 import { useDateLocale } from '@/hooks/useDateLocale';
 import { classifyMood } from '@/lib/moodClassifier';
@@ -71,6 +71,15 @@ import { OnThisDayCard } from './today/OnThisDayCard';
 type MomentEditUpdates = Partial<Omit<Moment, 'location'>> & {
   location?: Moment['location'] | null;
 };
+
+// Internal/system tags that should never be shown to the user as evidence labels.
+const HIDDEN_MOMENT_TAGS = new Set(['focus-session', 'daily-reflection', '__recap_daily__']);
+
+// Meaningful category tags for a moment, used to render small "evidence" chips.
+function getMomentDisplayTags(tags?: string[]): string[] {
+  if (!tags) return [];
+  return tags.filter(tag => !HIDDEN_MOMENT_TAGS.has(tag) && !tag.startsWith('todo-session:'));
+}
 
 interface TodayViewProps {
   selectedDate: Date;
@@ -1962,6 +1971,9 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                       >
                                         {subtitle || moment.emoji || 'Moment'}
                                       </span>
+                                      {moment.isSpecial && (
+                                        <span className="flex-shrink-0 text-[13px]" title={lang === 'zh' ? '已留住' : 'Kept'}>💛</span>
+                                      )}
                                       {/* Hover action icons */}
                                       <div className="flex items-center gap-0.5 opacity-0 group-hover/card:opacity-100 transition-opacity flex-shrink-0 ml-auto">
                                         <button onClick={() => startMomentTimer(moment)} className="p-1 text-muted-foreground/30 hover:text-primary transition-colors"><Timer size={12} /></button>
@@ -1999,6 +2011,28 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                         {detail && <span className="w-1 h-1 rounded-full bg-primary/50 ml-0.5" />}
                                       </button>
                                     </div>
+
+                                    {/* Evidence tag chips */}
+                                    {(() => {
+                                      const displayTags = getMomentDisplayTags(moment.tags);
+                                      if (displayTags.length === 0) return null;
+                                      return (
+                                        <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                                          {displayTags.slice(0, 4).map(tag => {
+                                            const icon = TAG_CATEGORY_ICONS[tag.toLowerCase()];
+                                            return (
+                                              <span
+                                                key={tag}
+                                                className="inline-flex items-center gap-1 rounded-full bg-foreground/[0.04] px-2 py-0.5 text-[11px] font-medium text-muted-foreground/70"
+                                              >
+                                                {icon && <span className="text-[10px] leading-none">{icon}</span>}
+                                                {tag}
+                                              </span>
+                                            );
+                                          })}
+                                        </div>
+                                      );
+                                    })()}
 
                                     {/* Expandable notes/detail */}
                                     {expandedStreamIds.has(moment.id) && (
@@ -2041,7 +2075,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                             src={photo}
                                             alt=""
                                             className={cn(
-                                              "object-cover cursor-pointer border border-border/40 shadow-[0_10px_24px_hsl(var(--foreground)/0.06)]",
+                                              "object-cover cursor-pointer border-[3px] border-white shadow-[0_12px_28px_hsl(var(--foreground)/0.12)] ring-1 ring-border/30 transition-transform hover:-translate-y-0.5 dark:border-foreground/[0.08]",
                                               singlePhoto
                                                 ? "w-[96px] h-[124px] sm:w-[112px] sm:h-[144px] rounded-xl"
                                                 : manyPhotos
