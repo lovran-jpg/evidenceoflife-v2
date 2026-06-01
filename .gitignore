@@ -33,3 +33,7 @@ pnpm-lock.yaml
 *.sln
 *.sw?
 .cursor_renderblock_restore.txt
+
+# Local reference / scratch docs (not part of the product)
+.workbuddy/
+openclaw-*.md
