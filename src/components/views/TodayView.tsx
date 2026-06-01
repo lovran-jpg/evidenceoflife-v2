@@ -98,6 +98,7 @@ interface TodayViewProps {
   }) => Promise<Moment | undefined> | void;
   onEditMoment?: (id: string, data: MomentEditUpdates) => void;
   onDeleteMoment?: (id: string) => void;
+  onFocusLocationOnMap?: (location: { name: string; lat: number; lng: number }) => void;
   todayMode?: TodayMode;
   onTodayModeChange?: (mode: TodayMode) => void;
   todosDone?: number;
@@ -127,7 +128,7 @@ const DEFAULT_BEDTIME_MINUTE = 30;
 const DEFAULT_WAKE_HOUR = 8;
 const DEFAULT_WAKE_MINUTE = 0;
 
-export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, getMomentsForDate, onAddMoment, onEditMoment, onDeleteMoment, todayMode, onTodayModeChange, todosDone, todosTotal, completedTodos, allTodos, allMoments, historyMoments, importedEvents = [], onUpdateTodo, onUpdateImportedEvent, wakeHour: propWakeHour, wakeMinute: propWakeMinute, bedtimeHour: propBedtimeHour, bedtimeMinute: propBedtimeMinute, homepageImageUrl, onOpenVoiceSheet, voiceSheetOpen }: TodayViewProps) {
+export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, getMomentsForDate, onAddMoment, onEditMoment, onDeleteMoment, onFocusLocationOnMap, todayMode, onTodayModeChange, todosDone, todosTotal, completedTodos, allTodos, allMoments, historyMoments, importedEvents = [], onUpdateTodo, onUpdateImportedEvent, wakeHour: propWakeHour, wakeMinute: propWakeMinute, bedtimeHour: propBedtimeHour, bedtimeMinute: propBedtimeMinute, homepageImageUrl, onOpenVoiceSheet, voiceSheetOpen }: TodayViewProps) {
   const { formatDate } = useDateLocale();
   const { t, lang } = useLanguage();
   const isDarkMode = useIsDarkMode();
@@ -1994,10 +1995,23 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                         </span>
                                       )}
                                       {moment.location && (
-                                        <span className="flex items-center gap-1 text-muted-foreground/75 truncate" style={{ fontSize: '14px' }} title={moment.location.name}>
-                                          <MapPin size={14} className="flex-shrink-0" />
-                                          <span className="truncate max-w-[180px]">{moment.location.name}</span>
-                                        </span>
+                                        onFocusLocationOnMap ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => onFocusLocationOnMap({ name: moment.location!.name, lat: moment.location!.lat, lng: moment.location!.lng })}
+                                            className="flex items-center gap-1 text-muted-foreground/75 hover:text-primary transition-colors truncate"
+                                            style={{ fontSize: '14px' }}
+                                            title={lang === 'zh' ? `在地图上查看·${moment.location.name}` : `View on map · ${moment.location.name}`}
+                                          >
+                                            <MapPin size={14} className="flex-shrink-0" />
+                                            <span className="truncate max-w-[180px] underline-offset-2 hover:underline">{moment.location.name}</span>
+                                          </button>
+                                        ) : (
+                                          <span className="flex items-center gap-1 text-muted-foreground/75 truncate" style={{ fontSize: '14px' }} title={moment.location.name}>
+                                            <MapPin size={14} className="flex-shrink-0" />
+                                            <span className="truncate max-w-[180px]">{moment.location.name}</span>
+                                          </span>
+                                        )
                                       )}
                                       {hasTimer && durationMin > 0 && (
                                         <span className="font-mono tabular-nums text-muted-foreground/45" style={{ fontSize: '14px' }}>

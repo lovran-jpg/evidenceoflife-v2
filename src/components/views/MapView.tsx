@@ -16,6 +16,8 @@ interface MapViewProps {
     cities: CityWithPlaces[];
     loading: boolean;
   };
+  // When set, the map jumps to this place (used when opening the map from a moment's location).
+  focusPlace?: { name: string; lat: number; lng: number; token: number } | null;
 }
 
 type Category = 'all' | 'restaurant' | 'coffee' | 'park' | 'museum' | 'other';
@@ -365,7 +367,7 @@ function formatVisitDateLabel(value: string, formatDate: (date: Date, formatStr?
 
 type ViewMode = 'world' | 'city';
 
-export function MapView({ moments, placesData }: MapViewProps) {
+export function MapView({ moments, placesData, focusPlace }: MapViewProps) {
   const { formatDate } = useDateLocale();
   const { t, lang } = useLanguage();
   const [viewMode, setViewMode] = useState<ViewMode>('city');
@@ -668,6 +670,29 @@ export function MapView({ moments, placesData }: MapViewProps) {
       autoSelectedRef.current = true;
     }
   }, [cities]);
+
+  // External focus request (e.g. user tapped a moment's location): jump to that place.
+  useEffect(() => {
+    if (!focusPlace || cities.length === 0) return;
+    const target = focusPlace.name.trim().toLowerCase();
+    let bestIdx = -1;
+    let bestDist = Infinity;
+    cities.forEach((city, i) => {
+      city.places.forEach((p) => {
+        if (p.name.trim().toLowerCase() === target) {
+          if (bestIdx !== i) { bestIdx = i; bestDist = 0; }
+        } else if (bestDist > 0) {
+          const d = haversineKm(focusPlace.lat, focusPlace.lng, p.lat, p.lng);
+          if (d < bestDist) { bestDist = d; bestIdx = i; }
+        }
+      });
+    });
+    if (bestIdx < 0) return;
+    autoSelectedRef.current = true;
+    setViewMode('city');
+    setSelectedCityIdx(bestIdx);
+    setSelectedPlace(focusPlace.name);
+  }, [focusPlace, cities]);
 
   const currentCity = selectedCityIdx >= 0 ? cities[selectedCityIdx] : null;
   const cityPlaces = currentCity?.places || [];

@@ -86,6 +86,8 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
   const [activeTab, setActiveTab] = useState<TabType>('today');
   const [todayMode, setTodayMode] = useState<TodayMode>('plan');
   const [voiceSheetOpen, setVoiceSheetOpen] = useState(false);
+  // Pending "focus this place on the map" request, carried into MapView when we jump there.
+  const [mapFocus, setMapFocus] = useState<{ name: string; lat: number; lng: number; token: number } | null>(null);
   // Only one side sheet can be open at a time.
   const [activeSheet, setActiveSheet] = useState<'notes' | 'dues' | 'habits' | 'links' | null>(null);
   const openDues = useCallback(() => setActiveSheet('dues'), []);
@@ -378,6 +380,12 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
     });
   }, [moments, deleteMoment, restoreMoment, lang]);
 
+  // Jump to the Map and focus the place behind a moment's location.
+  const handleFocusLocationOnMap = useCallback((location: { name: string; lat: number; lng: number }) => {
+    setMapFocus({ ...location, token: Date.now() });
+    setActiveTab('map');
+  }, []);
+
   return (
     <div className="h-screen bg-background flex overflow-hidden">
       <div className="flex flex-1 h-full min-h-0">
@@ -406,6 +414,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
               onAddMoment={handleAddMoment}
               onEditMoment={handleEditMoment}
               onDeleteMoment={handleDeleteMoment}
+              onFocusLocationOnMap={handleFocusLocationOnMap}
               todayMode={todayMode}
               onTodayModeChange={(mode) => {
                 setTodayMode(mode);
@@ -466,7 +475,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
 
           {activeTab === 'map' && (
           <AppSectionErrorBoundary label="MapView">
-            <MapView moments={allLocations} placesData={placesData} />
+            <MapView moments={allLocations} placesData={placesData} focusPlace={mapFocus} />
           </AppSectionErrorBoundary>
           )}
 
