@@ -18,6 +18,8 @@ interface MapViewProps {
   };
   // When set, the map jumps to this place (used when opening the map from a moment's location).
   focusPlace?: { name: string; lat: number; lng: number; token: number } | null;
+  // Open the day a visit happened on (jumps back to the Today recap for that date).
+  onOpenDate?: (dateStr: string) => void;
 }
 
 type Category = 'all' | 'restaurant' | 'coffee' | 'park' | 'museum' | 'other';
@@ -367,7 +369,7 @@ function formatVisitDateLabel(value: string, formatDate: (date: Date, formatStr?
 
 type ViewMode = 'world' | 'city';
 
-export function MapView({ moments, placesData, focusPlace }: MapViewProps) {
+export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapViewProps) {
   const { formatDate } = useDateLocale();
   const { t, lang } = useLanguage();
   const [viewMode, setViewMode] = useState<ViewMode>('city');
@@ -1726,8 +1728,19 @@ export function MapView({ moments, placesData, focusPlace }: MapViewProps) {
                             </p>
                           ) : (
                             <div className="space-y-3">
-                              {sortedVisits.map((visit, index) => (
-                                <div key={`${visit.momentId || visit.date || 'visit'}-${index}`} className="rounded-[18px] border border-border/30 bg-background/70 px-3.5 py-3.5">
+                              {sortedVisits.map((visit, index) => {
+                                const canOpen = !!onOpenDate && !!visit.date;
+                                return (
+                                <div
+                                  key={`${visit.momentId || visit.date || 'visit'}-${index}`}
+                                  className={cn(
+                                    "rounded-[18px] border border-border/30 bg-background/70 px-3.5 py-3.5",
+                                    canOpen && "cursor-pointer transition-colors hover:border-primary/40 hover:bg-primary/[0.04]"
+                                  )}
+                                  onClick={canOpen ? () => onOpenDate!(visit.date) : undefined}
+                                  role={canOpen ? 'button' : undefined}
+                                  title={canOpen ? (lang === 'zh' ? '查看这一天' : 'Open this day') : undefined}
+                                >
                                   <div className="flex items-start justify-between gap-3">
                                     <div className="min-w-0">
                                       <p className="text-[12px] font-medium text-foreground/90">
@@ -1737,6 +1750,9 @@ export function MapView({ moments, placesData, focusPlace }: MapViewProps) {
                                         {visit.photos.length} {visit.photos.length === 1 ? t('map.photo') : t('map.photos')}
                                       </p>
                                     </div>
+                                    {canOpen && (
+                                      <ChevronLeft size={14} className="flex-shrink-0 rotate-180 text-muted-foreground/35" />
+                                    )}
                                   </div>
                                   {visit.text && (
                                     <p className="mt-2 text-[12px] leading-6 text-muted-foreground/75 whitespace-pre-wrap">
@@ -1753,7 +1769,8 @@ export function MapView({ moments, placesData, focusPlace }: MapViewProps) {
                                     </div>
                                   )}
                                 </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           )}
                         </div>

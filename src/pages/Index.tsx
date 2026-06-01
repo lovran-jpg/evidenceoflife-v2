@@ -6,7 +6,7 @@ import { DueNotifications } from '@/components/DueNotifications';
 import { usePlaces } from '@/hooks/usePlaces';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/hooks/useLanguage';
-import { format, isSameDay } from 'date-fns';
+import { format, isSameDay, parseISO } from 'date-fns';
 import { SideNav } from '@/components/SideNav';
 import { TodayView } from '@/components/views/TodayView';
 import { PlanView } from '@/components/views/PlanView';
@@ -386,6 +386,16 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
     setActiveTab('map');
   }, []);
 
+  // Jump from a map visit back to the day it happened (Today recap).
+  const handleOpenDate = useCallback((dateStr: string) => {
+    const parsed = parseISO(dateStr);
+    if (Number.isNaN(parsed.getTime())) return;
+    setAutoFollowToday(false);
+    setSelectedDate(parsed);
+    setTodayMode('recap');
+    setActiveTab('today');
+  }, []);
+
   return (
     <div className="h-screen bg-background flex overflow-hidden">
       <div className="flex flex-1 h-full min-h-0">
@@ -475,7 +485,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
 
           {activeTab === 'map' && (
           <AppSectionErrorBoundary label="MapView">
-            <MapView moments={allLocations} placesData={placesData} focusPlace={mapFocus} />
+            <MapView moments={allLocations} placesData={placesData} focusPlace={mapFocus} onOpenDate={handleOpenDate} />
           </AppSectionErrorBoundary>
           )}
 
