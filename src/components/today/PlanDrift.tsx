@@ -82,6 +82,11 @@ function computeDrift(allTodos: Todo[], completedTodos: Todo[], moments: Moment[
   const scheduledTodos = allTodos.filter(t => t.timer_started_at && t.date === todayDateStr);
   const completedScheduled = scheduledTodos.filter(t => t.is_completed);
   const now = Date.now();
+  // Only extend a still-running timer up to "now" when we're actually looking at today.
+  // For past days (and the frozen demo day) "now" is meaningless, so a left-running
+  // timer contributes nothing extra rather than ballooning by days.
+  const dayStartMs = new Date(`${todayDateStr}T00:00:00`).getTime();
+  const isRealToday = new Date(dayStartMs).toDateString() === new Date(now).toDateString();
   const missedScheduled = scheduledTodos.filter(t => {
     if (t.is_completed) return false;
     if (!t.timer_ended_at) return false;
@@ -149,14 +154,40 @@ function computeDrift(allTodos: Todo[], completedTodos: Todo[], moments: Moment[
     }
   }
 
+  // Running (not-yet-stopped) timers count up to "now" so the headline matches the
+  // floating timer pill — a live session is real focus time, not zero.
+  for (const t of scheduledTodos) {
+    if (isRealToday && t.timer_started_at && !t.timer_ended_at) {
+      const tag = normalizeDriftTag(t, t.title);
+      const startMs = Math.max(parseISO(t.timer_started_at).getTime(), dayStartMs);
+      if (startMs < now) {
+        focusIntervalsMs.push({ start: startMs, end: now });
+        const s = new Date(startMs);
+        const e = new Date(now);
+        const sm = s.getHours() * 60 + s.getMinutes();
+        const em = e.getHours() * 60 + e.getMinutes();
+        if (em > sm) wallActualSlots.push({ startMin: sm, endMin: em, tag });
+        const existing = catActual.get(tag) || { min: 0, items: [] };
+        existing.items.push(t.title);
+        catActual.set(tag, existing);
+      }
+    }
+  }
+
   for (const m of moments) {
-    if (m.timer_started_at && m.timer_ended_at) {
+    if (m.timer_started_at) {
+      // A running moment timer only extends to "now" on the real current day.
+      if (!m.timer_ended_at && !isRealToday) continue;
       const tag = normalizeDriftTag(m, m.text);
-      const startMs = parseISO(m.timer_started_at).getTime();
-      const endMs = parseISO(m.timer_ended_at).getTime();
+      const startMs = m.timer_ended_at
+        ? parseISO(m.timer_started_at).getTime()
+        : Math.max(parseISO(m.timer_started_at).getTime(), dayStartMs);
+      // Stopped timer uses its recorded end; a still-running one counts up to "now".
+      const endMs = m.timer_ended_at ? parseISO(m.timer_ended_at).getTime() : now;
+      if (endMs <= startMs) continue;
       focusIntervalsMs.push({ start: startMs, end: endMs });
-      const s = parseISO(m.timer_started_at);
-      const e = parseISO(m.timer_ended_at);
+      const s = new Date(startMs);
+      const e = new Date(endMs);
       const sm = s.getHours() * 60 + s.getMinutes();
       const em = e.getHours() * 60 + e.getMinutes();
       if (em > sm) wallActualSlots.push({ startMin: sm, endMin: em, tag });
@@ -264,6 +295,8 @@ function buildExecutionSlots(
 ): { planned: TextureSlot[]; actual: TextureSlot[] } {
   const planned: TextureSlot[] = [];
   const actual: TextureSlot[] = [];
+  // Running timers only extend to the current minute on the real current day.
+  const isRealToday = new Date(`${todayDateStr}T00:00:00`).toDateString() === new Date().toDateString();
 
   for (const t of allTodos || []) {
     if (t.date !== todayDateStr) continue;
@@ -295,6 +328,11 @@ function buildExecutionSlots(
         em = e.getHours() * 60 + e.getMinutes();
       } else if (t.timer_seconds) {
         em = sm + Math.ceil(t.timer_seconds / 60);
+      } else if (isRealToday) {
+        // Still running — extend the block to the current minute so a live session
+        // shows on the chart instead of vanishing until it's stopped.
+        const n = new Date();
+        em = n.getHours() * 60 + n.getMinutes();
       }
       if (em != null && em > sm) {
         actual.push({
@@ -311,9 +349,10 @@ function buildExecutionSlots(
   for (const m of allMoments || []) {
     if (m.date !== todayDateStr) continue;
     const tag = resolveSlotTag(m.tags, m.text);
-    if (m.timer_started_at && m.timer_ended_at) {
+    if (m.timer_started_at) {
+      if (!m.timer_ended_at && !isRealToday) continue;
       const s = parseISO(m.timer_started_at);
-      const e = parseISO(m.timer_ended_at);
+      const e = m.timer_ended_at ? parseISO(m.timer_ended_at) : new Date();
       const sm = s.getHours() * 60 + s.getMinutes();
       const em = e.getHours() * 60 + e.getMinutes();
       if (em > sm) {
