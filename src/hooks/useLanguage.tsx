@@ -270,13 +270,13 @@ const translations: Record<string, Record<Lang, string>> = {
   'sidenav.evidence': { zh: '生活证据', en: 'Evidence' },
   'sidenav.obligations': { zh: '待办事务', en: 'Obligations' },
   // Landing — header & hero
-  'landing.tagline': { zh: '为每日计划而生的记忆层', en: 'A memory layer for daily planning' },
+  'landing.tagline': { zh: '你真的活过的证据', en: 'Proof you actually lived' },
   'landing.eyebrow': { zh: '别让你的日子悄悄消失', en: "Don't let your days disappear" },
-  'landing.heroTitle1': { zh: '规划你的一天。', en: 'Plan your day.' },
-  'landing.heroTitle2': { zh: '留住真正发生过的一切。', en: 'Keep what actually happened.' },
+  'landing.heroTitle1': { zh: '每一天结束时，', en: 'At the end of the day,' },
+  'landing.heroTitle2': { zh: '都有你真的活过的证据。', en: 'proof you actually lived.' },
   'landing.heroSub': {
-    zh: 'Evidence of Life 把你的每日计划、专注时段、照片、地点、笔记、链接、截止日期和习惯，汇聚成一份私人的「真实发生记录」——通过一个完整闭环：规划这一天、真正去过、留下证据、日后重新打开。',
-    en: 'Evidence of Life turns your daily plans, work sessions, photos, places, notes, links, deadlines and habits into one private record of what actually happened — through a single loop: plan the day, live it, capture the evidence, and revisit it later.',
+    zh: '你本来就会规划每一天。Evidence of Life 只是安静地留住它周围真正发生的一切——专注时间、照片、地点和笔记——让每一天成为你活过的证据，而不只是被清空的清单。不必写日记，没有连签，也没有动态。',
+    en: 'You already plan your day. Evidence of Life quietly keeps what actually happened around it — focus time, photos, places and notes — so each day becomes proof you lived, not just a checklist you cleared. No journaling chore. No streaks. No feed.',
   },
   // Landing — four phases (shared by stats pills & how-it-works)
   'landing.phase.plan': { zh: '规划', en: 'Plan' },
