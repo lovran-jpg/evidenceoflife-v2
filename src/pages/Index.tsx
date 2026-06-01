@@ -400,6 +400,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
               completedTodos={completedTodos}
               allTodos={todos}
               allMoments={dateMoments}
+              historyMoments={moments}
               importedEvents={dateImportedEvents}
               onUpdateTodo={updateTodo}
               onUpdateImportedEvent={updateImportedEvent}

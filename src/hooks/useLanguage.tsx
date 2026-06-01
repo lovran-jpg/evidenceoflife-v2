@@ -249,6 +249,14 @@ const translations: Record<string, Record<Lang, string>> = {
   'review.placeholder': { zh: '一句话就好——未来的你会感谢现在的你。', en: 'One line is enough — future-you will be grateful.' },
   'review.save': { zh: '留住这一天', en: 'Keep this day' },
   'review.savedToast': { zh: '已留住今天', en: 'Today is kept' },
+  // On This Day / Life Replay — proactively surfaces a past day
+  'onThisDay.title': { zh: '那年今天', en: 'On this day' },
+  'onThisDay.oneYearAgo': { zh: '一年前', en: 'One year ago' },
+  'onThisDay.yearsAgo': { zh: '{n} 年前', en: '{n} years ago' },
+  'onThisDay.lastMonth': { zh: '上个月今天', en: 'Last month' },
+  'onThisDay.daysAgo': { zh: '{n} 天前', en: '{n} days ago' },
+  'onThisDay.revisit': { zh: '重温这一天', en: 'Revisit this day' },
+  'onThisDay.noText': { zh: '一段被留下的瞬间', en: 'A moment you kept' },
   // SideNav phase groups
   'sidenav.dailyLoop': { zh: '每日循环', en: 'Daily loop' },
   'sidenav.evidence': { zh: '生活证据', en: 'Evidence' },

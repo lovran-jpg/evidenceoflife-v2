@@ -66,6 +66,7 @@ import {
   LifeReplay,
 } from './today/TodayRecapParts';
 import { EvidenceReviewCard } from './today/EvidenceReviewCard';
+import { OnThisDayCard } from './today/OnThisDayCard';
 
 type MomentEditUpdates = Partial<Omit<Moment, 'location'>> & {
   location?: Moment['location'] | null;
@@ -94,6 +95,8 @@ interface TodayViewProps {
   completedTodos?: Todo[];
   allTodos?: Todo[];
   allMoments?: Moment[];
+  // Full moment history across all dates (for On This Day / Life Replay).
+  historyMoments?: Moment[];
   importedEvents?: ImportedEvent[];
   onUpdateTodo?: (id: string, updates: Partial<Todo>) => void;
   onUpdateImportedEvent?: (id: string, updates: Partial<ImportedEvent>) => void;
@@ -114,7 +117,7 @@ const DEFAULT_BEDTIME_MINUTE = 30;
 const DEFAULT_WAKE_HOUR = 8;
 const DEFAULT_WAKE_MINUTE = 0;
 
-export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, getMomentsForDate, onAddMoment, onEditMoment, onDeleteMoment, todayMode, onTodayModeChange, todosDone, todosTotal, completedTodos, allTodos, allMoments, importedEvents = [], onUpdateTodo, onUpdateImportedEvent, wakeHour: propWakeHour, wakeMinute: propWakeMinute, bedtimeHour: propBedtimeHour, bedtimeMinute: propBedtimeMinute, homepageImageUrl, onOpenVoiceSheet, voiceSheetOpen }: TodayViewProps) {
+export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, getMomentsForDate, onAddMoment, onEditMoment, onDeleteMoment, todayMode, onTodayModeChange, todosDone, todosTotal, completedTodos, allTodos, allMoments, historyMoments, importedEvents = [], onUpdateTodo, onUpdateImportedEvent, wakeHour: propWakeHour, wakeMinute: propWakeMinute, bedtimeHour: propBedtimeHour, bedtimeMinute: propBedtimeMinute, homepageImageUrl, onOpenVoiceSheet, voiceSheetOpen }: TodayViewProps) {
   const { formatDate } = useDateLocale();
   const { t, lang } = useLanguage();
   const isDarkMode = useIsDarkMode();
@@ -1178,6 +1181,11 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
               onAddHabit={(title) => { void addDue(title, undefined, 'Uncategorized', true); }}
             />
             <LifeReplay items={timelineItems} lang={lang} dateKey={format(selectedDate, 'yyyy-MM-dd')} />
+            <OnThisDayCard
+              moments={historyMoments ?? []}
+              selectedDate={selectedDate}
+              onRevisit={(dateStr) => onSelectedDateChange(new Date(`${dateStr}T00:00:00`))}
+            />
             {onTodayModeChange && (
               <div className="flex items-center justify-between pt-3 border-t border-border/20 mt-2">
                 <span className="text-[11px] text-muted-foreground/50">
