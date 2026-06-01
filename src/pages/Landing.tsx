@@ -34,21 +34,9 @@ const steps = [
 ];
 
 const featurePillars = [
-  {
-    icon: CalendarClock,
-    title: 'Daily command center',
-    body: 'Plan, capture, focus and review in one timeline instead of spreading your day across notes, calendar, timers and photos.',
-  },
-  {
-    icon: Brain,
-    title: 'Memory-first capture',
-    body: 'Moments keep context: notes, photos, mood, place, tags and links, so future-you sees more than a task title.',
-  },
-  {
-    icon: Route,
-    title: 'Calendar and map recall',
-    body: 'Your life becomes browsable by time and place, with month, year and map views that make recall effortless.',
-  },
+  { icon: CalendarClock, titleKey: 'landing.pillar.center.title', bodyKey: 'landing.pillar.center.body' },
+  { icon: Brain, titleKey: 'landing.pillar.capture.title', bodyKey: 'landing.pillar.capture.body' },
+  { icon: Route, titleKey: 'landing.pillar.recall.title', bodyKey: 'landing.pillar.recall.body' },
 ];
 
 // Modules grouped into three layers so the landing page mirrors the in-app
@@ -84,23 +72,18 @@ const moduleGroups = [
   },
 ];
 
-const useCases = [
-  'People who end the week asking, "What did I actually do?"',
-  'Builders, students and freelancers who want proof of progress without a rigid productivity system.',
-  'Travelers, parents and reflective people who want memories organized by day and place.',
-  'Anyone juggling deadlines, routines, notes and links but wanting one calm daily record.',
+const useCaseKeys = ['landing.fit.1', 'landing.fit.2', 'landing.fit.3', 'landing.fit.4'];
+
+const outcomeKeys = [
+  ['landing.outcome.1.title', 'landing.outcome.1.body'],
+  ['landing.outcome.2.title', 'landing.outcome.2.body'],
+  ['landing.outcome.3.title', 'landing.outcome.3.body'],
 ];
 
-const outcomes = [
-  ['Less reconstruction', 'Stop piecing together your day from calendar events, screenshots and chat history.'],
-  ['More honest progress', 'See planned time, focused time and lived moments side by side.'],
-  ['A richer archive', 'Turn ordinary days into searchable evidence instead of letting them disappear.'],
-];
-
-const marketAngles = [
-  ['Against todo apps', 'Todos stop at intention. Evidence of Life keeps intention and outcome together.'],
-  ['Against journals', 'Blank pages are high friction. Here, memory grows from the work you already planned and finished.'],
-  ['Against habit trackers', 'Streaks optimize compliance. This product preserves context, progress and lived texture.'],
+const marketAngleKeys = [
+  ['landing.angle.todo.title', 'landing.angle.todo.body'],
+  ['landing.angle.journal.title', 'landing.angle.journal.body'],
+  ['landing.angle.habit.title', 'landing.angle.habit.body'],
 ];
 
 const framePresets: Record<string, { scale: number; x: number; y: number; width: string; height: string }> = {
@@ -149,9 +132,9 @@ export default function Landing() {
           </button>
 
           <nav className="hidden items-center gap-6 text-sm font-medium text-[#7b675a] md:flex">
-            <a className="transition-colors hover:text-[#c9784e]" href="#product">Product</a>
-            <a className="transition-colors hover:text-[#c9784e]" href="#positioning">Positioning</a>
-            <a className="transition-colors hover:text-[#c9784e]" href="#how-it-works">How it works</a>
+            <a className="transition-colors hover:text-[#c9784e]" href="#product">{t('landing.nav.product')}</a>
+            <a className="transition-colors hover:text-[#c9784e]" href="#positioning">{t('landing.nav.positioning')}</a>
+            <a className="transition-colors hover:text-[#c9784e]" href="#how-it-works">{t('landing.nav.how')}</a>
           </nav>
 
           <div className="flex items-center gap-1.5">
@@ -160,13 +143,13 @@ export default function Landing() {
               className="hidden rounded-full px-4 text-[#8d7564] hover:bg-[rgba(124,82,56,0.06)] hover:text-[#5d493d] sm:inline-flex"
               onClick={() => navigate('/auth')}
             >
-              Sign in
+              {t('landing.cta.signIn')}
             </Button>
             <Button
               className="rounded-full bg-[#d4875f] px-5 text-white shadow-[0_8px_20px_-10px_rgba(212,135,95,0.9)] hover:bg-[#c9784e]"
               onClick={handleStart}
             >
-              Start free
+              {t('landing.cta.startFree')}
             </Button>
           </div>
         </div>
@@ -198,7 +181,7 @@ export default function Landing() {
                 className="h-12 w-full rounded-full bg-[#d4875f] px-7 text-base text-white shadow-[0_14px_30px_-12px_rgba(212,135,95,0.95)] hover:bg-[#c9784e] sm:w-auto"
                 onClick={handleStart}
               >
-                Create free account
+                {t('landing.cta.createAccount')}
                 <ArrowRight />
               </Button>
               <Button
@@ -208,12 +191,12 @@ export default function Landing() {
                 onClick={handleDemo}
               >
                 <PlayCircle />
-                Explore live demo
+                {t('landing.cta.exploreDemo')}
               </Button>
             </div>
 
             <p className="mt-4 text-sm text-[#9a8473]">
-              Free to start. No social feed. Live demo with sample data.
+              {t('landing.hero.note')}
             </p>
           </div>
 
@@ -245,7 +228,7 @@ export default function Landing() {
                   }}
                 />
                 <div className="pointer-events-none absolute bottom-4 left-4 z-10 rounded-full border border-[rgba(223,154,118,0.18)] bg-[rgba(23,18,16,0.82)] px-3 py-1 text-[10px] font-medium text-[#f4dfd1]">
-                  Public demo. Sample data.
+                  {t('landing.demo.caption')}
                 </div>
               </div>
             </div>
@@ -293,7 +276,7 @@ export default function Landing() {
             <div>
               <div className="inline-flex items-center gap-2 rounded-full bg-[rgba(212,135,95,0.12)] px-3 py-1 text-sm font-semibold text-[#c9784e]">
                 <Target size={14} />
-                Product positioning
+                {t('landing.product.eyebrow')}
               </div>
               <h2 className="mt-5 text-3xl font-semibold tracking-[-0.03em] text-[#2d221d] sm:text-4xl">
                 {t('landing.product.h2')}
@@ -306,14 +289,14 @@ export default function Landing() {
             <div className="grid gap-4 sm:grid-cols-3">
               {featurePillars.map((feature) => (
                 <div
-                  key={feature.title}
+                  key={feature.titleKey}
                   className="rounded-2xl border border-[rgba(124,82,56,0.1)] bg-[rgba(255,250,244,0.78)] p-5 shadow-[0_18px_48px_-34px_rgba(45,34,29,0.45)]"
                 >
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[rgba(212,135,95,0.14)] text-[#c9784e]">
                     <feature.icon size={19} />
                   </div>
-                  <h3 className="mt-4 text-base font-semibold text-[#342821]">{feature.title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-[#786457]">{feature.body}</p>
+                  <h3 className="mt-4 text-base font-semibold text-[#342821]">{t(feature.titleKey)}</h3>
+                  <p className="mt-2 text-sm leading-6 text-[#786457]">{t(feature.bodyKey)}</p>
                 </div>
               ))}
             </div>
@@ -364,47 +347,45 @@ export default function Landing() {
             <div>
               <div className="inline-flex items-center gap-2 rounded-full bg-white/70 px-3 py-1 text-sm font-semibold text-[#c9784e]">
                 <Layers size={14} />
-                Marketing angle
+                {t('landing.angle.eyebrow')}
               </div>
               <h2 className="mt-5 text-3xl font-semibold tracking-[-0.03em] text-[#2d221d] sm:text-4xl">
-                A new category between productivity and memory
+                {t('landing.angle.h2')}
               </h2>
               <p className="mt-4 text-lg leading-8 text-[#6d594d]">
-                The product is not trying to be therapy, enterprise project management,
-                or a public habit leaderboard. It is a calm place to keep receipts for
-                what your time became.
+                {t('landing.angle.body')}
               </p>
 
               <div className="mt-8 grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
-                {marketAngles.map(([title, body]) => (
-                  <div key={title} className="rounded-2xl border border-[rgba(124,82,56,0.1)] bg-white/70 p-4">
-                    <h3 className="font-semibold text-[#342821]">{title}</h3>
-                    <p className="mt-2 text-sm leading-6 text-[#786457]">{body}</p>
+                {marketAngleKeys.map(([titleKey, bodyKey]) => (
+                  <div key={titleKey} className="rounded-2xl border border-[rgba(124,82,56,0.1)] bg-white/70 p-4">
+                    <h3 className="font-semibold text-[#342821]">{t(titleKey)}</h3>
+                    <p className="mt-2 text-sm leading-6 text-[#786457]">{t(bodyKey)}</p>
                   </div>
                 ))}
               </div>
 
-              <h3 className="mt-10 text-lg font-semibold text-[#342821]">Best-fit users</h3>
+              <h3 className="mt-10 text-lg font-semibold text-[#342821]">{t('landing.fit.title')}</h3>
               <div className="mt-4 grid gap-3">
-                {useCases.map((useCase) => (
-                  <div key={useCase} className="flex gap-3 rounded-2xl border border-[rgba(124,82,56,0.1)] bg-white/70 p-4">
+                {useCaseKeys.map((useCaseKey) => (
+                  <div key={useCaseKey} className="flex gap-3 rounded-2xl border border-[rgba(124,82,56,0.1)] bg-white/70 p-4">
                     <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-[#c9784e]" />
-                    <p className="text-[15px] leading-7 text-[#5d493d]">{useCase}</p>
+                    <p className="text-[15px] leading-7 text-[#5d493d]">{t(useCaseKey)}</p>
                   </div>
                 ))}
               </div>
             </div>
 
             <div className="rounded-3xl border border-[rgba(124,82,56,0.1)] bg-[#2d221d] p-7 text-[#f8f1e8] shadow-[0_34px_70px_-38px_rgba(45,34,29,0.7)]">
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#d4875f]">Product promise</p>
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#d4875f]">{t('landing.promise.eyebrow')}</p>
               <h3 className="mt-4 text-2xl font-semibold tracking-[-0.02em]">
-                A daily system that respects ordinary life
+                {t('landing.promise.h3')}
               </h3>
               <div className="mt-7 space-y-5">
-                {outcomes.map(([title, body]) => (
-                  <div key={title} className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-                    <h4 className="font-semibold text-white">{title}</h4>
-                    <p className="mt-2 text-sm leading-6 text-[#d8c6b8]">{body}</p>
+                {outcomeKeys.map(([titleKey, bodyKey]) => (
+                  <div key={titleKey} className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+                    <h4 className="font-semibold text-white">{t(titleKey)}</h4>
+                    <p className="mt-2 text-sm leading-6 text-[#d8c6b8]">{t(bodyKey)}</p>
                   </div>
                 ))}
               </div>
@@ -418,7 +399,7 @@ export default function Landing() {
               {t('landing.how.h2')}
             </h2>
             <p className="mt-4 text-lg leading-8 text-[#6d594d]">
-              The same day flows forward. You do not leave productivity mode to enter memory mode.
+              {t('landing.how.sub')}
             </p>
           </div>
 
@@ -446,7 +427,7 @@ export default function Landing() {
             <blockquote className="mt-6 text-2xl font-semibold leading-10 tracking-[-0.02em] text-[#342821] sm:text-3xl">
               {t('landing.narrative')}
             </blockquote>
-            <p className="mt-4 text-sm font-medium text-[#8d7564]">Core marketing narrative</p>
+            <p className="mt-4 text-sm font-medium text-[#8d7564]">{t('landing.narrative.label')}</p>
           </div>
         </section>
 
@@ -455,11 +436,10 @@ export default function Landing() {
             <div className="pointer-events-none absolute left-1/2 top-0 h-[300px] w-[520px] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(212,135,95,0.35),transparent)] blur-2xl" />
             <div className="relative mx-auto max-w-2xl">
               <h2 className="text-3xl font-semibold tracking-[-0.03em] text-[#f8f1e8] sm:text-4xl">
-                Start keeping receipts for your real life
+                {t('landing.final.h2')}
               </h2>
               <p className="mt-4 text-lg leading-8 text-[#d8c6b8]">
-                Plan today, capture what actually happened, and let your calendar and map
-                quietly become a private archive worth coming back to.
+                {t('landing.final.body')}
               </p>
               <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
                 <Button
@@ -467,7 +447,7 @@ export default function Landing() {
                   className="h-12 w-full rounded-full bg-[#d4875f] px-7 text-base text-white hover:bg-[#c9784e] sm:w-auto"
                   onClick={handleStart}
                 >
-                  Create free account
+                  {t('landing.cta.createAccount')}
                   <ArrowRight />
                 </Button>
                 <Button
@@ -477,7 +457,7 @@ export default function Landing() {
                   onClick={handleDemo}
                 >
                   <PlayCircle />
-                  Try the demo first
+                  {t('landing.cta.tryDemo')}
                 </Button>
               </div>
             </div>
@@ -493,13 +473,13 @@ export default function Landing() {
           </div>
           <div className="flex items-center gap-6 text-sm text-[#8d7564]">
             <button type="button" className="transition-colors hover:text-[#5d493d]" onClick={() => navigate('/auth')}>
-              Sign in
+              {t('landing.cta.signIn')}
             </button>
             <button type="button" className="transition-colors hover:text-[#5d493d]" onClick={handleDemo}>
-              Live demo
+              {t('landing.cta.liveDemo')}
             </button>
             <button type="button" className="transition-colors hover:text-[#5d493d]" onClick={handleStart}>
-              Start free
+              {t('landing.cta.startFree')}
             </button>
           </div>
           <p className="text-sm text-[#9a8473]">© {new Date().getFullYear()} Evidence of Life</p>
