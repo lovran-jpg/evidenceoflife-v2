@@ -499,12 +499,9 @@ export function LinksView() {
     <div className="flex h-full flex-col bg-background">
       {/* Header */}
       <div className="flex-shrink-0 px-4 py-3">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Link2 size={15} className="text-muted-foreground/60" />
-            <h2 className="text-[18px] font-semibold tracking-[-0.03em] text-foreground">Links</h2>
-          </div>
-          <p className="hidden text-[11px] font-medium text-muted-foreground/40 sm:block">Calm searchable references</p>
+        <div className="flex items-center gap-2">
+          <Link2 size={15} className="text-muted-foreground/60" />
+          <h2 className="text-[18px] font-semibold tracking-[-0.03em] text-foreground">Links</h2>
         </div>
       </div>
 
@@ -513,8 +510,7 @@ export function LinksView() {
         {groups.length === 0 ? (
           <div className="mt-16 text-center">
             <p className="mb-2 text-2xl">🔗</p>
-            <p className="text-sm text-muted-foreground/60">Type a name or paste a URL to start</p>
-            <p className="mt-1 text-xs text-muted-foreground/35">e.g. "Columbia Health", or paste https://…</p>
+            <p className="text-sm text-muted-foreground/55">Paste a URL or type a name to start</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-1.5 items-start">
