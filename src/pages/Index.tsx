@@ -24,6 +24,7 @@ import { useTodos } from '@/hooks/useTodos';
 import { useImportedEvents } from '@/hooks/useImportedEvents';
 import { useProfile } from '@/hooks/useProfile';
 import { Moment, TabType, TodayMode } from '@/types';
+import { showUndoToast } from '@/lib/undoToast';
 import { extractLeadingEmoji } from '@/lib/emoji';
 import { FocusTimerOverlay, FloatingTimer } from '@/components/FocusTimerOverlay';
 import { FocusRecapPrompt, type FocusRecapDraft } from '@/components/FocusRecapPrompt';
@@ -76,7 +77,7 @@ class AppSectionErrorBoundary extends Component<
 
 const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
   const [searchParams] = useSearchParams();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   useLifeReminder({ disabled: publicDemo }); // disable personal reminder behavior in public demo
   const isEmbeddedDemo = searchParams.get('embed') === '1';
   const forcedDemoStep = searchParams.get('demoStep');
@@ -107,6 +108,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
     addMoment,
     editMoment,
     deleteMoment,
+    restoreMoment,
     getMomentsForDate,
     getDayRecords,
     getStats,
@@ -363,6 +365,19 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
     );
   }, [editMoment, moments, placesData]);
 
+  // Delete a moment with the same instant-Undo pattern used for tasks.
+  const handleDeleteMoment = useCallback((id: string) => {
+    const snapshot = moments.find(m => m.id === id);
+    deleteMoment(id);
+    if (!snapshot) return;
+    const label = snapshot.text?.trim() || snapshot.emoji || (lang === 'zh' ? '这条记录' : 'this moment');
+    showUndoToast({
+      description: lang === 'zh' ? `已删除“${label}”` : `Deleted “${label}”`,
+      undoLabel: lang === 'zh' ? '撤销' : 'Undo',
+      onUndo: () => { restoreMoment(snapshot); },
+    });
+  }, [moments, deleteMoment, restoreMoment, lang]);
+
   return (
     <div className="h-screen bg-background flex overflow-hidden">
       <div className="flex flex-1 h-full min-h-0">
@@ -390,7 +405,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
               getMomentsForDate={getMomentsForDate}
               onAddMoment={handleAddMoment}
               onEditMoment={handleEditMoment}
-              onDeleteMoment={deleteMoment}
+              onDeleteMoment={handleDeleteMoment}
               todayMode={todayMode}
               onTodayModeChange={(mode) => {
                 setTodayMode(mode);
@@ -437,7 +452,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
             getMomentsForDate={getMomentsForDate}
             onAddMoment={addMoment}
             onEditMoment={handleEditMoment}
-            onDeleteMoment={deleteMoment}
+            onDeleteMoment={handleDeleteMoment}
             onUpdateTodo={updateTodo}
             onDeleteTodo={deleteTodo}
             todos={todos}

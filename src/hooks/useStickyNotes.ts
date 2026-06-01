@@ -277,6 +277,47 @@ export function useStickyNotes() {
     }
   }, [isDemo, user]);
 
+  // Undo a just-deleted note by re-inserting it (and its items) at its prior position.
+  const restoreNote = useCallback(async (note: StickyNote, index: number) => {
+    setNotes(prev => {
+      if (prev.some(n => n.id === note.id)) return prev;
+      const next = [...prev];
+      next.splice(Math.min(Math.max(index, 0), next.length), 0, note);
+      return next;
+    });
+    if (!user || isDemo) return;
+
+    const total = notes.length + 1;
+    const { error: noteError } = await supabase.from('sticky_notes').insert({
+      id: note.id,
+      user_id: user.id,
+      category: note.category,
+      title: note.title,
+      sort_order: total - index,
+      created_at: note.created_at,
+    });
+    if (noteError) {
+      console.error('Failed to restore note:', noteError);
+      setNotes(prev => prev.filter(n => n.id !== note.id));
+      return;
+    }
+
+    if (note.items.length > 0) {
+      const itemInserts = note.items.map((item, i) => ({
+        id: item.id,
+        note_id: note.id,
+        user_id: user.id,
+        text: item.text,
+        done: item.done,
+        sort_order: i,
+        links: (item.links || []) as unknown as Json,
+        images: item.images || [],
+      }));
+      const { error: itemsError } = await supabase.from('sticky_note_items').insert(itemInserts);
+      if (itemsError) console.error('Failed to restore note items:', itemsError);
+    }
+  }, [isDemo, notes.length, user]);
+
   const renameNote = useCallback(async (id: string, title: string) => {
     const trimmed = title.trim();
     if (!trimmed) return;
@@ -531,6 +572,7 @@ export function useStickyNotes() {
     loading,
     addNote,
     deleteNote,
+    restoreNote,
     renameNote,
     reorderNote,
     addItem,

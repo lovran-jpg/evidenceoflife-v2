@@ -264,6 +264,16 @@ export function useLinks() {
     setGroups(prev => prev.filter(group => group.id !== id));
   }, []);
 
+  // Undo a just-deleted collection by re-inserting it at its prior position.
+  const restoreGroup = useCallback((group: LinkGroup, index: number) => {
+    setGroups(prev => {
+      if (prev.some(g => g.id === group.id)) return prev;
+      const next = [...prev];
+      next.splice(Math.min(Math.max(index, 0), next.length), 0, group);
+      return next;
+    });
+  }, []);
+
   const toggleCollapse = useCallback((id: string) => {
     setGroups(prev => prev.map(group => group.id === id ? { ...group, collapsed: !group.collapsed } : group));
   }, []);
@@ -457,6 +467,7 @@ export function useLinks() {
     addGroup,
     renameGroup,
     deleteGroup,
+    restoreGroup,
     toggleCollapse,
     reorderGroups,
     addSection,

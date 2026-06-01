@@ -10,8 +10,7 @@ import { Slider } from '@/components/ui/slider';
 import { Textarea } from '@/components/ui/textarea';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { toast } from '@/hooks/use-toast';
-import { ToastAction } from '@/components/ui/toast';
+import { showUndoToast } from '@/lib/undoToast';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -735,19 +734,11 @@ export function PlanView({
     const snapshot = todos.find(t => t.id === id);
     deleteTodo(id);
     if (!snapshot) return;
-    const undoLabel = lang === 'zh' ? '撤销' : 'Undo';
-    const { dismiss } = toast({
+    showUndoToast({
       description: lang === 'zh' ? `已删除“${snapshot.title}”` : `Deleted “${snapshot.title}”`,
-      action: (
-        <ToastAction
-          altText={undoLabel}
-          onClick={() => { rawRestoreTodo(snapshot); onTodosChanged?.(); dismiss(); }}
-        >
-          {undoLabel}
-        </ToastAction>
-      ),
+      undoLabel: lang === 'zh' ? '撤销' : 'Undo',
+      onUndo: () => { rawRestoreTodo(snapshot); onTodosChanged?.(); },
     });
-    setTimeout(() => dismiss(), 6000);
   }, [todos, deleteTodo, rawRestoreTodo, lang, onTodosChanged]);
 
   const toggleComplete = useCallback(async (id: string) => {

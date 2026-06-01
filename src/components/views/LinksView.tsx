@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { cn, isEnterSubmit } from '@/lib/utils';
 import { normalizeUrl, isUrlLike as isUrl, getDomain, getFaviconUrl } from '@/lib/linkUtils';
+import { showUndoToast } from '@/lib/undoToast';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 /**
@@ -340,7 +341,6 @@ function GroupCard({
   isGroupDropTarget: boolean; draggingLink: DragState; setDraggingLink: (v: DragState) => void;
 }) {
   const accent = getAccentStyle(groupIndex);
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const [addingSection, setAddingSection] = useState(false);
   const [sectionDraft, setSectionDraft] = useState('');
 
@@ -402,10 +402,10 @@ function GroupCard({
 
         {/* Delete */}
         <button
-          onClick={e => { e.stopPropagation(); if (confirmDelete) onDelete(); else { setConfirmDelete(true); setTimeout(() => setConfirmDelete(false), 2500); } }}
-          className={cn('flex-shrink-0 text-[10px] transition-all opacity-0 group-hover/card:opacity-100', confirmDelete ? 'text-destructive font-semibold opacity-100' : 'text-muted-foreground/35 hover:text-muted-foreground/70')}
+          onClick={e => { e.stopPropagation(); onDelete(); }}
+          className={cn('flex-shrink-0 text-[10px] transition-all opacity-0 group-hover/card:opacity-100', 'text-muted-foreground/35 hover:text-muted-foreground/70')}
         >
-          {confirmDelete ? 'Delete?' : <X size={12} />}
+          <X size={12} />
         </button>
 
         {/* Collapse arrow */}
@@ -460,11 +460,23 @@ function GroupCard({
 
 export function LinksView() {
   const {
-    groups, addGroup, renameGroup, deleteGroup, toggleCollapse, reorderGroups,
+    groups, addGroup, renameGroup, deleteGroup, restoreGroup, toggleCollapse, reorderGroups,
     addSection, renameSection, deleteSection, toggleSectionCollapse,
     addLink, renameLink, removeLink, moveLink, addPhoto, removePhoto,
   } = useLinks();
   const { user } = useAuth();
+
+  const handleDeleteGroup = useCallback((id: string) => {
+    const index = groups.findIndex(g => g.id === id);
+    const snapshot = groups[index];
+    deleteGroup(id);
+    if (!snapshot) return;
+    showUndoToast({
+      description: `Deleted “${snapshot.title || 'collection'}”`,
+      undoLabel: 'Undo',
+      onUndo: () => { restoreGroup(snapshot, index); },
+    });
+  }, [groups, deleteGroup, restoreGroup]);
   const [draft, setDraft] = useState('');
   const [fetching, setFetching] = useState(false);
   const [draggingLink, setDraggingLink] = useState<DragState>(null);
@@ -519,7 +531,7 @@ export function LinksView() {
                 key={group.id}
                 group={group} groupIndex={groupIndex}
                 onRename={t => renameGroup(group.id, t)}
-                onDelete={() => deleteGroup(group.id)}
+                onDelete={() => handleDeleteGroup(group.id)}
                 onToggle={() => toggleCollapse(group.id)}
                 onGroupDragStart={() => setDraggingGroup({ groupId: group.id })}
                 onGroupDragEnd={() => setDraggingGroup(null)}

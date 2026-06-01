@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { MomentLinkPreview } from '@/types';
 import { validatePhotoFile } from '@/lib/photoValidation';
 import { useProfile } from '@/hooks/useProfile';
+import { showUndoToast } from '@/lib/undoToast';
 
 const COLOR_PALETTES = [
   { bg: 'bg-[#dbeafe]', border: 'border-blue-200', header: 'bg-[#bfdbfe]', text: 'text-blue-900' },
@@ -126,7 +127,6 @@ function NoteCard({
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [linkDrafts, setLinkDrafts] = useState<Record<string, string>>({});
   const [addingLinkForId, setAddingLinkForId] = useState<string | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const rot = config.rotate[parseInt(note.id.slice(-4), 16) % config.rotate.length];
@@ -342,13 +342,10 @@ function NoteCard({
           </button>
         )}
         <button
-          onClick={() => {
-            if (confirmDelete) { onDelete(); }
-            else { setConfirmDelete(true); setTimeout(() => setConfirmDelete(false), 2000); }
-          }}
-          className={cn('flex-shrink-0 text-[9px] transition-colors mt-0.5', confirmDelete ? 'text-red-500 font-semibold' : cn('opacity-30 hover:opacity-70', config.text))}
+          onClick={() => onDelete()}
+          className={cn('flex-shrink-0 text-[9px] transition-colors mt-0.5', cn('opacity-30 hover:opacity-70', config.text))}
         >
-          {confirmDelete ? config.confirmDelete : <X size={13} />}
+          <X size={13} />
         </button>
       </div>
 
@@ -540,8 +537,21 @@ function loadStickyCategoryOrder(): string[] {
 }
 
 export function StickyNotesView() {
-  const { notes, addNote, deleteNote, renameNote, reorderNote, addItem, renameItem, attachItemLink, removeItemLink, attachItemImage, removeItemImage, toggleItem, deleteItem } = useStickyNotes();
-  const { t } = useLanguage();
+  const { notes, addNote, deleteNote, restoreNote, renameNote, reorderNote, addItem, renameItem, attachItemLink, removeItemLink, attachItemImage, removeItemImage, toggleItem, deleteItem } = useStickyNotes();
+  const { t, lang } = useLanguage();
+
+  const handleDeleteNote = (id: string) => {
+    const index = notes.findIndex(n => n.id === id);
+    const snapshot = notes[index];
+    deleteNote(id);
+    if (!snapshot) return;
+    const label = snapshot.title?.trim() || (lang === 'zh' ? '这张便签' : 'this note');
+    showUndoToast({
+      description: lang === 'zh' ? `已删除“${label}”` : `Deleted “${label}”`,
+      undoLabel: lang === 'zh' ? '撤销' : 'Undo',
+      onUndo: () => { restoreNote(snapshot, index); },
+    });
+  };
 
   const [tabs, setTabs] = useState<Tab[]>(() => loadTabs());
   const [activeTabId, setActiveTabId] = useState<string>(() => loadTabs()[0]?.id || 'free-time');
@@ -765,7 +775,7 @@ export function StickyNotesView() {
                     onRemoveItemImage={(itemId, image) => removeItemImage(note.id, itemId, image)}
                     onToggleItem={itemId => toggleItem(note.id, itemId)}
                     onDeleteItem={itemId => deleteItem(note.id, itemId)}
-                    onDelete={() => deleteNote(note.id)}
+                    onDelete={() => handleDeleteNote(note.id)}
                     onRename={title => renameNote(note.id, title)}
                     onHandleDragStart={e => {
                       setDraggedNoteId(note.id);

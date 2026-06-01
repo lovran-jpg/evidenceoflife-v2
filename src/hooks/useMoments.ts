@@ -349,6 +349,43 @@ export function useMoments() {
     setMoments(prev => prev.filter(m => m.id !== id));
   }, [isDemo]);
 
+  // Undo a just-deleted moment by re-inserting it with its original id & fields.
+  const restoreMoment = useCallback(async (moment: Moment) => {
+    setMoments(prev => {
+      if (prev.some(m => m.id === moment.id)) return prev;
+      return [moment, ...prev].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+    });
+    if (isDemo || !user) return;
+    const baseInsert = {
+      id: moment.id,
+      user_id: user.id,
+      date: moment.date,
+      text: moment.text || null,
+      emoji: moment.emoji || null,
+      photos: moment.photos || [],
+      tags: moment.tags || [],
+      location_name: moment.location?.name || null,
+      location_lat: moment.location?.lat || null,
+      location_lng: moment.location?.lng || null,
+      location_category: moment.location?.category || null,
+      is_special: moment.isSpecial || false,
+      created_at: moment.createdAt,
+      timer_started_at: moment.timer_started_at || null,
+      timer_ended_at: moment.timer_ended_at || null,
+      timer_seconds: moment.timer_seconds || 0,
+    };
+    let { error } = await supabase.from('moments').insert({ ...baseInsert, links: moment.links || [] });
+    if (error && isMissingMomentLinksColumn(error)) {
+      ({ error } = await supabase.from('moments').insert(baseInsert));
+    }
+    if (error) {
+      console.error('Failed to restore moment:', error);
+      setMoments(prev => prev.filter(m => m.id !== moment.id));
+    }
+  }, [isDemo, user]);
+
   const getMomentsForDate = useCallback((date: string): Moment[] => {
     return moments.filter(m => m.date === date);
   }, [moments]);
@@ -382,7 +419,7 @@ export function useMoments() {
     moments,
     allLocations,
     loading,
-    addMoment, editMoment, deleteMoment,
+    addMoment, editMoment, deleteMoment, restoreMoment,
     getMomentsForDate, getDayRecords, getRecordedDates, getStats,
   };
 }
