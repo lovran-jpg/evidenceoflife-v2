@@ -41,8 +41,32 @@ function tryJson(value) {
   }
 }
 
-function findJsonNearAigc(text) {
+function stripUserCommentEncodingPrefix(value) {
+  if (!Buffer.isBuffer(value)) return value;
+  const prefix = value.subarray(0, 8).toString("ascii");
+  if (/^(ASCII|UNICODE|JIS)\0*/.test(prefix)) return value.subarray(8).toString("utf8");
+  return value.toString("utf8");
+}
+
+function parseJsonCandidates(text) {
   const candidates = [];
+  const decoded = decodeXmlEntities(text);
+
+  for (const match of decoded.matchAll(/(?:"AIGC"|AIGC)\s*[:=]\s*(\{[\s\S]*?\})/gi)) {
+    const wrapped = tryJson(`{"AIGC":${match[1]}}`);
+    if (wrapped) candidates.push(wrapped);
+  }
+
+  for (const match of decoded.matchAll(/\{[\s\S]{0,5000}?"AIGC"[\s\S]{0,5000}?\}/gi)) {
+    const parsed = tryJson(match[0]);
+    if (parsed) candidates.push(parsed);
+  }
+
+  return candidates;
+}
+
+function findJsonNearAigc(text) {
+  const candidates = parseJsonCandidates(text);
   for (const match of text.matchAll(/AIGC/gi)) {
     const start = Math.max(0, match.index - 500);
     const end = Math.min(text.length, match.index + 2000);
@@ -69,17 +93,28 @@ function validateAigcObject(value) {
   const flattened = flattenValues(value);
   const fields = Object.fromEntries(flattened.map(([key, val]) => [key.toLowerCase(), val]));
   const labelEntry = flattened.find(([key]) => key.toLowerCase().endsWith("label"));
+  const producerEntry = flattened.find(([key]) => key.toLowerCase().endsWith("contentproducer"));
+  const propagatorEntry = flattened.find(([key]) => key.toLowerCase().endsWith("contentpropagator"));
   const platformEntry = flattened.find(([key]) =>
-    /platform|propagation|publisher|service|app|source/.test(key.toLowerCase()),
+    /contentproducer|contentpropagator|platform|propagation|publisher|service|app|source/.test(
+      key.toLowerCase(),
+    ),
   );
+  const produceIdEntry = flattened.find(([key]) => key.toLowerCase().endsWith("produceid"));
   const contentEntry = flattened.find(([key]) =>
-    /content.*id|contentid|id$|number|identifier|uuid/.test(key.toLowerCase()),
+    /produceid|content.*id|contentid|id$|number|identifier|uuid/.test(key.toLowerCase()),
   );
 
   return {
     hasAigcKeyword: JSON.stringify(value).toUpperCase().includes("AIGC"),
     hasValidLabel: Boolean(labelEntry && allowedLabels.has(labelEntry[1])),
     label: labelEntry?.[1] ?? null,
+    hasContentProducer: Boolean(producerEntry && String(producerEntry[1]).trim()),
+    contentProducer: producerEntry?.[1] ?? null,
+    hasContentPropagator: Boolean(propagatorEntry && String(propagatorEntry[1]).trim()),
+    contentPropagator: propagatorEntry?.[1] ?? null,
+    hasProduceId: Boolean(produceIdEntry && String(produceIdEntry[1]).trim()),
+    produceId: produceIdEntry?.[1] ?? null,
     hasPlatformCode: Boolean(platformEntry && String(platformEntry[1]).trim()),
     platformCode: platformEntry?.[1] ?? null,
     hasContentId: Boolean(contentEntry && String(contentEntry[1]).trim()),
@@ -215,6 +250,61 @@ function inspectPng(filePath) {
   };
 }
 
+function readExifUserCommentFromJpeg(buffer) {
+  if (buffer.readUInt16BE(0) !== 0xffd8) return null;
+  let cursor = 2;
+
+  while (cursor + 4 < buffer.length) {
+    if (buffer[cursor] !== 0xff) break;
+    const marker = buffer[cursor + 1];
+    const length = buffer.readUInt16BE(cursor + 2);
+    const segmentStart = cursor + 4;
+    const segmentEnd = cursor + 2 + length;
+    const segment = buffer.subarray(segmentStart, segmentEnd);
+
+    if (marker === 0xe1 && segment.subarray(0, 6).toString("ascii") === "Exif\0\0") {
+      const tiff = segment.subarray(6);
+      const littleEndian = tiff.subarray(0, 2).toString("ascii") === "II";
+      const readU16 = (offset) => (littleEndian ? tiff.readUInt16LE(offset) : tiff.readUInt16BE(offset));
+      const readU32 = (offset) => (littleEndian ? tiff.readUInt32LE(offset) : tiff.readUInt32BE(offset));
+      const ifd0 = readU32(4);
+      const ifd0Count = readU16(ifd0);
+      let exifIfdOffset = null;
+
+      for (let i = 0; i < ifd0Count; i += 1) {
+        const entry = ifd0 + 2 + i * 12;
+        if (readU16(entry) === 0x8769) exifIfdOffset = readU32(entry + 8);
+      }
+
+      if (exifIfdOffset === null) return null;
+      const exifCount = readU16(exifIfdOffset);
+      for (let i = 0; i < exifCount; i += 1) {
+        const entry = exifIfdOffset + 2 + i * 12;
+        if (readU16(entry) !== 0x9286) continue;
+        const count = readU32(entry + 4);
+        const valueOffset = count <= 4 ? entry + 8 : readU32(entry + 8);
+        return stripUserCommentEncodingPrefix(tiff.subarray(valueOffset, valueOffset + count));
+      }
+    }
+
+    cursor = segmentEnd;
+  }
+
+  return null;
+}
+
+function inspectJpeg(filePath) {
+  const buffer = fs.readFileSync(filePath);
+  const userComment = readExifUserCommentFromJpeg(buffer);
+
+  return {
+    type: "jpeg",
+    hasExifUserComment: Boolean(userComment),
+    exifUserComment: userComment,
+    ...findAigcEvidence(`${userComment || ""}\n${stringsFromBuffer(buffer)}`),
+  };
+}
+
 function inspectTextLike(filePath, type) {
   return {
     type,
@@ -234,11 +324,13 @@ function verdict(evidence) {
     (candidate) =>
       candidate.hasAigcKeyword &&
       candidate.hasValidLabel &&
-      candidate.hasPlatformCode &&
-      candidate.hasContentId,
+      (candidate.hasContentProducer || candidate.hasContentPropagator || candidate.hasPlatformCode) &&
+      (candidate.hasProduceId || candidate.hasContentId),
   );
 
-  if (validCandidate) return "PASS: found parseable AIGC JSON metadata with Label, platform code, and content id";
+  if (validCandidate) {
+    return "PASS: found parseable AIGC JSON metadata with Label, producer/propagator code, and ProduceID/content id";
+  }
   if (evidence.hasAigcKeyword && evidence.jsonCandidates?.length) {
     return "FAIL: found AIGC JSON-like metadata, but required fields are incomplete or invalid";
   }
@@ -254,6 +346,7 @@ const inspected = files.map((file) => {
   if (ext === ".docx") evidence = inspectDocx(file);
   else if (ext === ".pdf") evidence = inspectPdf(file);
   else if (ext === ".png") evidence = inspectPng(file);
+  else if ([".jpg", ".jpeg"].includes(ext)) evidence = inspectJpeg(file);
   else if ([".py", ".js", ".ts", ".json", ".txt", ".md", ".xml"].includes(ext)) {
     evidence = inspectTextLike(file, ext.slice(1) || "text");
   } else {

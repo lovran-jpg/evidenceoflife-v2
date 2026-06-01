@@ -322,7 +322,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
                       </button>
                     )}
                     <p className="mt-2 max-w-[54ch] text-[13px] font-medium leading-5 text-muted-foreground/58">
-                      {lang === 'zh' ? '不是设置页。这里只看你最近留下了什么，以及今天有没有真的发生。' : 'Not a settings page. A quiet view of what happened, what is building up, and what needs attention.'}
+                      {lang === 'zh' ? '看你最近留下了什么，以及今天有没有真的发生。' : 'A quiet view of what happened, and what needs attention.'}
                     </p>
                   </div>
                 </div>
