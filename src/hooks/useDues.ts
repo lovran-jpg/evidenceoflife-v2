@@ -145,7 +145,8 @@ export function useDues() {
         const stepsProgress = steps.length > 0 ? Math.round((stepsCompleted / steps.length) * 100) : 0;
 
         const allProgress = [master.progress, ...nonStepChildren.map(c => c.progress)];
-        const maxProgress = steps.length > 0 ? stepsProgress : Math.max(...allProgress);
+        const nonStepMaxProgress = Math.max(...allProgress);
+        const maxProgress = steps.length > 0 ? stepsProgress : nonStepMaxProgress;
         const todayChild = nonStepChildren.find(c => c.date === today);
         const totalCount = completedChildren.length;
         const dailyCounts = completedChildren.reduce<Record<string, number>>((acc, child) => {
@@ -170,7 +171,11 @@ export function useDues() {
 
         const isHabit = master.habit_category !== null;
         const hasDeadline = !!master.due_date;
-        const shouldBeCompleted = !isHabit && hasDeadline && maxProgress >= 100;
+        // Finishing the user-defined steps does NOT mean the deadline is done —
+        // they may simply not have defined the next step yet. So step-based
+        // progress only drives the visual bar; auto-completion is reserved for
+        // the explicit, step-free path (manual 100% progress / child completion).
+        const shouldBeCompleted = !isHabit && hasDeadline && steps.length === 0 && nonStepMaxProgress >= 100;
         const isCompleted = isHabit ? false : Boolean(master.is_completed || shouldBeCompleted);
 
         return {
@@ -192,9 +197,11 @@ export function useDues() {
         };
       });
 
-      // Persist auto-completion to DB for any dues that should be completed but aren't yet
+      // Persist auto-completion to DB for any dues that should be completed but aren't yet.
+      // Step-based dues are excluded: completing their steps must not silently
+      // finish (and lock) the deadline — see shouldBeCompleted above.
       const toAutoComplete = duesWithStats.filter(
-        d => !!d.due_date && d.maxProgress >= 100 && !masters.find(m => m.id === d.id)?.is_completed
+        d => !!d.due_date && d.steps.length === 0 && d.maxProgress >= 100 && !masters.find(m => m.id === d.id)?.is_completed
       );
       // Auto-fix: uncomplete habits that were incorrectly marked as completed
       const toAutoUncomplete = masters.filter(m => (m as any).habit_category !== null && m.is_completed);
