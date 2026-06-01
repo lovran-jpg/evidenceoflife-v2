@@ -309,7 +309,7 @@ export function DayDetailSheet({ open, onOpenChange, date, moments, importedEven
                 Nothing recorded yet
               </p>
               <p className="text-muted-foreground text-sm mt-1">
-                Add a moment to remember this day
+                This day is still blank
               </p>
               {onAddMoment && (
                 <Button

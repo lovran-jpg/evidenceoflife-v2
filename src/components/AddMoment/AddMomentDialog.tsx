@@ -22,9 +22,9 @@ interface AddMomentDialogProps {
 
 const quickActions = [
   { icon: PenLine, label: 'Write', id: 'write' },
-  { icon: Camera, label: 'Add photos', id: 'photos' },
-  { icon: MapPin, label: 'Current location', id: 'location' },
-  { icon: Search, label: 'Search place', id: 'search' },
+  { icon: Camera, label: 'Photos', id: 'photos' },
+  { icon: MapPin, label: 'Location', id: 'location' },
+  { icon: Search, label: 'Search', id: 'search' },
 ];
 
 export function AddMomentDialog({ open, onOpenChange, onSave }: AddMomentDialogProps) {

@@ -189,7 +189,7 @@ export function VoiceInputSheet({ open, onOpenChange, onAddMoment, onAddTodo, on
       const assistantMsgId = crypto.randomUUID();
       setChatMessages(prev => [...prev, { id: assistantMsgId, role: 'assistant', item: fallbackItem }]);
       conversationHistoryRef.current.push({ userText: text.trim(), result: fallbackResult });
-      toast('已自动归入 Plan', { description: 'AI 分类暂时不可用，你可以手动切换类型' });
+      toast('已自动归入 Plan', { description: '可手动切换类型' });
     } finally {
       setLoading(false);
     }
