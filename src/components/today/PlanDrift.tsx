@@ -462,6 +462,13 @@ export function PlanDrift({ allTodos, completedTodos, allMoments, todayDateStr, 
         className="group flex w-full items-center gap-3 rounded-[14px] px-3 py-1.5 text-left transition-colors hover:bg-muted/20"
       >
         <span className="flex flex-shrink-0 items-baseline gap-1.5">
+          {isRealToday && hasRunningTimer && (
+            <span
+              className="mr-0.5 h-1.5 w-1.5 self-center rounded-full bg-primary/70 animate-pulse"
+              aria-hidden
+              title={lang === 'zh' ? '计时进行中' : 'Timer running'}
+            />
+          )}
           <span
             className="text-[13px] leading-none tabular-nums text-foreground/85"
             style={{ fontWeight: 500, letterSpacing: '-0.01em' }}
@@ -544,6 +551,13 @@ export function PlanDrift({ allTodos, completedTodos, allMoments, todayDateStr, 
               </span>
             </div>
             <div className="flex flex-shrink-0 items-baseline gap-1.5">
+              {isRealToday && hasRunningTimer && (
+                <span
+                  className="mr-0.5 h-1.5 w-1.5 self-center rounded-full bg-primary/70 animate-pulse"
+                  aria-hidden
+                  title={lang === 'zh' ? '计时进行中' : 'Timer running'}
+                />
+              )}
               <span className="font-mono text-[16px] font-semibold leading-none tabular-nums tracking-[-0.04em] text-foreground/88">
                 {focusedDur ?? '0m'}
               </span>
