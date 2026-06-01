@@ -10,6 +10,8 @@ import { Slider } from '@/components/ui/slider';
 import { Textarea } from '@/components/ui/textarea';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { toast } from '@/hooks/use-toast';
+import { ToastAction } from '@/components/ui/toast';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -368,12 +370,8 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
   const handleSaveTime = () => { onUpdateTime(editStart, editEnd); setIsEditingTime(false); };
   const handleDoubleClickDelete = () => {
     if (isEditing) return;
-    const confirmed = window.confirm(
-      lang === 'zh'
-        ? `删除任务"${todo.title}"？`
-        : `Delete task "${todo.title}"?`
-    );
-    if (confirmed) onDelete();
+    // No blocking confirm — delete is instantly undoable via the toast.
+    onDelete();
   };
 
   const isScheduled = !!todo.plan_started_at && !todo.is_completed;
@@ -682,6 +680,7 @@ export function PlanView({
     addTodo: rawAddTodo,
     updateTodo: rawUpdateTodo,
     deleteTodo: rawDeleteTodo,
+    restoreTodo: rawRestoreTodo,
     toggleComplete: rawToggleComplete,
   } = useTodos(todayStr);
   
@@ -729,6 +728,27 @@ export function PlanView({
     await rawDeleteTodo(id);
     onTodosChanged?.();
   }, [rawDeleteTodo, onTodosChanged]);
+
+  // Delete with an Undo affordance: remove immediately (no blocking dialog),
+  // then offer a brief window to restore the exact task that was removed.
+  const deleteTodoWithUndo = useCallback((id: string) => {
+    const snapshot = todos.find(t => t.id === id);
+    deleteTodo(id);
+    if (!snapshot) return;
+    const undoLabel = lang === 'zh' ? '撤销' : 'Undo';
+    const { dismiss } = toast({
+      description: lang === 'zh' ? `已删除“${snapshot.title}”` : `Deleted “${snapshot.title}”`,
+      action: (
+        <ToastAction
+          altText={undoLabel}
+          onClick={() => { rawRestoreTodo(snapshot); onTodosChanged?.(); dismiss(); }}
+        >
+          {undoLabel}
+        </ToastAction>
+      ),
+    });
+    setTimeout(() => dismiss(), 6000);
+  }, [todos, deleteTodo, rawRestoreTodo, lang, onTodosChanged]);
 
   const toggleComplete = useCallback(async (id: string) => {
     const todo = todos.find(t => t.id === id);
@@ -1659,7 +1679,7 @@ export function PlanView({
                       key={todo.id}
                       todo={todo}
                       onToggle={() => toggleComplete(todo.id)}
-                      onDelete={() => deleteTodo(todo.id)}
+                      onDelete={() => deleteTodoWithUndo(todo.id)}
                       onUpdateTitle={(title) => updateTodo(todo.id, { title })}
                       onUpdateTime={(startTime, endTime) => {
                         const startISO = new Date(`${todayStr}T${startTime}:00`).toISOString();
@@ -1752,7 +1772,7 @@ export function PlanView({
                             <TodoItem
                               todo={todo}
                               onToggle={() => toggleComplete(todo.id)}
-                              onDelete={() => deleteTodo(todo.id)}
+                              onDelete={() => deleteTodoWithUndo(todo.id)}
                               onUpdateTitle={(title) => updateTodo(todo.id, { title })}
                               onUpdateTime={(startTime, endTime) => {
                                 const startISO = new Date(`${todayStr}T${startTime}:00`).toISOString();
@@ -1814,7 +1834,7 @@ export function PlanView({
                             key={todo.id}
                             todo={todo}
                             onToggle={() => toggleComplete(todo.id)}
-                            onDelete={() => deleteTodo(todo.id)}
+                            onDelete={() => deleteTodoWithUndo(todo.id)}
                             onUpdateTitle={(title) => updateTodo(todo.id, { title })}
                             onUpdateTime={(startTime, endTime) => {
                               const startISO = new Date(`${todayStr}T${startTime}:00`).toISOString();
@@ -2007,7 +2027,7 @@ export function PlanView({
               onAddTodo={(title, seg) => addTodo(title, seg as any)}
               onDropTodo={handleDropOnTimeline}
               onUnscheduleTodo={(id) => updateTodo(id, { plan_started_at: null, plan_ended_at: null })}
-              onDeleteTodo={deleteTodo}
+              onDeleteTodo={deleteTodoWithUndo}
               onRenameTodo={(id, title) => updateTodo(id, { title })}
               onStartTimer={(id) => {
                 const todo = todos.find(t => t.id === id);

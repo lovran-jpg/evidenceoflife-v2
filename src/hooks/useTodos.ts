@@ -258,6 +258,32 @@ export function useTodos(date?: string) {
     }
   }, [isDemo]);
 
+  const restoreTodo = useCallback(async (todo: Todo) => {
+    // Re-insert a just-deleted todo (undo). Preserve original fields & order.
+    setTodos(prev => {
+      if (prev.some(t => t.id === todo.id)) return prev;
+      const next = [...prev, todo];
+      next.sort((a, b) => a.sort_order - b.sort_order);
+      return next;
+    });
+    if (isDemo || !user) return;
+    const { error } = await supabase
+      .from('todos')
+      .insert({
+        id: todo.id, user_id: user.id, title: todo.title, date: todo.date,
+        time_segment: todo.time_segment, progress: todo.progress,
+        is_completed: todo.is_completed, due_date: todo.due_date,
+        sort_order: todo.sort_order, created_at: todo.created_at,
+        timer_started_at: todo.timer_started_at, timer_ended_at: todo.timer_ended_at,
+        timer_seconds: todo.timer_seconds, tags: todo.tags,
+        plan_started_at: todo.plan_started_at, plan_ended_at: todo.plan_ended_at,
+      });
+    if (error) {
+      // DB restore failed — roll the optimistic re-insert back out
+      setTodos(prev => prev.filter(t => t.id !== todo.id));
+    }
+  }, [isDemo, user]);
+
   const toggleComplete = useCallback(async (id: string) => {
     const todo = todos.find(t => t.id === id);
     if (!todo) return;
@@ -268,5 +294,5 @@ export function useTodos(date?: string) {
     });
   }, [todos, updateTodo]);
 
-  return { todos, loading, addTodo, updateTodo, deleteTodo, toggleComplete, refetch: fetchTodos };
+  return { todos, loading, addTodo, updateTodo, deleteTodo, restoreTodo, toggleComplete, refetch: fetchTodos };
 }
