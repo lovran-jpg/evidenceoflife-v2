@@ -397,10 +397,13 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
     }
   }, [todos, moments, importedEvents, updateTodo, editMoment, updateImportedEvent, handleAddMoment, globalFocusId]);
 
-  // Collapse to a single running timer: whenever two or more are ticking (a new one
-  // was just started anywhere in the app), keep the most recently started and archive
-  // the rest. Centralised here so every start site is covered without extra plumbing.
+  // Collapse to a single running timer. Rather than firing on *any* moment two are
+  // ticking (which would fight foreground timer overlays that briefly re-write timer
+  // fields on close, and could archive pre-existing concurrent timers the user never
+  // touched), we only act when a *newly started* timer appears. The newly started one
+  // wins; every other still-running timer is archived so its elapsed work is saved.
   const preemptingRef = useRef(false);
+  const knownRunningRef = useRef<Set<string> | null>(null);
   useEffect(() => {
     if (landingDemoMode || preemptingRef.current) return;
     const nowMs = Date.now();
@@ -420,10 +423,33 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
         if (Number.isFinite(s) && s <= nowMs) running.push({ id: ev.id, started: s });
       }
     }
+
+    const currentIds = new Set(running.map(r => r.id));
+    const prevIds = knownRunningRef.current;
+    // First settled render: just record what's running, don't archive anything yet
+    // (avoids clobbering legitimate state before we have a baseline to compare to).
+    if (prevIds === null) {
+      knownRunningRef.current = currentIds;
+      return;
+    }
+    // Always keep our baseline current so the post-archive refetch settles cleanly.
+    knownRunningRef.current = currentIds;
+
     if (running.length <= 1) return;
-    const newest = running.reduce((a, b) => (b.started > a.started ? b : a));
+    // Only react to genuinely new starts; ignore pre-existing concurrent timers so we
+    // never reach in and stop a timer the user didn't just (re)start.
+    const newlyStarted = running.filter(r => !prevIds.has(r.id));
+    if (newlyStarted.length === 0) return;
+    // Guard against staggered data loads: todos/moments/events arrive in separate
+    // batches, so a row loading in later looks "new". A real user start began ~now —
+    // a DB row that started long ago is just data arriving, not a preempt trigger.
+    const FRESH_START_MS = 60_000;
+    const freshlyStarted = newlyStarted.filter(r => nowMs - r.started <= FRESH_START_MS);
+    if (freshlyStarted.length === 0) return;
+    // The just-started timer wins (newest among the fresh arrivals if several appeared).
+    const keep = freshlyStarted.reduce((a, b) => (b.started > a.started ? b : a));
     preemptingRef.current = true;
-    Promise.resolve(preemptRunningTimers(newest.id)).finally(() => {
+    Promise.resolve(preemptRunningTimers(keep.id)).finally(() => {
       preemptingRef.current = false;
     });
   }, [todos, moments, importedEvents, landingDemoMode, preemptRunningTimers]);
