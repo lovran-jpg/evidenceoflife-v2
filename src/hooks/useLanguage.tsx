@@ -226,6 +226,16 @@ const translations: Record<string, Record<Lang, string>> = {
   'ptag.meeting': { zh: '会议', en: 'Meeting' },
   'ptag.errands': { zh: '跑腿', en: 'Errands' },
   'ptag.study': { zh: '学习', en: 'Study' },
+  // Focus recap prompt (capture trigger after a focus session ends)
+  'focusRecap.titleDone': { zh: '完成了一次专注', en: 'Focus session done' },
+  'focusRecap.titleSaved': { zh: '这段时间已留下', en: 'That time is saved' },
+  'focusRecap.summary': { zh: '你在「{task}」上专注了 {min} 分钟。', en: 'You focused {min} min on "{task}".' },
+  'focusRecap.moodQuestion': { zh: '感觉如何？', en: 'How did it feel?' },
+  'focusRecap.noteQuestion': { zh: '做成了什么？（可选）', en: 'What got done? (optional)' },
+  'focusRecap.notePlaceholder': { zh: '一句话留下证据，未来的你会想起来。', en: 'One line of evidence future-you will thank you for.' },
+  'focusRecap.skip': { zh: '跳过', en: 'Skip' },
+  'focusRecap.save': { zh: '留下证据', en: 'Keep evidence' },
+  'focusRecap.saved': { zh: '已留下今天的证据', en: 'Evidence kept' },
   // SideNav phase groups
   'sidenav.dailyLoop': { zh: '每日循环', en: 'Daily loop' },
   'sidenav.evidence': { zh: '生活证据', en: 'Evidence' },

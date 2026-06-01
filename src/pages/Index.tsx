@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useMemo, useRef, Component, type ErrorInfo, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import { useDues } from '@/hooks/useDues';
 import { DueNotifications } from '@/components/DueNotifications';
 import { usePlaces } from '@/hooks/usePlaces';
@@ -25,6 +26,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { Moment, TabType, TodayMode } from '@/types';
 import { extractLeadingEmoji } from '@/lib/emoji';
 import { FocusTimerOverlay, FloatingTimer } from '@/components/FocusTimerOverlay';
+import { FocusRecapPrompt, type FocusRecapDraft } from '@/components/FocusRecapPrompt';
 import { useLifeReminder } from '@/hooks/useLifeReminder';
 
 function isActivelyRunningTodo(todo: { timer_started_at: string | null; timer_ended_at: string | null }) {
@@ -94,6 +96,8 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
 
   // Global focus overlay state
   const [globalFocusId, setGlobalFocusId] = useState<string | null>(null);
+  // Recap prompt shown right after a focus session ends (natural capture trigger)
+  const [focusRecap, setFocusRecap] = useState<{ momentId: string | null; title: string; workingSec: number; completed: boolean } | null>(null);
   const pauseStatesRef = useRef<Map<string, { pausedAt: number | null; totalPausedMs: number }>>(new Map());
   const [pauseStateVersion, setPauseStateVersion] = useState(0);
 
@@ -476,9 +480,10 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
             onComplete={async (workingSec, progress) => {
               const finalProgress = progress ?? 100;
               const endedAtISO = new Date().toISOString();
+              let createdMomentId: string | null = null;
               try {
                 if (finalProgress < 100 && focusTodo.timer_started_at && workingSec > 0) {
-                  await handleAddMoment({
+                  const created = await handleAddMoment({
                     text: focusTodo.title,
                     emoji: extractLeadingEmoji(focusTodo.title),
                     photos: [],
@@ -487,6 +492,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
                     timer_ended_at: endedAtISO,
                     timer_seconds: workingSec,
                   });
+                  createdMomentId = created?.id ?? null;
                 }
                 await updateTodo(focusTodo.id, {
                   timer_started_at: finalProgress < 100 ? null : focusTodo.timer_started_at,
@@ -499,6 +505,14 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
                 setGlobalFocusId(null);
                 pauseStatesRef.current.delete(focusTodo.id);
                 setPauseStateVersion(v => v + 1);
+                if (workingSec > 0) {
+                  setFocusRecap({
+                    momentId: createdMomentId,
+                    title: focusTodo.title,
+                    workingSec,
+                    completed: finalProgress >= 100,
+                  });
+                }
               }
             }}
             onSaveAndContinue={async (workingSec, progress) => {
@@ -510,8 +524,9 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
               pauseStatesRef.current.delete(snap.id);
               setPauseStateVersion(v => v + 1);
               try {
+                let createdMomentId: string | null = null;
                 if (snap.timer_started_at && workingSec > 0) {
-                  await handleAddMoment({
+                  const created = await handleAddMoment({
                     text: snap.title,
                     emoji: extractLeadingEmoji(snap.title),
                     photos: [],
@@ -520,6 +535,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
                     timer_ended_at: endedAtISO,
                     timer_seconds: workingSec,
                   });
+                  createdMomentId = created?.id ?? null;
                 }
                 await updateTodo(snap.id, {
                   timer_started_at: null,
@@ -528,6 +544,14 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
                   progress: nextProgress,
                   is_completed: false,
                 });
+                if (workingSec > 0) {
+                  setFocusRecap({
+                    momentId: createdMomentId,
+                    title: snap.title,
+                    workingSec,
+                    completed: false,
+                  });
+                }
               } catch {
                 // best-effort save
               }
@@ -547,6 +571,44 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
           />
         );
       })()}
+
+      {focusRecap && (
+        <FocusRecapPrompt
+          title={focusRecap.title}
+          workingSec={focusRecap.workingSec}
+          completed={focusRecap.completed}
+          onSkip={() => setFocusRecap(null)}
+          onSave={async (draft: FocusRecapDraft) => {
+            const recap = focusRecap;
+            setFocusRecap(null);
+            if (!recap) return;
+            const recapText = draft.note ? `${recap.title} · ${draft.note}` : recap.title;
+            try {
+              if (recap.momentId) {
+                await handleEditMoment(recap.momentId, {
+                  text: recapText,
+                  ...(draft.mood ? { emoji: draft.mood } : {}),
+                });
+              } else {
+                const endedAtISO = new Date().toISOString();
+                const startedAtISO = new Date(Date.now() - recap.workingSec * 1000).toISOString();
+                await handleAddMoment({
+                  text: recapText,
+                  emoji: draft.mood || undefined,
+                  photos: [],
+                  tags: ['focus-session'],
+                  timer_started_at: startedAtISO,
+                  timer_ended_at: endedAtISO,
+                  timer_seconds: recap.workingSec,
+                });
+              }
+              toast.success(t('focusRecap.saved'));
+            } catch {
+              // best-effort capture
+            }
+          }}
+        />
+      )}
 
       {landingDemoFocusTodo && !globalFocusId && (
         <FocusTimerOverlay
