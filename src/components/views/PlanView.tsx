@@ -320,8 +320,13 @@ function fmtSec(sec: number): string {
   const m = Math.floor(sec / 60);
   if (m < 60) return `${m}m`;
   const h = Math.floor(m / 60);
-  const rm = m % 60;
-  return rm > 0 ? `${h}h${rm}m` : `${h}h`;
+  if (h < 24) {
+    const rm = m % 60;
+    return rm > 0 ? `${h}h${rm}m` : `${h}h`;
+  }
+  const d = Math.floor(h / 24);
+  const rh = h % 24;
+  return rh > 0 ? `${d}d${rh}h` : `${d}d`;
 }
 
 function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTime, onUpdateProgress, isTiming, timerElapsed, isPaused, onDragStart, onDragEnd, onToggleWithProgress }: {
