@@ -1,0 +1,697 @@
+@import url('https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&family=Nunito:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Evidence of Life - A warm, intimate memory system */
+@layer base {
+  :root {
+    /* Clean white palette */
+    --background: 0 0% 100%;
+    --foreground: 30 8% 14%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 30 8% 14%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 30 8% 14%;
+
+    /* Terracotta - warm, grounding */
+    --primary: 18 45% 55%;
+    --primary-foreground: 36 33% 97%;
+
+    /* Soft neutral */
+    --secondary: 30 12% 95%;
+    --secondary-foreground: 30 8% 24%;
+
+    --muted: 30 10% 96%;
+    --muted-foreground: 30 8% 45%;
+
+    /* Sage green for map/nature */
+    --accent: 120 20% 55%;
+    --accent-foreground: 36 33% 97%;
+
+    --destructive: 0 65% 55%;
+    --destructive-foreground: 36 33% 97%;
+
+    --border: 30 10% 90%;
+    --input: 30 10% 90%;
+    --ring: 18 45% 55%;
+
+    --radius: 1rem;
+
+    /* Custom tokens */
+    --dot-recorded: 18 45% 55%;
+    --dot-photo: 35 80% 60%;
+    --surface-elevated: 0 0% 100%;
+    --text-secondary: 30 8% 50%;
+    --shadow-soft: 0 4px 20px -4px hsl(30 20% 20% / 0.08);
+    --shadow-elevated: 0 8px 32px -8px hsl(30 20% 20% / 0.12);
+
+    /* Unified app surfaces */
+    --surface-soft: 30 20% 98%;
+    --surface-soft-hover: 30 18% 95%;
+    --surface-contrast: 0 0% 100%;
+    --surface-inset: 30 16% 94%;
+    --text-soft: 30 9% 42%;
+    --chip-background: 216 100% 96%;
+    --chip-foreground: 216 84% 56%;
+    --toolbar-background: 30 22% 97%;
+    --overlay-backdrop: 30 20% 12% / 0.52;
+    --focus-green: 145 63% 49%;
+    --focus-track: 240 10% 91%;
+
+    /* Sidebar tokens */
+    --sidebar-background: 0 0% 99%;
+    --sidebar-foreground: 30 10% 25%;
+    --sidebar-primary: 18 45% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 30 12% 96%;
+    --sidebar-accent-foreground: 30 10% 25%;
+    --sidebar-border: 30 10% 91%;
+    --sidebar-ring: 18 45% 55%;
+  }
+
+  /* ── Dark palette ──────────────────────────────────────────────
+     Goal: a TRUE black-on-white reading experience (OLED-friendly),
+     not "warm dark" cream-on-brown. The previous dark theme tinted
+     every surface with hue 30 (warm brown) which made the UI read as
+     muddy / sepia at night. We now use a near-neutral grayscale ramp
+     with a *whisper* of warmth (sat 2%) so it inherits brand identity
+     without competing with the foreground.
+
+       background  =  near-black canvas
+       card / surfaces = subtly elevated grays (5–18% L)
+       foreground  =  near-white text (97% L)
+       border      =  18% L  → visible but quiet
+       primary / accent  unchanged → stay as branded color accents
+  ───────────────────────────────────────────────────────────────── */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background: 240 5% 6%;
+      --foreground: 0 0% 97%;
+
+      --card: 240 5% 9%;
+      --card-foreground: 0 0% 97%;
+
+      --popover: 240 5% 10%;
+      --popover-foreground: 0 0% 97%;
+
+      --primary: 18 50% 60%;
+      --primary-foreground: 240 5% 6%;
+
+      --secondary: 240 4% 15%;
+      --secondary-foreground: 0 0% 92%;
+
+      --muted: 240 4% 13%;
+      --muted-foreground: 0 0% 64%;
+
+      --accent: 120 25% 50%;
+      --accent-foreground: 0 0% 97%;
+
+      --destructive: 0 60% 50%;
+      --destructive-foreground: 0 0% 97%;
+
+      --border: 0 0% 18%;
+      --input: 0 0% 18%;
+      --ring: 18 50% 60%;
+
+      --dot-recorded: 18 50% 60%;
+      --dot-photo: 35 75% 55%;
+      --surface-elevated: 240 5% 11%;
+      --text-secondary: 0 0% 62%;
+      --shadow-soft: 0 4px 20px -4px hsl(0 0% 0% / 0.45);
+      --shadow-elevated: 0 8px 32px -8px hsl(0 0% 0% / 0.55);
+
+      --surface-soft: 240 5% 10%;
+      --surface-soft-hover: 240 4% 15%;
+      --surface-contrast: 240 5% 12%;
+      --surface-inset: 240 5% 8%;
+      --text-soft: 0 0% 72%;
+      --chip-background: 216 35% 18%;
+      --chip-foreground: 216 100% 78%;
+      --toolbar-background: 240 5% 11%;
+      --overlay-backdrop: 0 0% 0% / 0.7;
+      --focus-green: 145 63% 49%;
+      --focus-track: 0 0% 22%;
+
+      --sidebar-background: 240 5% 7%;
+      --sidebar-foreground: 0 0% 90%;
+      --sidebar-primary: 18 50% 60%;
+      --sidebar-primary-foreground: 240 5% 6%;
+      --sidebar-accent: 240 4% 13%;
+      --sidebar-accent-foreground: 0 0% 90%;
+      --sidebar-border: 0 0% 16%;
+      --sidebar-ring: 18 50% 60%;
+    }
+  }
+
+  .dark {
+    --background: 240 5% 6%;
+    --foreground: 0 0% 97%;
+
+    --card: 240 5% 9%;
+    --card-foreground: 0 0% 97%;
+
+    --popover: 240 5% 10%;
+    --popover-foreground: 0 0% 97%;
+
+    --primary: 18 50% 60%;
+    --primary-foreground: 240 5% 6%;
+
+    --secondary: 240 4% 15%;
+    --secondary-foreground: 0 0% 92%;
+
+    --muted: 240 4% 13%;
+    --muted-foreground: 0 0% 64%;
+
+    --accent: 120 25% 50%;
+    --accent-foreground: 0 0% 97%;
+
+    --destructive: 0 60% 50%;
+    --destructive-foreground: 0 0% 97%;
+
+    --border: 0 0% 18%;
+    --input: 0 0% 18%;
+    --ring: 18 50% 60%;
+
+    --dot-recorded: 18 50% 60%;
+    --dot-photo: 35 75% 55%;
+    --surface-elevated: 240 5% 11%;
+    --text-secondary: 0 0% 62%;
+    --shadow-soft: 0 4px 20px -4px hsl(0 0% 0% / 0.45);
+    --shadow-elevated: 0 8px 32px -8px hsl(0 0% 0% / 0.55);
+
+    --surface-soft: 240 5% 10%;
+    --surface-soft-hover: 240 4% 15%;
+    --surface-contrast: 240 5% 12%;
+    --surface-inset: 240 5% 8%;
+    --text-soft: 0 0% 72%;
+    --chip-background: 216 35% 18%;
+    --chip-foreground: 216 100% 78%;
+    --toolbar-background: 240 5% 11%;
+    --overlay-backdrop: 0 0% 0% / 0.7;
+    --focus-green: 145 63% 49%;
+    --focus-track: 0 0% 22%;
+
+    --sidebar-background: 240 5% 7%;
+    --sidebar-foreground: 0 0% 90%;
+    --sidebar-primary: 18 50% 60%;
+    --sidebar-primary-foreground: 240 5% 6%;
+    --sidebar-accent: 240 4% 13%;
+    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar-border: 0 0% 16%;
+    --sidebar-ring: 18 50% 60%;
+  }
+}
+
+@layer base {
+  /* Root font-size bump: all rem-based Tailwind classes scale proportionally */
+  html {
+    font-size: 18px;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: "Nunito", -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    letter-spacing: -0.01em;
+    font-size: 1.1875rem; /* 21px at 18px root */
+    font-weight: 500;
+  }
+
+  /* EN: pixel overrides scaled ×1.125 from previous values */
+  body:not(.lang-zh) .text-xs { font-size: 1rem; }
+  body:not(.lang-zh) .text-sm { font-size: 1.125rem; }
+  body:not(.lang-zh) .text-\[9px\]  { font-size: 11px; }
+  body:not(.lang-zh) .text-\[10px\] { font-size: 13px; }
+  body:not(.lang-zh) .text-\[11px\] { font-size: 14px; }
+  body:not(.lang-zh) .text-\[12px\] { font-size: 15px; }
+  body:not(.lang-zh) .text-\[13px\] { font-size: 16px; }
+  body:not(.lang-zh) .text-\[14px\] { font-size: 17px; }
+  body:not(.lang-zh) .text-\[15px\] { font-size: 18px; }
+  body:not(.lang-zh) .font-medium { font-weight: 600; }
+  body:not(.lang-zh) .font-semibold { font-weight: 700; }
+  body:not(.lang-zh) .font-light { font-weight: 500; }
+
+  body.lang-zh {
+    font-weight: 500;
+    font-size: 1.1875rem; /* 21px at 18px root */
+  }
+
+  body.lang-zh h1, body.lang-zh h2, body.lang-zh h3,
+  body.lang-zh h4, body.lang-zh h5, body.lang-zh h6 {
+    font-weight: 700;
+  }
+
+  /* ZH: pixel overrides scaled ×1.125 */
+  body.lang-zh .text-xs { font-size: 0.9375rem; font-weight: 500; }
+  body.lang-zh .text-sm { font-size: 1.0625rem; font-weight: 500; }
+  body.lang-zh .text-base { font-weight: 500; }
+  body.lang-zh .text-\[9px\]  { font-size: 11px; font-weight: 500; }
+  body.lang-zh .text-\[10px\] { font-size: 13px; font-weight: 500; }
+  body.lang-zh .text-\[11px\] { font-size: 14px; font-weight: 500; }
+  body.lang-zh .text-\[12px\] { font-size: 15px; font-weight: 500; }
+  body.lang-zh .text-\[8px\]  { font-size: 10px; }
+  body.lang-zh .font-display { font-size: 1.5rem; font-weight: 700; }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: "Nunito", -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+  }
+
+  .font-display {
+    font-family: "Nunito", -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-weight: 800;
+  }
+
+  .font-brand {
+    font-family: "Nanum Pen Script", "Nunito", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", cursive;
+    font-weight: 400;
+    letter-spacing: 0;
+  }
+  
+  .font-month {
+    font-family: "Nunito", -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+
+  .datetime-input-iconless::-webkit-calendar-picker-indicator {
+    opacity: 0;
+    display: none;
+    pointer-events: none;
+    -webkit-appearance: none;
+  }
+
+  .datetime-input-iconless::-webkit-clear-button,
+  .datetime-input-iconless::-webkit-inner-spin-button {
+    display: none;
+  }
+}
+
+@layer components {
+  /* Calendar dot indicator */
+  .dot-recorded {
+    @apply w-1.5 h-1.5 rounded-full bg-primary;
+  }
+
+  .dot-photo {
+    @apply w-1.5 h-1.5 rounded-full;
+    background: hsl(var(--dot-photo));
+  }
+
+  /* Elevated surface */
+  .surface-elevated {
+    background: hsl(var(--surface-elevated));
+    box-shadow: var(--shadow-soft);
+  }
+
+  .surface-soft {
+    background: hsl(var(--surface-soft));
+  }
+
+  .surface-soft-hover {
+    background: hsl(var(--surface-soft-hover));
+  }
+
+  .surface-contrast {
+    background: hsl(var(--surface-contrast));
+  }
+
+  /* Bottom sheet styling */
+  .bottom-sheet {
+    @apply rounded-t-3xl bg-card;
+    box-shadow: var(--shadow-elevated);
+  }
+
+  /* Floating action button */
+  .fab {
+    @apply w-14 h-14 rounded-full bg-primary text-primary-foreground flex items-center justify-center;
+    box-shadow: var(--shadow-elevated);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .fab:hover {
+    transform: scale(1.05);
+    box-shadow: 0 12px 40px -8px hsl(18 45% 40% / 0.25);
+  }
+
+  .fab:active {
+    transform: scale(0.98);
+  }
+
+  /* Category chip */
+  .chip {
+    @apply px-4 py-2 rounded-full text-sm font-medium transition-all duration-200;
+    @apply bg-secondary text-secondary-foreground;
+  }
+
+  .chip-active {
+    @apply bg-primary text-primary-foreground;
+  }
+
+  /* Map pin */
+  .map-pin {
+    @apply w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground;
+    box-shadow: var(--shadow-soft);
+  }
+
+  /* Tab navigation */
+  .tab-item {
+    @apply flex flex-col items-center gap-1 py-2 px-4 text-muted-foreground transition-colors duration-200;
+  }
+
+  .tab-item-active {
+    @apply text-primary;
+  }
+
+  /* Calendar day cell */
+  .calendar-day {
+    @apply aspect-square flex flex-col items-center justify-center rounded-xl transition-all duration-200 cursor-pointer;
+  }
+
+  .calendar-day:hover {
+    @apply bg-secondary;
+  }
+
+  .calendar-day-today {
+    @apply ring-2 ring-primary ring-offset-2 ring-offset-background;
+  }
+
+  .calendar-day-selected {
+    @apply bg-primary text-primary-foreground;
+  }
+
+  /* Moment card */
+  .moment-card {
+    @apply p-4 rounded-2xl bg-card border border-border;
+    box-shadow: var(--shadow-soft);
+  }
+
+  /* Stats card */
+  .stats-card {
+    @apply p-5 rounded-2xl bg-card border border-border text-center;
+  }
+
+  .recap-readable-ui {
+    --recap-meta-size: 14px;
+    --recap-control-size: 14px;
+  }
+
+  .recap-readable-ui .text-\[10px\],
+  .recap-readable-ui .text-\[11px\],
+  .recap-readable-ui .text-\[12px\],
+  .recap-readable-ui .text-xs {
+    font-size: var(--recap-meta-size) !important;
+  }
+
+  .recap-readable-ui button {
+    min-height: 32px;
+    font-size: var(--recap-control-size) !important;
+  }
+
+  .recap-readable-ui button svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .recap-readable-ui .font-mono {
+    font-size: max(var(--recap-meta-size), 0.8125rem) !important;
+  }
+}
+
+@layer utilities {
+  /* Week bar slide animations — always show full 7 days, Apple-style */
+  @keyframes weekSlideOutLeft {
+    from { transform: translateX(0); opacity: 1; }
+    to   { transform: translateX(-100%); opacity: 0; }
+  }
+  @keyframes weekSlideOutRight {
+    from { transform: translateX(0); opacity: 1; }
+    to   { transform: translateX(100%); opacity: 0; }
+  }
+  @keyframes weekSlideInLeft {
+    from { transform: translateX(100%); opacity: 0; }
+    to   { transform: translateX(0); opacity: 1; }
+  }
+  @keyframes weekSlideInRight {
+    from { transform: translateX(-100%); opacity: 0; }
+    to   { transform: translateX(0); opacity: 1; }
+  }
+
+  .week-slide-out-left  { animation: weekSlideOutLeft  0.18s ease-in forwards; }
+  .week-slide-out-right { animation: weekSlideOutRight 0.18s ease-in forwards; }
+  .week-slide-in-left   { animation: weekSlideInLeft   0.2s ease-out forwards; }
+  .week-slide-in-right  { animation: weekSlideInRight  0.2s ease-out forwards; }
+
+  /* Animations */
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out forwards;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .animate-scale-in {
+    animation: scaleIn 0.2s ease-out forwards;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(100%);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  /* Subtle texture */
+  .texture-paper {
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  }
+
+  /* Leaflet minimal map overrides */
+  .map-dot-icon {
+    background: none !important;
+    border: none !important;
+  }
+
+  .map-popup-minimal .leaflet-popup-content-wrapper {
+    border-radius: 12px;
+    padding: 4px 8px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    border: 1px solid hsl(var(--border) / 0.3);
+  }
+
+  .map-popup-minimal .leaflet-popup-tip {
+    box-shadow: none;
+    border: 1px solid hsl(var(--border) / 0.2);
+  }
+
+  .leaflet-container {
+    font-family: inherit;
+  }
+
+  /* Keep OSM tiles in their natural color rendering */
+  .map-tiles-light {
+    filter: none;
+  }
+
+  /* Life map city circles */
+  .life-map-city-circle {
+    transition: fill-opacity 0.3s ease, stroke-opacity 0.3s ease;
+  }
+
+  .life-map-tooltip {
+    background: hsl(var(--card)) !important;
+    border: 1px solid hsl(var(--border) / 0.4) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08) !important;
+    padding: 6px 10px !important;
+    color: hsl(var(--foreground)) !important;
+    font-family: inherit !important;
+  }
+
+  .life-map-tooltip::before {
+    border-top-color: hsl(var(--card)) !important;
+  }
+
+  /* Fade-in animation for city cards */
+  @keyframes lifeMapFadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .life-map-card-enter {
+    animation: lifeMapFadeIn 0.4s ease-out both;
+  }
+
+  /* Place-level glow pulse */
+  .life-map-place-glow {
+    transition: fill-opacity 0.5s ease;
+  }
+
+  @keyframes lifeMapGlowPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+
+  @keyframes demoCursorPath {
+    0%, 8% {
+      transform: translate(0, 0);
+    }
+    12%, 26% {
+      transform: translate(280px, 92px);
+    }
+    30%, 44% {
+      transform: translate(280px, 92px);
+    }
+    48%, 62% {
+      transform: translate(218px, 166px);
+    }
+    66%, 80% {
+      transform: translate(520px, 34px);
+    }
+    84%, 100% {
+      transform: translate(490px, 236px);
+    }
+  }
+
+  @keyframes demoCursorClick {
+    0%, 31%, 51%, 65%, 83%, 100% {
+      transform: scale(0.65);
+      opacity: 0;
+      box-shadow: 0 0 0 0 rgba(223, 154, 118, 0.35);
+    }
+    12%, 30%, 52%, 64%, 84%, 96% {
+      transform: scale(1);
+      opacity: 1;
+      box-shadow: 0 0 0 10px rgba(223, 154, 118, 0);
+    }
+  }
+
+  @keyframes demoHotspotStepDrag {
+    0%, 100% {
+      opacity: 0.25;
+      transform: translateY(0);
+    }
+    4%, 28% {
+      opacity: 1;
+      transform: translateY(-2px);
+    }
+  }
+
+  @keyframes demoDragPillPath {
+    0%, 8% {
+      transform: translate(0, 0);
+      opacity: 0;
+    }
+    12%, 22% {
+      transform: translate(0, 0);
+      opacity: 1;
+    }
+    26%, 42% {
+      transform: translate(258px, 92px);
+      opacity: 1;
+    }
+    46%, 100% {
+      transform: translate(258px, 92px);
+      opacity: 0;
+    }
+  }
+
+  @keyframes demoHotspotStepFocus {
+    0%, 100% {
+      opacity: 0.25;
+      transform: translateY(0);
+    }
+    34%, 58% {
+      opacity: 1;
+      transform: translateY(-2px);
+    }
+  }
+
+  @keyframes demoHotspotStepToggle {
+    0%, 100% {
+      opacity: 0.25;
+      transform: translateY(0);
+    }
+    62%, 82% {
+      opacity: 1;
+      transform: translateY(-2px);
+    }
+  }
+
+  @keyframes demoHotspotStepTimeline {
+    0%, 100% {
+      opacity: 0.25;
+      transform: translateY(0);
+    }
+    80%, 100% {
+      opacity: 1;
+      transform: translateY(-2px);
+    }
+  }
+
+
+  .demo-hotspot {
+    opacity: 0.25;
+  }
+
+  .demo-hotspot-drag {
+    animation: demoHotspotStepDrag 10s ease-in-out infinite;
+  }
+
+  .demo-hotspot-focus {
+    animation: demoHotspotStepFocus 10s ease-in-out infinite;
+  }
+
+  .demo-hotspot-toggle {
+    animation: demoHotspotStepToggle 10s ease-in-out infinite;
+  }
+
+  .demo-hotspot-timeline {
+    animation: demoHotspotStepTimeline 10s ease-in-out infinite;
+  }
+
+  .demo-cursor-path {
+    animation: demoCursorPath 10s ease-in-out infinite;
+  }
+
+  .demo-cursor-ping {
+    animation: demoCursorClick 10s ease-in-out infinite;
+  }
+
+  .demo-drag-pill {
+    animation: demoDragPillPath 10s ease-in-out infinite;
+  }
+}

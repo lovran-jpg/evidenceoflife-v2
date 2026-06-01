@@ -1,0 +1,34 @@
+project_id = "roejikcahklpxjrapkvb"
+
+[functions.geo]
+verify_jwt = false
+
+[functions.google-calendar-auth]
+verify_jwt = false
+
+[functions.google-calendar-callback]
+verify_jwt = false
+
+[functions.google-calendar-sync]
+verify_jwt = false
+
+[functions.smart-input]
+verify_jwt = false
+
+[functions.link-preview]
+verify_jwt = false
+
+[functions.image-proxy]
+verify_jwt = false
+
+[functions.market-news-pipeline]
+verify_jwt = false
+
+[functions.market-price-snapshot]
+verify_jwt = false
+
+[functions.market-daily-digest]
+verify_jwt = false
+
+[functions.market-stock-picker]
+verify_jwt = false

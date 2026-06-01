@@ -1,0 +1,1 @@
+ALTER TABLE public.todos ADD COLUMN links jsonb DEFAULT '[]'::jsonb;

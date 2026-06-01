@@ -1,0 +1,5 @@
+ALTER TABLE public.profiles 
+  ADD COLUMN IF NOT EXISTS wake_hour integer NOT NULL DEFAULT 8,
+  ADD COLUMN IF NOT EXISTS wake_minute integer NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS homepage_image_url text DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS language text NOT NULL DEFAULT 'zh';

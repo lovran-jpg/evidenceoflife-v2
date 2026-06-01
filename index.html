@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Evidence of Life — What Have I Done</title>
+    <meta name="description" content="A private memory system to record what you've done. Not therapy, but evidence of a life well-lived." />
+    <meta name="author" content="Evidence of Life" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!--
+      Dark mode bootstrap.
+      Tailwind is configured with `darkMode: ["class"]`, so its `dark:`
+      variants only fire when `<html>` carries a `.dark` class. Without
+      this script, system-level `prefers-color-scheme: dark` would only
+      flip the CSS custom properties (background, foreground …) but
+      every `dark:bg-…` / `dark:border-…` utility would silently no-op,
+      leaving white-card surfaces stuck on a dark canvas.
+      We sync the class with system preference here, BEFORE any CSS or
+      React loads, so the very first paint is correct (no flash).
+    -->
+    <script>
+      (function () {
+        try {
+          var mq = window.matchMedia('(prefers-color-scheme: dark)');
+          var apply = function (isDark) {
+            document.documentElement.classList.toggle('dark', isDark);
+          };
+          apply(mq.matches);
+          if (mq.addEventListener) mq.addEventListener('change', function (e) { apply(e.matches); });
+          else if (mq.addListener) mq.addListener(function (e) { apply(e.matches); });
+        } catch (_) { /* non-fatal: fall back to light theme */ }
+      })();
+    </script>
+
+    <!-- Google Analytics (GA4) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-79TNDG3J2Z"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-79TNDG3J2Z');
+    </script>
+
+    <!-- Amplitude Analytics + Session Replay -->
+    <script src="https://cdn.amplitude.com/script/3669e7e2394507d4697b01747a277f18.js"></script>
+    <script>
+      window.amplitude.add(window.sessionReplay.plugin({sampleRate: 1}));
+      window.amplitude.init('3669e7e2394507d4697b01747a277f18', {"fetchRemoteConfig":true,"autocapture":true});
+    </script>
+
+    <meta property="og:title" content="Evidence of Life" />
+    <meta property="og:description" content="A private memory system to record what you've done. Not therapy, but evidence of a life well-lived." />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@Lovable" />
+    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&family=Nunito:wght@400;500;600;700;800&family=Caveat:wght@400;500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Playfair+Display:ital,wght@0,400;0,600;1,400;1,600&display=swap" rel="stylesheet">
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

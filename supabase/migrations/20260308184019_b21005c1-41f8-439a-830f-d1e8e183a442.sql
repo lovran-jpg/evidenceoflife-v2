@@ -1,0 +1,1 @@
+ALTER TABLE public.todos ADD COLUMN IF NOT EXISTS habit_category text DEFAULT NULL;
