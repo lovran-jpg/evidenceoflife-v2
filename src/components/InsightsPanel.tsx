@@ -55,7 +55,7 @@ interface InsightData {
   longestGapMin: number;
   categoryBreakdown: { tag: string; min: number; pct: number }[];
   weeklyData: { day: string; min: number }[];
-  streak: number;
+  daysLoggedThisWeek: number;
   compareYesterday: { tag: string; diff: number }[];
   workTypeBreakdown: { type: WorkType; min: number; pct: number }[];
 }
@@ -223,18 +223,16 @@ export function InsightsPanel({ moments, allMoments }: { moments: Moment[]; allM
       weeklyData.push({ day: dayLabel, min: dayMin });
     }
 
-    // ── Streak ──
-    let streak = 0;
+    // ── Days logged this week ──
+    // Calm record, not a streak: how many of the last 7 days have anything on them.
+    // Missing a day never resets it — no loss-aversion, no shame.
     const today = startOfDay(new Date());
-    for (let d = 0; d < 365; d++) {
+    let daysLoggedThisWeek = 0;
+    for (let d = 0; d < 7; d++) {
       const checkDate = format(subDays(today, d), 'yyyy-MM-dd');
       const hasMoment = allMoments.some(m => m.date === checkDate);
       const hasTodo = recentTodos.some(t => t.date === checkDate);
-      if (hasMoment || hasTodo) {
-        streak++;
-      } else if (d > 0) {
-        break;
-      }
+      if (hasMoment || hasTodo) daysLoggedThisWeek++;
     }
 
     // ── Compare with yesterday ──
@@ -265,7 +263,7 @@ export function InsightsPanel({ moments, allMoments }: { moments: Moment[]; allM
       categoryBreakdown,
       workTypeBreakdown,
       weeklyData,
-      streak,
+      daysLoggedThisWeek,
       compareYesterday,
     };
   }, [timedItems, recentTodos, allMoments]);
@@ -406,11 +404,11 @@ export function InsightsPanel({ moments, allMoments }: { moments: Moment[]; allM
                   <div className="grid grid-cols-2 gap-3">
                     <div className="rounded-[20px] bg-secondary/45 px-4 py-3">
                       <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/65">
-                        {lang === 'zh' ? '记录连续' : 'Streak'}
+                        {lang === 'zh' ? '本周记录' : 'Logged this week'}
                       </div>
                       <div className="mt-2 flex items-end gap-1">
-                        <span className="text-[1.8rem] font-semibold leading-none">{insights.streak}</span>
-                        <span className="pb-0.5 text-[13px] text-muted-foreground">{lang === 'zh' ? '天' : 'days'}</span>
+                        <span className="text-[1.8rem] font-semibold leading-none">{insights.daysLoggedThisWeek}</span>
+                        <span className="pb-0.5 text-[13px] text-muted-foreground">{lang === 'zh' ? '/ 7 天' : '/ 7 days'}</span>
                       </div>
                     </div>
                     <div className="rounded-[20px] bg-secondary/45 px-4 py-3">

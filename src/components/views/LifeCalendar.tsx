@@ -3,7 +3,7 @@ import {
   format, startOfYear, endOfYear, eachDayOfInterval, getDay, getMonth, startOfWeek,
   subYears, addYears, isToday, isBefore, parseISO, differenceInDays,
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, CalendarDays, Flame, Clock, Trophy, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CalendarDays, Sparkles, Clock, Trophy, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Moment, DayRecord } from '@/types';
 import { autoClassifyTag, TAG_CATEGORY_COLORS, TAG_CATEGORY_ICONS } from '@/lib/autoTag';
@@ -126,19 +126,9 @@ export function LifeCalendar({ allMoments, dayRecords, getMomentsForDate, onClos
     const topTag = Object.entries(tagTotals).sort((a, b) => b[1] - a[1])[0]?.[0] || '';
     const busiestMonth = monthCounts.indexOf(Math.max(...monthCounts));
 
-    // Streak
-    let streak = 0;
-    const today = new Date();
-    for (let d = 0; d < 366; d++) {
-      const checkDate = format(new Date(today.getFullYear(), today.getMonth(), today.getDate() - d), 'yyyy-MM-dd');
-      const data = dayData.get(checkDate);
-      if (data && data.count > 0) streak++;
-      else if (d > 0) break;
-    }
-
     return {
       grid: weeks,
-      stats: { totalDays, totalMoments, bestDay, bestDayCount, topTag, busiestMonth, maxCount, streak },
+      stats: { totalDays, totalMoments, bestDay, bestDayCount, topTag, busiestMonth, maxCount },
     };
   }, [year, allMoments, getMomentsForDate]);
 
@@ -223,9 +213,9 @@ export function LifeCalendar({ allMoments, dayRecords, getMomentsForDate, onClos
           <p className="text-[11px] text-muted-foreground">{lang === 'zh' ? '总记录' : 'Total Moments'}</p>
         </div>
         <div className="p-3 rounded-xl bg-card border border-border text-center">
-          <Flame size={16} className="mx-auto mb-1 text-orange-500" />
-          <p className="text-xl font-bold">{stats.streak}</p>
-          <p className="text-[11px] text-muted-foreground">{lang === 'zh' ? '连续天数' : 'Day Streak'}</p>
+          <Sparkles size={16} className="mx-auto mb-1 text-primary" />
+          <p className="text-xl font-bold">{stats.totalDays > 0 ? Math.round(stats.totalMoments / stats.totalDays) : 0}</p>
+          <p className="text-[11px] text-muted-foreground">{lang === 'zh' ? '日均记录' : 'Per Day'}</p>
         </div>
         <div className="p-3 rounded-xl bg-card border border-border text-center">
           <Trophy size={16} className="mx-auto mb-1 text-yellow-500" />

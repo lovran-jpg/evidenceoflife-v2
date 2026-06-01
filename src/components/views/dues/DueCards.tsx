@@ -60,17 +60,7 @@ export function HabitPunchCard({ dueId, totalCount }: { dueId: string; totalCoun
     });
   }, [completedDates]);
 
-  const streak = useMemo(() => {
-    let count = 0;
-    const today = startOfDay(new Date());
-    for (let i = 0; i < 365; i++) {
-      const d = format(subDays(today, i), 'yyyy-MM-dd');
-      if (completedDates.includes(d)) count++;
-      else if (i > 0) break;
-      else break;
-    }
-    return count;
-  }, [completedDates]);
+  const doneCount = useMemo(() => days.filter(d => d.done).length, [days]);
 
   return (
     <div className="space-y-1.5">
@@ -82,7 +72,7 @@ export function HabitPunchCard({ dueId, totalCount }: { dueId: string; totalCoun
           )} style={{ width: 8, height: 8, gap: 6 }} />
         ))}
       </div>
-      {streak > 0 && <span className="text-[12px] font-medium text-primary">🔥 {streak} day{streak > 1 ? 's' : ''}</span>}
+      {doneCount > 0 && <span className="text-[12px] font-medium text-muted-foreground">{doneCount} / 28 days</span>}
     </div>
   );
 }
@@ -137,7 +127,6 @@ export function CompactHabitCard({
               <p className="truncate text-[14px] font-semibold leading-tight text-foreground">{due.title}</p>
               <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground/75">
                 <span>{todayCount}/{targetCount} Today</span>
-                {due.currentStreak > 0 && <span>🔥 {due.currentStreak} day streak</span>}
               </div>
             </div>
             <ChevronDown

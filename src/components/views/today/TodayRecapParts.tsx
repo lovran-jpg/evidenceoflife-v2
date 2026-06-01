@@ -46,8 +46,7 @@ export function DailyHabitTracker({
 
   const summary = useMemo(() => {
     const done = habits.filter(h => (h.dailyCounts[selectedDateStr] || 0) >= h.targetCount).length;
-    const bestStreak = habits.reduce((max, habit) => Math.max(max, habit.currentStreak), 0);
-    return { done, total: habits.length, bestStreak };
+    return { done, total: habits.length };
   }, [habits, selectedDateStr]);
 
   const handleAddHabit = () => {
@@ -96,9 +95,11 @@ export function DailyHabitTracker({
               <p className="text-[22px] font-semibold text-foreground">{summary.done}/{summary.total}</p>
               <p className="text-[11px] text-muted-foreground/70">must-do habits done today</p>
             </div>
-            <div className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary">
-              {summary.bestStreak > 0 ? `🔥 ${summary.bestStreak} day streak` : 'Start your streak'}
-            </div>
+            {summary.total > 0 && summary.done === summary.total && (
+              <div className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary">
+                all done today
+              </div>
+            )}
           </div>
         </div>
 
@@ -173,10 +174,6 @@ export function DailyHabitTracker({
                       </button>
                     )}
                   </div>
-                  {/* Streak */}
-                  <span className="text-[10px] text-muted-foreground/50 whitespace-nowrap flex-shrink-0">
-                    {habit.currentStreak > 0 ? `${habit.currentStreak}d streak` : 'new'}
-                  </span>
                   {/* Checkboxes */}
                   <div className="flex items-center gap-1 flex-shrink-0">
                     {Array.from({ length: habit.targetCount }).map((_, index) => {
@@ -245,7 +242,7 @@ export function DailyHabitTracker({
                   <div className="min-w-0">
                     <p className="truncate text-[14px] font-semibold text-foreground">{habit.title}</p>
                     <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      {habit.currentStreak > 0 ? `${habit.currentStreak} day streak` : 'No streak yet'} · target {habit.targetCount}/day
+                      target {habit.targetCount}/day
                     </p>
                   </div>
                   <span className="rounded-full bg-secondary px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
