@@ -260,16 +260,22 @@ export function SideNav({ activeTab, activeSheet, onTabChange }: SideNavProps) {
               onDragEnd={() => setDraggedTab(null)}
               title={t(labelKey)}
               className={cn(
-                'flex h-9 items-center rounded-[10px] transition-colors',
+                'relative flex h-9 items-center rounded-[10px] transition-colors',
                 expanded ? 'w-full justify-start gap-2 px-3' : 'w-9 justify-center self-center',
                 expanded && 'cursor-grab active:cursor-grabbing',
                 draggedTab === id && 'opacity-60',
                 activeTab === id
-                  ? 'bg-[hsl(var(--surface-soft))] text-foreground'
+                  ? 'bg-primary/10 text-primary'
                   : 'text-[hsl(var(--text-soft))] hover:bg-[hsl(var(--surface-soft-hover))]'
               )}
             >
-              <Icon size={24} strokeWidth={activeTab === id ? 1.85 : 1.6} />
+              {activeTab === id && expanded && (
+                <span
+                  aria-hidden
+                  className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-primary"
+                />
+              )}
+              <Icon size={24} strokeWidth={activeTab === id ? 2 : 1.6} />
               {expanded && (
                 <span className="text-[16px] font-medium text-inherit">
                   {t(labelKey)}
@@ -301,13 +307,13 @@ export function SideNav({ activeTab, activeSheet, onTabChange }: SideNavProps) {
                         className={cn(
                           "group/lib flex min-h-11 w-full items-center gap-2.5 rounded-[14px] px-2.5 py-2 text-left transition-colors",
                           isOpen
-                            ? "bg-[hsl(var(--surface-soft-hover))] text-foreground"
+                            ? "bg-primary/10 text-primary"
                             : "text-[hsl(var(--text-soft))] hover:bg-[hsl(var(--surface-soft-hover))] hover:text-foreground"
                         )}
                       >
                         <span className={cn(
                           "flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[10px] bg-[hsl(var(--surface-soft))] transition-colors group-hover/lib:text-foreground",
-                          isOpen ? "text-foreground" : "text-muted-foreground/75"
+                          isOpen ? "text-primary" : "text-muted-foreground/75"
                         )}>
                           <Icon size={17} strokeWidth={isOpen ? 1.95 : 1.65} />
                         </span>
@@ -344,7 +350,7 @@ export function SideNav({ activeTab, activeSheet, onTabChange }: SideNavProps) {
                         className={cn(
                           "flex h-9 w-9 items-center justify-center self-center rounded-[10px] transition-colors",
                           isOpen
-                            ? "bg-[hsl(var(--surface-soft-hover))] text-foreground"
+                            ? "bg-primary/10 text-primary"
                             : "text-[hsl(var(--text-soft))] hover:bg-[hsl(var(--surface-soft-hover))] hover:text-foreground"
                         )}
                       >

@@ -403,7 +403,7 @@ export function PlanDrift({ allTodos, completedTodos, allMoments, todayDateStr, 
     return (
       <button
         onClick={() => setCollapsed(false)}
-        className="group flex w-full items-center gap-2.5 rounded-[14px] px-3 py-1.5 text-left transition-colors hover:bg-muted/20"
+        className="group flex w-full items-center gap-3 rounded-[14px] px-3 py-1.5 text-left transition-colors hover:bg-muted/20"
       >
         <span className="flex flex-shrink-0 items-baseline gap-1.5">
           <span
@@ -434,7 +434,7 @@ export function PlanDrift({ allTodos, completedTodos, allMoments, todayDateStr, 
         {!hasPlan && <span className="flex-1" />}
 
         {drift.totalMissed > 0 && (
-          <span className="flex-shrink-0 text-[9.5px] font-medium leading-none tabular-nums tracking-[0.02em] text-destructive/55">
+          <span className="inline-flex flex-shrink-0 items-center rounded-full bg-destructive/[0.08] px-1.5 py-0.5 text-[9.5px] font-medium leading-none tabular-nums tracking-[0.02em] text-destructive/60">
             {drift.totalMissed} {missedLabel}
           </span>
         )}
