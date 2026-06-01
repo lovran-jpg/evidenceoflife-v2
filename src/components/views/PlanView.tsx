@@ -24,7 +24,8 @@ import { Moment } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 import { LocationPopover } from '@/components/LocationPopover';
 import { useWorkTypes } from '@/hooks/useWorkTypes';
-import { WorkType, WORK_TYPE_META, resolveWorkType } from '@/lib/workType';
+import { WorkType, WORK_TYPE_META, resolveWorkType, getWorkTypeKey } from '@/lib/workType';
+import { tidyTaskTitle } from '@/lib/tidyTaskTitle';
 import { useIsDarkMode } from '@/hooks/useIsDarkMode';
 import {
   getPlanTimelineRhythmPreset,
@@ -331,7 +332,7 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
   onDragStart: (e: React.DragEvent) => void; onDragEnd: () => void; onToggleWithProgress: () => void;
 }) {
   const { t: tLang, lang } = useLanguage();
-  const { getWorkType, setWorkType } = useWorkTypes();
+  const { getWorkType, setWorkType, overrides } = useWorkTypes();
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(todo.title);
   const [isEditingTime, setIsEditingTime] = useState(false);
@@ -347,7 +348,8 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
     : 0;
 
   const handleSaveTitle = () => {
-    if (editTitle.trim() && editTitle.trim() !== todo.title) onUpdateTitle(editTitle.trim());
+    const cleaned = tidyTaskTitle(editTitle);
+    if (cleaned && cleaned !== todo.title) onUpdateTitle(cleaned);
     else setEditTitle(todo.title);
     setIsEditing(false);
   };
@@ -378,6 +380,10 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
   const tagPillStyle = getTaskTagPillStyle(inferredTag);
   const workType = getWorkType({ entity: 'todo', id: todo.id, title: todo.title, tags: todo.tags });
   const workTypeMeta = WORK_TYPE_META[workType];
+  // Only treat the work type as "set" when the user deliberately picked one
+  // (an explicit override). Otherwise the pill is just auto-inferred noise, so
+  // we reveal it on row hover instead of cluttering every row.
+  const hasExplicitWorkType = !!overrides[getWorkTypeKey('todo', todo.id)];
   const statusLabel = todo.is_completed
     ? 'Done'
     : isDoing
@@ -533,7 +539,10 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
                 <PopoverTrigger asChild>
                   <button
                     type="button"
-                    className="inline-flex items-center gap-1 rounded-full px-1.5 py-[2px] text-[10px] font-medium transition-colors hover:brightness-95 dark:saturate-[0.78] dark:opacity-90"
+                    className={cn(
+                      "items-center gap-1 rounded-full px-1.5 py-[2px] text-[10px] font-medium transition-colors hover:brightness-95 dark:saturate-[0.78] dark:opacity-90",
+                      hasExplicitWorkType ? "inline-flex" : "hidden group-hover:inline-flex"
+                    )}
                     style={{ color: hexWithAlpha(workTypeMeta.color, 'B3'), backgroundColor: `${workTypeMeta.bg}73` }}
                     title="Work type"
                   >
@@ -685,10 +694,11 @@ export function PlanView({
     return def ? tLang(key) : key;
   });
   const addTodo = useCallback(async (title: string, timeSegment: Todo['time_segment'] = 'anytime', dueDate?: string) => {
-    const result = await rawAddTodo(title, timeSegment, dueDate);
+    const cleanTitle = tidyTaskTitle(title);
+    const result = await rawAddTodo(cleanTitle, timeSegment, dueDate);
     // Auto-classify tag if none assigned
     if (result && (!result.tags || result.tags.length === 0)) {
-      const autoTag = autoClassifyTag(title);
+      const autoTag = autoClassifyTag(cleanTitle);
       if (autoTag) {
         await rawUpdateTodo(result.id, { tags: [autoTag] });
       }
