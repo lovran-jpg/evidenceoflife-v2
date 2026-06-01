@@ -30,6 +30,14 @@ function getDurationMin(item: { timer_started_at?: string | null; timer_ended_at
   if (item.timer_started_at && item.timer_ended_at) {
     return Math.max(0, differenceInMinutes(new Date(item.timer_ended_at), new Date(item.timer_started_at)));
   }
+  // Still-running timer (started, not yet ended): count the live session so far.
+  // Insights is always "today", so elapsed = now - started.
+  if (item.timer_started_at && !item.timer_ended_at) {
+    const startedMs = new Date(item.timer_started_at).getTime();
+    if (Number.isFinite(startedMs) && startedMs <= Date.now()) {
+      return Math.max(0, (Date.now() - startedMs) / 60000);
+    }
+  }
   return 0;
 }
 
