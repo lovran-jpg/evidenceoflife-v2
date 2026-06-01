@@ -37,16 +37,16 @@ const tabConfig: { id: TabType; icon: typeof Clock3; labelKey: string }[] = [
 // Plan → Live → Capture → Revisit loop. "Evidence" holds the material that
 // proves a day actually happened; "Obligations" holds what keeps life moving.
 type SheetItem = { id: TabType; icon: typeof Clock3; shortLabel: string; hint: string };
-const sheetGroups: { label: string; items: SheetItem[] }[] = [
+const sheetGroups: { labelKey: string; items: SheetItem[] }[] = [
   {
-    label: 'Evidence',
+    labelKey: 'sidenav.evidence',
     items: [
       { id: 'notes', icon: StickyNote, shortLabel: 'Notes', hint: 'Lists, images, reminders' },
       { id: 'linkup', icon: Link2, shortLabel: 'Links', hint: 'Collections & references' },
     ],
   },
   {
-    label: 'Obligations',
+    labelKey: 'sidenav.obligations',
     items: [
       { id: 'dues', icon: Pin, shortLabel: 'Deadlines', hint: 'Due dates & urgent work' },
       { id: 'habits', icon: Repeat, shortLabel: 'Habits', hint: 'Repeatable routines' },
@@ -228,7 +228,7 @@ export function SideNav({ activeTab, activeSheet, onTabChange }: SideNavProps) {
           {/* Daily loop: full-page core surfaces (plan → live → capture → revisit) */}
           {expanded && (
             <span className="mb-0.5 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/45">
-              Daily loop
+              {t('sidenav.dailyLoop')}
             </span>
           )}
           {/* Primary nav tabs */}
@@ -282,10 +282,10 @@ export function SideNav({ activeTab, activeSheet, onTabChange }: SideNavProps) {
           {expanded ? (
             <div className="mt-3 space-y-2">
               {sheetGroups.map((group) => (
-                <div key={group.label} className="rounded-[18px] border border-border/55 bg-background/55 p-1.5 shadow-[0_8px_24px_hsl(var(--foreground)/0.035)]">
+                <div key={group.labelKey} className="rounded-[18px] border border-border/55 bg-background/55 p-1.5 shadow-[0_8px_24px_hsl(var(--foreground)/0.035)]">
                   <div className="mb-1 flex items-center justify-between px-2 py-1">
                     <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/45">
-                      {group.label}
+                      {t(group.labelKey)}
                     </span>
                     <span className="text-[10px] text-muted-foreground/35">{group.items.length}</span>
                   </div>
@@ -330,7 +330,7 @@ export function SideNav({ activeTab, activeSheet, onTabChange }: SideNavProps) {
           ) : (
             <>
               {sheetGroups.map((group) => (
-                <div key={group.label}>
+                <div key={group.labelKey}>
                   <div className="my-1 h-px bg-border/35 mx-1" />
                   <div className="flex flex-col gap-1 rounded-[14px] bg-background/35 py-1">
                     {group.items.map(({ id, icon: Icon, shortLabel, hint }) => {

@@ -24,36 +24,13 @@ import {
 import { Button } from '@/components/ui/button';
 import { trackEvent } from '@/lib/analytics';
 import { BrandLogo } from '@/components/BrandLogo';
+import { useLanguage } from '@/hooks/useLanguage';
 
 const steps = [
-  {
-    number: '01',
-    id: 'plan',
-    label: 'Plan',
-    title: 'Plan the day before it runs away',
-    body: 'Put tasks, routines, calendar imports and deadlines onto one living timeline.',
-  },
-  {
-    number: '02',
-    id: 'focus',
-    label: 'Live',
-    title: 'Turn intent into recorded time',
-    body: 'Start a focus session from the timeline so the hours you actually live stay attached to the task.',
-  },
-  {
-    number: '03',
-    id: 'recap',
-    label: 'Capture',
-    title: 'Capture the evidence it happened',
-    body: 'Add the note, photo, mood, place or link while the memory is still fresh.',
-  },
-  {
-    number: '04',
-    id: 'calendar',
-    label: 'Revisit',
-    title: 'Reopen life by time and place',
-    body: 'Plans and moments settle into a day, week, month, year and map you can revisit anytime.',
-  },
+  { number: '01', id: 'plan', labelKey: 'landing.phase.plan', titleKey: 'landing.step.plan.title', bodyKey: 'landing.step.plan.body' },
+  { number: '02', id: 'focus', labelKey: 'landing.phase.live', titleKey: 'landing.step.live.title', bodyKey: 'landing.step.live.body' },
+  { number: '03', id: 'recap', labelKey: 'landing.phase.capture', titleKey: 'landing.step.capture.title', bodyKey: 'landing.step.capture.body' },
+  { number: '04', id: 'calendar', labelKey: 'landing.phase.revisit', titleKey: 'landing.step.revisit.title', bodyKey: 'landing.step.revisit.body' },
 ];
 
 const featurePillars = [
@@ -79,66 +56,30 @@ const featurePillars = [
 // that prove a day happened, and the obligations that keep life moving.
 const moduleGroups = [
   {
-    label: 'Core loop',
-    caption: 'The main loop everyone learns first.',
+    labelKey: 'landing.group.core.label',
+    captionKey: 'landing.group.core.caption',
     items: [
-      {
-        icon: Clock3,
-        title: 'Today timeline',
-        body: 'A single surface for plans, imported events, todos and recorded moments across your waking hours.',
-      },
-      {
-        icon: Timer,
-        title: 'Focus sessions',
-        body: 'Log real work time from a pomodoro-style session and attach it to the day it happened.',
-      },
-      {
-        icon: NotebookPen,
-        title: 'Fast recaps',
-        body: 'Close the loop with short notes, photos, moods and tags without turning journaling into homework.',
-      },
-      {
-        icon: CalendarDays,
-        title: 'Calendar and map recall',
-        body: 'Revisit your days by time and place, with week, month, year and map views that make recall effortless.',
-      },
+      { icon: Clock3, titleKey: 'landing.mod.today.title', bodyKey: 'landing.mod.today.body' },
+      { icon: Timer, titleKey: 'landing.mod.focus.title', bodyKey: 'landing.mod.focus.body' },
+      { icon: NotebookPen, titleKey: 'landing.mod.recap.title', bodyKey: 'landing.mod.recap.body' },
+      { icon: CalendarDays, titleKey: 'landing.mod.recall.title', bodyKey: 'landing.mod.recall.body' },
     ],
   },
   {
-    label: 'Evidence types',
-    caption: 'The material that proves life happened.',
+    labelKey: 'landing.group.evidence.label',
+    captionKey: 'landing.group.evidence.caption',
     items: [
-      {
-        icon: Images,
-        title: 'Photo evidence',
-        body: 'Attach visual proof to moments so ordinary days regain texture when you look back.',
-      },
-      {
-        icon: MapPin,
-        title: 'Place memory',
-        body: 'Tag restaurants, cafes, parks, museums and trips, then rediscover them on a personal map.',
-      },
-      {
-        icon: Link2,
-        title: 'Links and references',
-        body: 'Save useful links with previews so the references around a day stay connected to the day itself.',
-      },
+      { icon: Images, titleKey: 'landing.mod.photo.title', bodyKey: 'landing.mod.photo.body' },
+      { icon: MapPin, titleKey: 'landing.mod.place.title', bodyKey: 'landing.mod.place.body' },
+      { icon: Link2, titleKey: 'landing.mod.link.title', bodyKey: 'landing.mod.link.body' },
     ],
   },
   {
-    label: 'Life obligations',
-    caption: 'The things that keep life moving.',
+    labelKey: 'landing.group.obligations.label',
+    captionKey: 'landing.group.obligations.caption',
     items: [
-      {
-        icon: Pin,
-        title: 'Deadlines and dues',
-        body: 'Track urgent work, multi-step obligations, reminders, photos and links without losing them in notes.',
-      },
-      {
-        icon: Repeat,
-        title: 'Habits without guilt',
-        body: 'Keep repeatable routines visible as part of life, not as a streak machine designed to shame you.',
-      },
+      { icon: Pin, titleKey: 'landing.mod.dues.title', bodyKey: 'landing.mod.dues.body' },
+      { icon: Repeat, titleKey: 'landing.mod.habits.title', bodyKey: 'landing.mod.habits.body' },
     ],
   },
 ];
@@ -172,6 +113,7 @@ const framePresets: Record<string, { scale: number; x: number; y: number; width:
 
 export default function Landing() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [activeStepIndex, setActiveStepIndex] = useState(0);
   const activeStep = steps[activeStepIndex];
   const activeFrame = framePresets[activeStep.id] ?? framePresets.plan;
@@ -202,7 +144,7 @@ export default function Landing() {
             <BrandLogo alt="Evidence of Life" className="h-10 w-10" />
             <div className="leading-tight">
               <div className="font-brand text-[22px] text-[#6f5646]">Evidence of life</div>
-              <div className="text-xs text-[#9a8473]">Private memory system</div>
+              <div className="text-xs text-[#9a8473]">{t('landing.tagline')}</div>
             </div>
           </button>
 
@@ -237,19 +179,17 @@ export default function Landing() {
           <div className="relative mx-auto flex max-w-3xl flex-col items-center">
             <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(212,135,95,0.22)] bg-[rgba(255,250,244,0.9)] px-3.5 py-1.5 text-sm font-medium text-[#c9784e] shadow-sm">
               <Sparkles size={14} />
-              Don't let your days disappear
+              {t('landing.eyebrow')}
             </div>
 
             <h1 className="mt-7 text-balance text-4xl font-semibold leading-[1.04] tracking-[-0.04em] text-[#2d221d] sm:text-6xl">
-              Plan your day.
+              {t('landing.heroTitle1')}
               <br />
-              <span className="text-[#c9784e]">Keep what actually happened.</span>
+              <span className="text-[#c9784e]">{t('landing.heroTitle2')}</span>
             </h1>
 
             <p className="mt-6 max-w-2xl text-pretty text-lg leading-8 text-[#6d594d]">
-              Evidence of Life turns your daily plans, work sessions, photos, places, notes, links,
-              deadlines and habits into one private record of what actually happened — through a single
-              loop: plan the day, live it, capture the evidence, and revisit it later.
+              {t('landing.heroSub')}
             </p>
 
             <div className="mt-9 flex w-full flex-col items-center justify-center gap-3 sm:flex-row">
@@ -290,7 +230,7 @@ export default function Landing() {
 
               <div className="relative aspect-[16/10] overflow-hidden bg-[#171210]">
                 <div className="absolute left-4 top-4 z-10 rounded-full border border-[rgba(223,154,118,0.24)] bg-[rgba(23,18,16,0.82)] px-3 py-1.5 text-[11px] font-medium text-[#f4dfd1]">
-                  {activeStep.number}. {activeStep.label}
+                  {activeStep.number}. {t(activeStep.labelKey)}
                 </div>
                 <iframe
                   src={`/demo-app?embed=1&demoStep=${activeStep.id}`}
@@ -322,12 +262,12 @@ export default function Landing() {
                       : 'border border-[rgba(124,82,56,0.14)] bg-white/70 text-[#7b675a] hover:bg-white'
                   }`}
                 >
-                  {step.label}
+                  {t(step.labelKey)}
                 </button>
               ))}
             </div>
             <p className="mt-3 text-center text-[15px] text-[#786457]">
-              <span className="font-semibold text-[#342821]">{activeStep.title}.</span> {activeStep.body}
+              <span className="font-semibold text-[#342821]">{t(activeStep.titleKey)}.</span> {t(activeStep.bodyKey)}
             </p>
           </div>
         </section>
@@ -335,14 +275,14 @@ export default function Landing() {
         <section className="border-y border-[rgba(124,82,56,0.08)] bg-[rgba(255,250,244,0.62)]">
           <div className="mx-auto grid max-w-5xl grid-cols-2 gap-6 px-6 py-10 text-center sm:grid-cols-4 lg:px-8">
             {[
-              ['Plan', 'tasks, dues and routines on one timeline'],
-              ['Live', 'focus sessions record real time'],
-              ['Capture', 'notes, photos, places and links'],
-              ['Revisit', 'browse by day, year and map'],
-            ].map(([stat, label]) => (
-              <div key={label}>
-                <div className="text-xl font-semibold tracking-tight text-[#c9784e]">{stat}</div>
-                <div className="mt-1 text-sm leading-6 text-[#786457]">{label}</div>
+              ['landing.phase.plan', 'landing.stat.planSub'],
+              ['landing.phase.live', 'landing.stat.liveSub'],
+              ['landing.phase.capture', 'landing.stat.captureSub'],
+              ['landing.phase.revisit', 'landing.stat.revisitSub'],
+            ].map(([statKey, labelKey]) => (
+              <div key={statKey}>
+                <div className="text-xl font-semibold tracking-tight text-[#c9784e]">{t(statKey)}</div>
+                <div className="mt-1 text-sm leading-6 text-[#786457]">{t(labelKey)}</div>
               </div>
             ))}
           </div>
@@ -356,13 +296,10 @@ export default function Landing() {
                 Product positioning
               </div>
               <h2 className="mt-5 text-3xl font-semibold tracking-[-0.03em] text-[#2d221d] sm:text-4xl">
-                The personal CRM for your own life
+                {t('landing.product.h2')}
               </h2>
               <p className="mt-4 text-lg leading-8 text-[#6d594d]">
-                Most tools ask you to choose: plan in one app, focus in another,
-                journal somewhere else, track deadlines in a notes app, save links in a browser,
-                then search photos later. Evidence of Life connects those fragments into one
-                private product loop: plan, live, remember.
+                {t('landing.product.body')}
               </p>
             </div>
 
@@ -384,24 +321,24 @@ export default function Landing() {
 
           <div className="mt-14 space-y-12">
             {moduleGroups.map((group) => (
-              <div key={group.label}>
+              <div key={group.labelKey}>
                 <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                   <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-[#c9784e]">
-                    {group.label}
+                    {t(group.labelKey)}
                   </h3>
-                  <span className="text-sm text-[#9a8473]">{group.caption}</span>
+                  <span className="text-sm text-[#9a8473]">{t(group.captionKey)}</span>
                 </div>
                 <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                   {group.items.map((feature) => (
                     <div
-                      key={feature.title}
+                      key={feature.titleKey}
                       className="group rounded-2xl border border-[rgba(124,82,56,0.1)] bg-[rgba(255,250,244,0.78)] p-6 transition-shadow hover:shadow-[0_24px_48px_-28px_rgba(45,34,29,0.4)]"
                     >
                       <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[rgba(212,135,95,0.14)] text-[#c9784e]">
                         <feature.icon size={20} />
                       </div>
-                      <h3 className="mt-5 text-lg font-semibold text-[#342821]">{feature.title}</h3>
-                      <p className="mt-2 text-[15px] leading-7 text-[#786457]">{feature.body}</p>
+                      <h3 className="mt-5 text-lg font-semibold text-[#342821]">{t(feature.titleKey)}</h3>
+                      <p className="mt-2 text-[15px] leading-7 text-[#786457]">{t(feature.bodyKey)}</p>
                     </div>
                   ))}
                 </div>
@@ -413,9 +350,9 @@ export default function Landing() {
                 <ShieldCheck size={20} />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-[#342821]">Private by default</h3>
+                <h3 className="text-lg font-semibold text-[#342821]">{t('landing.private.title')}</h3>
                 <p className="mt-1 text-[15px] leading-7 text-[#786457]">
-                  Built as a personal memory system, not a social feed and not another public performance layer.
+                  {t('landing.private.body')}
                 </p>
               </div>
             </div>
@@ -478,14 +415,14 @@ export default function Landing() {
         <section id="how-it-works" className="mx-auto max-w-6xl px-6 py-24 lg:px-8">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-semibold tracking-[-0.03em] text-[#2d221d] sm:text-4xl">
-              One loop: plan, live, remember
+              {t('landing.how.h2')}
             </h2>
             <p className="mt-4 text-lg leading-8 text-[#6d594d]">
               The same day flows forward. You do not leave productivity mode to enter memory mode.
             </p>
           </div>
 
-          <ol className="mt-14 grid gap-3 lg:grid-cols-5">
+          <ol className="mt-14 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {steps.map((step) => (
               <li
                 key={step.id}
@@ -494,8 +431,8 @@ export default function Landing() {
                 <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#d4875f] text-base font-semibold text-white">
                   {step.number}
                 </div>
-                <h3 className="mt-5 text-lg font-semibold text-[#342821]">{step.label}</h3>
-                <p className="mt-2 text-sm leading-6 text-[#786457]">{step.body}</p>
+                <h3 className="mt-5 text-lg font-semibold text-[#342821]">{t(step.labelKey)}</h3>
+                <p className="mt-2 text-sm leading-6 text-[#786457]">{t(step.bodyKey)}</p>
               </li>
             ))}
           </ol>
@@ -507,7 +444,7 @@ export default function Landing() {
               <Sparkles size={22} />
             </div>
             <blockquote className="mt-6 text-2xl font-semibold leading-10 tracking-[-0.02em] text-[#342821] sm:text-3xl">
-              "Not another productivity app. A way to prove to yourself that the days are adding up."
+              {t('landing.narrative')}
             </blockquote>
             <p className="mt-4 text-sm font-medium text-[#8d7564]">Core marketing narrative</p>
           </div>
