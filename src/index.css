@@ -561,6 +561,13 @@
     filter: none;
   }
 
+  /* Safety net: loaded tiles must always be visible. Leaflet's fade-in can
+     stall at opacity:0 (black map) when the container is initialized hidden or
+     resized rapidly; force any loaded tile to full opacity. */
+  .leaflet-tile-loaded {
+    opacity: 1 !important;
+  }
+
   /* Life map city circles */
   .life-map-city-circle {
     transition: fill-opacity 0.3s ease, stroke-opacity 0.3s ease;

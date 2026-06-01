@@ -763,6 +763,10 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
           zoom: 2,
           zoomControl: false,
           attributionControl: false,
+          // Tile fade-in occasionally stalls at opacity:0 when the container is
+          // initialized while hidden / resized repeatedly, leaving a black map.
+          // Disabling fade makes loaded tiles paint immediately.
+          fadeAnimation: false,
         });
 
         mapRef.current = map;
@@ -1264,6 +1268,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
           scrollWheelZoom: false,
           doubleClickZoom: false,
           touchZoom: false,
+          fadeAnimation: false,
         });
 
         detailMapRef.current = map;
