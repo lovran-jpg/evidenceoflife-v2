@@ -942,6 +942,8 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
     const suppressLeadingMeta = narrowLayout || ultraNarrowLayout || blockWidthPx < 175;
     const microLayout = height < 34 || blockWidthPx < 95;
     const slimBarLayout = height < 38 && blockWidthPx >= 120;
+    /** Too narrow for any readable title (would render as "U…"); show only color bar + emoji + duration, title on hover */
+    const hideTitleTooNarrow = blockWidthPx > 0 && blockWidthPx < 64;
     const titleFontSizePx = microLayout
       ? 11
       : narrowLayout
@@ -1012,6 +1014,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
         <div
           key={block.id}
           data-plan-block="true"
+          title={hideTitleTooNarrow ? block.title : undefined}
           className={cn(
             "absolute overflow-hidden transition-shadow group/block",
             block.photos?.length ? "cursor-zoom-in" : "cursor-default"
@@ -1067,12 +1070,16 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
                     {block.emoji}
                   </span>
                 )}
-                <span
-                  className="min-w-0 flex-1 truncate leading-none"
-                  style={{ fontSize: '12px', fontWeight: 500, color: 'hsl(var(--foreground))' }}
-                >
-                  {block.title}
-                </span>
+                {hideTitleTooNarrow ? (
+                  <span className="min-w-0 flex-1" />
+                ) : (
+                  <span
+                    className="min-w-0 flex-1 truncate leading-none"
+                    style={{ fontSize: '12px', fontWeight: 500, color: 'hsl(var(--foreground))' }}
+                  >
+                    {block.title}
+                  </span>
+                )}
                 <span
                   className="flex-shrink-0 font-mono tabular-nums leading-none text-muted-foreground/70"
                   style={{ fontSize: '10px' }}
@@ -1092,7 +1099,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
                   />
                 )}
                 {block.emoji && <span className="flex-shrink-0" style={{ fontSize: '15px' }}>{block.emoji}</span>}
-                <span className="truncate" style={{ fontSize: '15px', fontWeight: 600, color: 'hsl(var(--foreground))' }}>{block.title}</span>
+                {!hideTitleTooNarrow && <span className="truncate" style={{ fontSize: '15px', fontWeight: 600, color: 'hsl(var(--foreground))' }}>{block.title}</span>}
               </div>
               {height > 34 && (
                 <div className="flex items-center gap-1 mt-0.5">
@@ -1110,6 +1117,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
       <div
         key={block.id}
         data-plan-block="true"
+        title={hideTitleTooNarrow ? block.title : undefined}
         className={cn(
           "absolute overflow-visible transition-shadow group/block",
           isEditable ? "cursor-grab" : "cursor-default",
@@ -1641,7 +1649,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
                         color: block.isCompleted ? tintedText(0.12) : isPlanOnly ? tintedText(0.45) : 'hsl(var(--foreground))',
                       }}
                     >
-                      {block.title}
+                      {hideTitleTooNarrow ? '' : block.title}
                     </span>
                     {!hideElapsedWhileTiming && !narrowLayout && blockWidthPx >= 280 && compactDurationLabel.length <= 10 && (
                       <span
@@ -1681,7 +1689,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
                         WebkitBoxOrient: allowWrappedTitle ? 'vertical' : 'unset',
                         whiteSpace: allowWrappedTitle ? 'normal' : 'nowrap',
                         color: block.isCompleted ? tintedText(0.12) : isPlanOnly ? tintedText(isDarkMode ? 0.58 : 0.48) : 'hsl(var(--foreground))',
-                      }}>{block.title}</span>
+                      }}>{hideTitleTooNarrow ? '' : block.title}</span>
                     </div>
                     {editingTimeBlockId === block.id && (
                       <div className="flex items-center gap-1 mt-0.5 flex-wrap" onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
