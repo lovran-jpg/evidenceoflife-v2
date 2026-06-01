@@ -310,10 +310,19 @@ const LanguageContext = createContext<LanguageContextType>({
   t: (key: string) => key,
 });
 
+// Detect the language from the browser/OS locale. Used only as the fallback
+// when the user has no saved preference yet; an explicit choice in Settings
+// still wins and is persisted to localStorage + profile.
+function detectSystemLang(): Lang {
+  if (typeof navigator === 'undefined') return 'en';
+  const locales = [navigator.language, ...(navigator.languages ?? [])];
+  return locales.some((l) => l?.toLowerCase().startsWith('zh')) ? 'zh' : 'en';
+}
+
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>(() => {
     const stored = localStorage.getItem('app-language');
-    return (stored === 'en' || stored === 'zh') ? stored : 'zh';
+    return (stored === 'en' || stored === 'zh') ? stored : detectSystemLang();
   });
   const { profile, updateProfile } = useProfile();
 
