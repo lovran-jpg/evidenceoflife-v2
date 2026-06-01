@@ -1259,7 +1259,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                     Recap my day
                   </p>
                   <p className="mt-3 text-[12px] leading-6 text-muted-foreground/70">
-                    No moments or completed tasks yet. Add a small moment below and your recap will start to take shape.
+                    Nothing logged yet. Add a moment below.
                   </p>
                 </div>
               </div>
