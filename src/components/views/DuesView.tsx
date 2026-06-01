@@ -521,7 +521,7 @@ export function DuesView({
       )}
 
       {!hasFutureCommitments && lockedMode && (
-        <div className="mb-3 flex items-end justify-between gap-3">
+        <div className="mb-3 flex items-end justify-between gap-3 pr-24">
           <div className="min-w-0">
             <h2 className="text-[19px] font-semibold tracking-[-0.03em] text-foreground">{viewTitle}</h2>
             <p className="mt-0.5 text-[11px] font-medium text-muted-foreground/48">

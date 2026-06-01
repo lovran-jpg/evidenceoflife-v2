@@ -31,6 +31,7 @@ import { GoogleCalendarButton } from '@/components/GoogleCalendarButton';
 import { supabase } from '@/integrations/supabase/client';
 import { TAG_CATEGORY_ICONS } from '@/lib/autoTag';
 import { buildEvidenceExport, serializeEvidenceExport, evidenceExportFilename } from '@/lib/exportEvidence';
+import { buildLocalLifeReplay } from '@/components/views/today/todayHelpers';
 import { format } from 'date-fns';
 import { DayRecord, Moment } from '@/types';
 import { Todo } from '@/hooks/useTodos';
@@ -176,23 +177,25 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
 
   const generateLifeReplay = async () => {
     setReplayLoading(true);
+    const events = todayMoments.map(m => ({
+      time: m.createdAt ? format(new Date(m.createdAt), 'HH:mm') : '',
+      title: m.tags?.[0] || m.text || m.emoji || '',
+      duration: m.timer_seconds ? `${Math.round(m.timer_seconds / 60)}m` : '',
+    })).filter(e => e.title);
+
+    if (events.length < 3) {
+      setLifeReplay(lang === 'zh' ? '今天还没有足够的活动来生成回放。' : 'Not enough activity today for a replay.');
+      setReplayLoading(false);
+      return;
+    }
+
     try {
-      const events = todayMoments.map(m => ({
-        time: m.createdAt ? format(new Date(m.createdAt), 'HH:mm') : '',
-        title: m.tags?.[0] || m.text || m.emoji || '',
-        duration: m.timer_seconds ? `${Math.round(m.timer_seconds / 60)}m` : '',
-      })).filter(e => e.title);
-
-      if (events.length < 2) {
-        setLifeReplay(lang === 'zh' ? '今天还没有足够的活动来生成回放。' : 'Not enough activity today for a replay.');
-        setReplayLoading(false);
-        return;
-      }
-
       const { data } = await supabase.functions.invoke('life-replay', { body: { events, lang } });
-      if (data?.story) setLifeReplay(data.story);
+      setLifeReplay(data?.story || buildLocalLifeReplay(events, lang) || (lang === 'zh' ? '今天还没有足够的活动来生成回放。' : 'Not enough activity today for a replay.'));
     } catch {
-      toast.error(lang === 'zh' ? '回放生成失败' : 'Replay failed');
+      const fallback = buildLocalLifeReplay(events, lang);
+      if (fallback) setLifeReplay(fallback);
+      else toast.error(lang === 'zh' ? '回放生成失败' : 'Replay failed');
     }
     setReplayLoading(false);
   };
