@@ -2564,8 +2564,8 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
       >
         {/* Hour labels + quiet “remaining” line (same column as screenshot) */}
         <div
-          className="flex-shrink-0 relative overflow-visible border-r border-[rgba(55,55,62,0.05)] dark:border-border/35"
-          style={{ width: TIME_RAIL_WIDTH_PX, height: totalHeight }}
+          className="flex-shrink-0 relative z-20 overflow-visible border-r border-[rgba(55,55,62,0.05)] dark:border-border/35"
+          style={{ width: TIME_RAIL_WIDTH_PX, height: totalHeight, backgroundColor: timelineCanvasBg }}
         >
           {hours.map(h => {
             const top = minToY(h * 60);
