@@ -443,7 +443,7 @@ export function SmartChatbot({ onAddMoment, onAddTodo, onAddDue, selectedDate, t
       {active && (
         <div className="fixed bottom-20 right-4 z-50 w-[320px] max-h-[420px] flex flex-col animate-in slide-in-from-bottom-4 fade-in duration-200">
           <div className="flex justify-end mb-1">
-            <button onClick={close} className="w-6 h-6 rounded-full bg-muted/80 text-muted-foreground hover:text-foreground flex items-center justify-center">
+            <button onClick={close} aria-label="Close chat" className="w-6 h-6 rounded-full bg-muted/80 text-muted-foreground hover:text-foreground flex items-center justify-center">
               <X size={12} />
             </button>
           </div>

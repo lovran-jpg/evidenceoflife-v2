@@ -341,13 +341,13 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
         {/* Header with view switcher */}
         <div className="flex items-center justify-between px-4 py-2.5 gap-2">
           <div className="flex items-center gap-1">
-            <button onClick={navigateBack} className="p-2 hover:bg-secondary rounded-full transition-colors">
+            <button onClick={navigateBack} aria-label="Previous" className="p-2 hover:bg-secondary rounded-full transition-colors">
               <ChevronLeft size={20} />
             </button>
             <h1 className="text-[18px] font-semibold font-display min-w-0 text-center whitespace-nowrap">
               {getHeaderTitle()}
             </h1>
-            <button onClick={navigateForward} className="p-2 hover:bg-secondary rounded-full transition-colors">
+            <button onClick={navigateForward} aria-label="Next" className="p-2 hover:bg-secondary rounded-full transition-colors">
               <ChevronRight size={20} />
             </button>
           </div>

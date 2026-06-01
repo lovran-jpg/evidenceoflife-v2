@@ -814,11 +814,11 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
             </p>
           )}
           <div className="flex items-center gap-6" onClick={e => e.stopPropagation()}>
-            <button onClick={() => { setMomentTimerPaused(p => !p); setMomentPauseElapsed(0); }} className="w-12 h-12 rounded-full border border-border/50 flex items-center justify-center text-foreground/60 hover:text-foreground transition-colors">
+            <button onClick={() => { setMomentTimerPaused(p => !p); setMomentPauseElapsed(0); }} aria-label={momentTimerPaused ? 'Resume' : 'Pause'} className="w-12 h-12 rounded-full border border-border/50 flex items-center justify-center text-foreground/60 hover:text-foreground transition-colors">
               {momentTimerPaused ? <Play size={20} /> : <Pause size={20} />}
             </button>
-            <button onClick={handleMomentTimerStop} className="w-10 h-10 rounded-full border border-border/30 flex items-center justify-center text-primary/60 hover:text-primary transition-colors"><Square size={14} /></button>
-            <button onClick={handleMomentTimerCancel} className="w-10 h-10 rounded-full border border-border/30 flex items-center justify-center text-destructive/50 hover:text-destructive transition-colors"><X size={14} /></button>
+            <button onClick={handleMomentTimerStop} aria-label="Stop timer" className="w-10 h-10 rounded-full border border-border/30 flex items-center justify-center text-primary/60 hover:text-primary transition-colors"><Square size={14} /></button>
+            <button onClick={handleMomentTimerCancel} aria-label="Cancel timer" className="w-10 h-10 rounded-full border border-border/30 flex items-center justify-center text-destructive/50 hover:text-destructive transition-colors"><X size={14} /></button>
           </div>
           <p className="text-xs text-muted-foreground/30 mt-4">tap anywhere to minimize</p>
         </div>

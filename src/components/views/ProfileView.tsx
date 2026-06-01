@@ -311,7 +311,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
                           className="w-48 border-b border-primary/45 bg-transparent py-0.5 text-[27px] font-semibold tracking-[-0.04em] text-foreground focus:outline-none"
                           autoFocus
                         />
-                        <button onClick={handleNameSave} className="text-primary"><Check size={15} /></button>
+                        <button onClick={handleNameSave} aria-label="Save name" className="text-primary"><Check size={15} /></button>
                       </div>
                     ) : (
                       <button className="group mt-1 flex max-w-full items-center gap-2 text-left" onClick={() => setIsEditingName(true)}>

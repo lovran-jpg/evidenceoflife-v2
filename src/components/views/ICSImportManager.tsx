@@ -83,7 +83,7 @@ export function ICSImportManager({ events, batches, loading, onImport, onDeleteB
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium text-foreground">{lang === 'zh' ? '导入日程' : 'Import Events'}</h3>
-        <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+        <button onClick={onClose} aria-label="Close" className="text-muted-foreground hover:text-foreground">
           <X size={16} />
         </button>
       </div>

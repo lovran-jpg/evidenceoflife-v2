@@ -129,7 +129,7 @@ export function EventDetailPopup({ event, eventDate, onClose, onDelete, onRename
               {event.type === 'todo' ? 'Task' : event.type === 'imported' ? 'Calendar' : 'Moment'}
             </span>
           </div>
-          <button onClick={onClose} className="p-1 text-muted-foreground hover:text-foreground transition-colors">
+          <button onClick={onClose} aria-label="Close" className="p-1 text-muted-foreground hover:text-foreground transition-colors">
             <X size={16} />
           </button>
         </div>
@@ -147,7 +147,7 @@ export function EventDetailPopup({ event, eventDate, onClose, onDelete, onRename
               className="flex-1 text-base font-medium bg-secondary/50 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary/30"
               autoFocus
             />
-            <button onClick={handleSave} className="p-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+            <button onClick={handleSave} aria-label="Save" className="p-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
               <Check size={14} />
             </button>
           </div>
@@ -357,7 +357,7 @@ export function EventDetailPopup({ event, eventDate, onClose, onDelete, onRename
 
       {selectedPhoto && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/72 p-6" onClick={() => setSelectedPhoto(null)}>
-          <button type="button" onClick={() => setSelectedPhoto(null)} className="absolute right-5 top-5 rounded-full bg-white/12 p-2 text-white/90 transition-colors hover:bg-white/20">
+          <button type="button" onClick={() => setSelectedPhoto(null)} aria-label="Close photo" className="absolute right-5 top-5 rounded-full bg-white/12 p-2 text-white/90 transition-colors hover:bg-white/20">
             <X size={18} />
           </button>
           <img src={selectedPhoto} alt="" className="max-h-[88vh] max-w-[88vw] rounded-2xl object-contain shadow-2xl" onClick={(e) => e.stopPropagation()} />

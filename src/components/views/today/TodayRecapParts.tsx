@@ -318,8 +318,8 @@ export function MomentTimerSummary({ title, elapsed, startedAt, onConfirm, onCan
           <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="bg-secondary rounded-lg px-2 py-1 text-sm font-mono text-center w-24 focus:outline-none focus:ring-1 focus:ring-primary" />
         </div>
         <div className="flex items-center gap-3 justify-center pt-1">
-          <button onClick={onCancel} className="w-12 h-12 rounded-full border border-border/50 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors"><X size={20} /></button>
-          <button onClick={() => onConfirm({ startTime, endTime })} className="w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:opacity-90 transition-opacity"><Check size={20} /></button>
+          <button onClick={onCancel} aria-label="Discard" className="w-12 h-12 rounded-full border border-border/50 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors"><X size={20} /></button>
+          <button onClick={() => onConfirm({ startTime, endTime })} aria-label="Confirm" className="w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:opacity-90 transition-opacity"><Check size={20} /></button>
         </div>
       </div>
     </div>
@@ -358,8 +358,8 @@ export function MomentTimeEditor({ moment, onEditMoment }: { moment: Moment; onE
         <input inputMode="numeric" pattern="[0-9:]*" value={editStart} onChange={e => setEditStart(e.target.value)} className={recapTimeInputClassName} placeholder="12:07" />
         <span className="text-muted-foreground text-xs">→</span>
         <input inputMode="numeric" pattern="[0-9:]*" value={editEnd} onChange={e => setEditEnd(e.target.value)} className={recapTimeInputClassName} placeholder="12:09" />
-        <button onClick={handleSave} className="text-primary hover:text-primary/80"><Check size={12} /></button>
-        <button onClick={() => setIsEditing(false)} className="text-muted-foreground hover:text-destructive"><X size={12} /></button>
+        <button onClick={handleSave} aria-label="Save" className="text-primary hover:text-primary/80"><Check size={12} /></button>
+        <button onClick={() => setIsEditing(false)} aria-label="Cancel" className="text-muted-foreground hover:text-destructive"><X size={12} /></button>
       </div>
     );
   }
@@ -429,8 +429,8 @@ export function ImportedEventTimeEditor({ event, onUpdate }: { event: ImportedEv
         <input inputMode="numeric" pattern="[0-9:]*" value={editStart} onChange={e => setEditStart(e.target.value)} className={recapTimeInputClassName} placeholder="12:07" />
         <span className="text-muted-foreground text-xs">→</span>
         <input inputMode="numeric" pattern="[0-9:]*" value={editEnd} onChange={e => setEditEnd(e.target.value)} className={recapTimeInputClassName} placeholder="12:09" />
-        <button onClick={handleSave} className="text-primary hover:text-primary/80"><Check size={12} /></button>
-        <button onClick={() => setIsEditing(false)} className="text-muted-foreground hover:text-destructive"><X size={12} /></button>
+        <button onClick={handleSave} aria-label="Save" className="text-primary hover:text-primary/80"><Check size={12} /></button>
+        <button onClick={() => setIsEditing(false)} aria-label="Cancel" className="text-muted-foreground hover:text-destructive"><X size={12} /></button>
       </div>
     );
   }
