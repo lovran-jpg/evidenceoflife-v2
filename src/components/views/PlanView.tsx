@@ -602,10 +602,10 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
       <div className="flex items-center gap-1.5 flex-shrink-0">
         <button
           onClick={onDelete}
-          className="hidden group-hover:flex transition-opacity h-7 w-7 rounded-full items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+          className="hidden group-hover:flex h-[34px] w-[34px] rounded-full items-center justify-center border border-transparent text-muted-foreground/55 transition-colors hover:border-destructive/25 hover:bg-destructive/[0.08] hover:text-destructive"
           title={lang === 'zh' ? '删除' : 'Delete'}
         >
-          <Trash2 size={12} />
+          <Trash2 size={14} />
         </button>
         {!todo.is_completed && (
           <button
