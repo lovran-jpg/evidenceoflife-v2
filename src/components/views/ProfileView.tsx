@@ -184,7 +184,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
     })).filter(e => e.title);
 
     if (events.length < 3) {
-      setLifeReplay(lang === 'zh' ? '今天还没有足够的活动来生成回放。' : 'Not enough activity today for a replay.');
+      setLifeReplay(lang === 'zh' ? '活动还不够，需要至少 3 条' : 'Need at least 3 activities for a replay.');
       setReplayLoading(false);
       return;
     }
@@ -548,7 +548,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
                 </button>
               </div>
               <p className="rounded-[18px] bg-card/62 px-4 py-4 text-[14px] leading-7 text-foreground/76">
-                {replayLoading ? (lang === 'zh' ? '正在回放...' : 'Replaying...') : lifeReplay || (lang === 'zh' ? '这里先收起来，不默认打扰 dashboard。' : 'Kept tucked away so the dashboard stays calm.')}
+                {replayLoading ? (lang === 'zh' ? '正在回放...' : 'Replaying...') : lifeReplay || (lang === 'zh' ? '默认收起' : 'Hidden by default')}
               </p>
             </div>
 

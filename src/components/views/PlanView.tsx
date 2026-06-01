@@ -1951,7 +1951,7 @@ export function PlanView({
                           <Check size={12} className="ml-auto" />
                         </div>
                         <p className="px-2 pt-0.5 text-[10px] leading-4 text-muted-foreground/60">
-                          {lang === 'zh' ? '快速添加会先放到当前时间段；想放回 Anytime 可以再拖过去。' : 'Quick add drops into the current time segment first. Drag it to Anytime if you want it unscheduled.'}
+                          {lang === 'zh' ? '先放到当前时间段，可拖到 Anytime' : 'Drops into the current segment · drag to Anytime'}
                         </p>
                         <div className="border-t border-border/30 my-1" />
                         <button onClick={() => setReminderConfig(prev => ({ ...prev, enabled: !prev.enabled }))}

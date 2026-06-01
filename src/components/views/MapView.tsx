@@ -141,7 +141,7 @@ class MapDetailErrorBoundary extends Component<
                 {this.props.lang === 'zh' ? '详情加载失败' : 'Detail failed to load'}
               </p>
               <p className="mt-2 text-[12px] leading-6 text-muted-foreground/65">
-                {this.props.lang === 'zh' ? '请返回列表重新打开一个地点，我会继续把这条链路修稳。' : 'Go back and reopen a place. This will no longer white-screen the app.'}
+                {this.props.lang === 'zh' ? '请返回列表重新打开该地点' : 'Go back and reopen the place.'}
               </p>
             </div>
           </div>
@@ -1633,7 +1633,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                                   {showPlaceDetail.photos.length} {showPlaceDetail.photos.length === 1 ? t('map.photo') : t('map.photos')}
                                 </p>
                                 <p className="mt-2 text-[12px] leading-5 text-muted-foreground/65">
-                                  {lang === 'zh' ? '详情里的地图预览先临时关闭，下面的照片和记录还可以正常看。' : 'The map preview is temporarily disabled here, but the photos and notes below still work.'}
+                                  {lang === 'zh' ? '地图预览暂时关闭' : 'Map preview unavailable'}
                                 </p>
                               </div>
                             </div>
@@ -1715,7 +1715,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                             </div>
                           ) : (
                             <div className="rounded-[20px] border border-dashed border-border/40 px-4 py-10 text-center text-[12px] text-muted-foreground/60">
-                              {lang === 'zh' ? '这个地点还没有照片。' : 'No photos saved for this place yet.'}
+                              {lang === 'zh' ? '还没有照片' : 'No photos'}
                             </div>
                           )}
                         </div>

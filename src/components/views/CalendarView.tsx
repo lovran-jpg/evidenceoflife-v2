@@ -642,7 +642,7 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
       <button
         onClick={() => setShowICSManager(prev => !prev)}
         className={cn(
-          "absolute bottom-6 right-6 z-30 flex h-12 w-12 items-center justify-center rounded-full border border-border/60 bg-card/95 shadow-[0_14px_28px_hsl(var(--foreground)/0.12)] backdrop-blur transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_34px_hsl(var(--foreground)/0.16)]",
+          "absolute bottom-6 right-6 z-30 flex h-12 w-12 items-center justify-center rounded-full border border-border/60 bg-card/95 shadow-[0_8px_22px_hsl(var(--foreground)/0.10)] backdrop-blur transition-transform active:scale-95",
           showICSManager && "bg-primary text-primary-foreground border-primary/30"
         )}
         title="Import calendar"
