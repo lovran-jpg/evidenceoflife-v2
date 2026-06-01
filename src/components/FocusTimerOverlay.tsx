@@ -618,7 +618,9 @@ export function FloatingTimer({ todo, isPaused, pauseState, onClick, accentColor
       <span className="text-base leading-none flex-shrink-0">{treeEmoji}</span>
       <span className="min-w-0 max-w-[100px] flex-1 truncate text-[11px] font-medium leading-none">{todo.title}</span>
       <span className="flex-shrink-0 text-[12px] font-mono font-semibold tabular-nums leading-none">
-        {pad(Math.floor(sessionSec / 60))}:{pad(sessionSec % 60)}
+        {sessionSec >= 3600
+          ? `${Math.floor(sessionSec / 3600)}:${pad(Math.floor((sessionSec % 3600) / 60))}:${pad(sessionSec % 60)}`
+          : `${pad(Math.floor(sessionSec / 60))}:${pad(sessionSec % 60)}`}
       </span>
     </div>
   );
