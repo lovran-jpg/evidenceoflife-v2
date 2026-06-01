@@ -646,6 +646,7 @@ export function PlanView({
   onViewFullTimeline,
   onOpenVoiceSheet,
   voiceSheetOpen,
+  overlayOpen,
   onSwitchToRecap,
   moments = [],
   todos: todosProp,
@@ -658,6 +659,7 @@ export function PlanView({
   onViewFullTimeline?: () => void;
   onOpenVoiceSheet?: () => void;
   voiceSheetOpen?: boolean;
+  overlayOpen?: boolean;
   onSwitchToRecap?: () => void;
   moments?: Moment[];
   todos?: Todo[];
@@ -1594,7 +1596,7 @@ export function PlanView({
           }}
         />
       )}
-      {!captureSheetOpen && activeTimerTodos.filter(t => t.id !== showOverlayForId).length > 0 && (
+      {!captureSheetOpen && !overlayOpen && activeTimerTodos.filter(t => t.id !== showOverlayForId).length > 0 && (
         <div
           ref={timerDockRef}
           className="fixed z-[70] flex cursor-grab touch-none select-none flex-col gap-2 active:cursor-grabbing"
@@ -2018,7 +2020,7 @@ export function PlanView({
         </div>
       </div>
 
-      {!showOverlayForId && !voiceSheetOpen && !captureSheetOpen && recapDock && (
+      {!showOverlayForId && !voiceSheetOpen && !captureSheetOpen && !overlayOpen && recapDock && (
         <button
           onClick={() => setCaptureSheetOpen(true)}
           className="fixed z-[55] inline-flex items-center gap-1.5 rounded-full border border-[#dccfc1]/60 bg-[#fbf8f4]/82 px-3 py-1.5 text-[11.5px] font-medium tracking-[-0.005em] text-[#8a7465]/90 shadow-[0_4px_14px_rgba(94,79,65,0.06)] backdrop-blur-md transition-all hover:border-[#c9b9a8]/85 hover:bg-[#f6efe8]/92 hover:text-[#725d50] dark:border-foreground/[0.14] dark:bg-foreground/[0.06] dark:text-foreground/72 dark:shadow-[0_4px_14px_rgba(0,0,0,0.32)] dark:hover:border-foreground/22 dark:hover:bg-foreground/[0.10] dark:hover:text-foreground/90"

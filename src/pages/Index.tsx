@@ -421,6 +421,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
                 onViewDues={openDues}
                 onOpenVoiceSheet={() => setVoiceSheetOpen(true)}
                 voiceSheetOpen={voiceSheetOpen}
+                overlayOpen={!!activeSheet}
                 onSwitchToRecap={() => setTodayMode('recap')}
                 moments={dateMoments}
                 onAddMoment={(data) => handleAddMoment(data)}
@@ -624,7 +625,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
       )}
 
       {/* Global floating timer widgets — hidden when PlanView is active (it has its own) */}
-      {!landingDemoMode && activeTimerTodos.length > 0 && !globalFocusId && !(activeTab === 'today' && todayMode === 'plan') && (
+      {!landingDemoMode && activeTimerTodos.length > 0 && !globalFocusId && !activeSheet && !(activeTab === 'today' && todayMode === 'plan') && (
         <div className="fixed bottom-20 right-3 z-[60] flex flex-col gap-2" style={{ pointerEvents: 'auto' }}>
           {activeTimerTodos.map(t => (
             <FloatingTimer

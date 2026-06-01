@@ -554,7 +554,7 @@ export function LinksView() {
                 value={draft} onChange={e => setDraft(e.target.value)}
                 onKeyDown={e => { if (isEnterSubmit(e) && (draft.trim() || !fetching)) handleAdd(); }}
                 onPaste={handlePaste}
-                placeholder="New collection, or paste a URL..."
+                placeholder="Add a link or collection…"
                 className="min-w-0 flex-1 bg-transparent text-[13px] font-medium text-foreground focus:outline-none placeholder:text-muted-foreground/45"
               />
               {fetching ? (
