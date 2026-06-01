@@ -341,6 +341,93 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
     return newMoment;
   }, [addMoment, selectedDateStr, placesData]);
 
+  // Only one focus timer runs at a time. Before starting a new one, archive every
+  // other still-running timer (todo / moment / imported event) so its elapsed work
+  // is saved — instead of leaving a second floating timer ticking behind it.
+  const preemptRunningTimers = useCallback(async (exceptId: string | null) => {
+    const nowMs = Date.now();
+    const nowISO = new Date(nowMs).toISOString();
+
+    for (const todo of todos) {
+      if (todo.id === exceptId || !isActivelyRunningTodo(todo)) continue;
+      const startedMs = new Date(todo.timer_started_at!).getTime();
+      const pause = pauseStatesRef.current.get(todo.id);
+      const pausedMs = pause ? pause.totalPausedMs + (pause.pausedAt ? nowMs - pause.pausedAt : 0) : 0;
+      const workingSec = Math.max(0, Math.floor((nowMs - startedMs - pausedMs) / 1000));
+      try {
+        if (workingSec > 0) {
+          await handleAddMoment({
+            text: todo.title,
+            emoji: extractLeadingEmoji(todo.title),
+            photos: [],
+            tags: ['focus-session', `todo-session:${todo.id}`, ...(todo.tags || [])],
+            timer_started_at: todo.timer_started_at,
+            timer_ended_at: nowISO,
+            timer_seconds: workingSec,
+          });
+        }
+      } catch {
+        // best-effort archive — still clear the timer below
+      }
+      await updateTodo(todo.id, {
+        timer_started_at: null,
+        timer_ended_at: nowISO,
+        timer_seconds: (todo.timer_seconds || 0) + workingSec,
+        is_completed: false,
+      });
+      pauseStatesRef.current.delete(todo.id);
+      if (globalFocusId === todo.id) setGlobalFocusId(null);
+    }
+    setPauseStateVersion(v => v + 1);
+
+    for (const m of moments) {
+      if (m.id === exceptId || !m.timer_started_at || m.timer_ended_at) continue;
+      const startedMs = new Date(m.timer_started_at).getTime();
+      if (!Number.isFinite(startedMs) || startedMs > nowMs) continue;
+      const workingSec = Math.max(0, Math.floor((nowMs - startedMs) / 1000));
+      await editMoment(m.id, { timer_ended_at: nowISO, timer_seconds: (m.timer_seconds || 0) + workingSec } as Partial<Moment>);
+    }
+
+    for (const ev of importedEvents) {
+      if (ev.id === exceptId || !ev.timer_started_at || ev.timer_ended_at) continue;
+      const startedMs = new Date(ev.timer_started_at).getTime();
+      if (!Number.isFinite(startedMs) || startedMs > nowMs) continue;
+      const workingSec = Math.max(0, Math.floor((nowMs - startedMs) / 1000));
+      await updateImportedEvent(ev.id, { timer_ended_at: nowISO, timer_seconds: (ev.timer_seconds || 0) + workingSec });
+    }
+  }, [todos, moments, importedEvents, updateTodo, editMoment, updateImportedEvent, handleAddMoment, globalFocusId]);
+
+  // Collapse to a single running timer: whenever two or more are ticking (a new one
+  // was just started anywhere in the app), keep the most recently started and archive
+  // the rest. Centralised here so every start site is covered without extra plumbing.
+  const preemptingRef = useRef(false);
+  useEffect(() => {
+    if (landingDemoMode || preemptingRef.current) return;
+    const nowMs = Date.now();
+    const running: { id: string; started: number }[] = [];
+    for (const t of todos) {
+      if (isActivelyRunningTodo(t)) running.push({ id: t.id, started: new Date(t.timer_started_at!).getTime() });
+    }
+    for (const m of moments) {
+      if (m.timer_started_at && !m.timer_ended_at) {
+        const s = new Date(m.timer_started_at).getTime();
+        if (Number.isFinite(s) && s <= nowMs) running.push({ id: m.id, started: s });
+      }
+    }
+    for (const ev of importedEvents) {
+      if (ev.timer_started_at && !ev.timer_ended_at) {
+        const s = new Date(ev.timer_started_at).getTime();
+        if (Number.isFinite(s) && s <= nowMs) running.push({ id: ev.id, started: s });
+      }
+    }
+    if (running.length <= 1) return;
+    const newest = running.reduce((a, b) => (b.started > a.started ? b : a));
+    preemptingRef.current = true;
+    Promise.resolve(preemptRunningTimers(newest.id)).finally(() => {
+      preemptingRef.current = false;
+    });
+  }, [todos, moments, importedEvents, landingDemoMode, preemptRunningTimers]);
+
   const handleEditMoment = useCallback(async (
     id: string,
     updates: Partial<Omit<Moment, 'location'>> & { location?: Moment['location'] | null }
@@ -366,7 +453,6 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
       nextPhotos
     );
   }, [editMoment, moments, placesData]);
-
   // Delete a moment with the same instant-Undo pattern used for tasks.
   const handleDeleteMoment = useCallback((id: string) => {
     const snapshot = moments.find(m => m.id === id);
