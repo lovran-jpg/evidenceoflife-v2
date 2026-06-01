@@ -606,7 +606,7 @@ export function FloatingTimer({ todo, isPaused, pauseState, onClick, accentColor
       onPointerDown={e => { e.stopPropagation(); }}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
       className={cn(
-        "flex h-9 max-w-[180px] items-center gap-2 px-3 rounded-2xl shadow-[0_4px_14px_hsl(var(--foreground)/0.08)] transition-colors text-left border cursor-pointer select-none overflow-hidden",
+        "flex h-9 max-w-[280px] items-center gap-2 px-3 rounded-2xl shadow-[0_4px_14px_hsl(var(--foreground)/0.08)] transition-colors text-left border cursor-pointer select-none overflow-hidden",
         isPaused && "bg-[hsl(var(--surface-soft))] border-border text-muted-foreground"
       )}
       style={!isPaused ? {
@@ -616,7 +616,7 @@ export function FloatingTimer({ todo, isPaused, pauseState, onClick, accentColor
       } : undefined}
     >
       <span className="text-base leading-none flex-shrink-0">{treeEmoji}</span>
-      <span className="min-w-0 max-w-[100px] flex-1 truncate text-[11px] font-medium leading-none">{todo.title}</span>
+      <span className="min-w-0 flex-1 truncate text-[11px] font-medium leading-none">{todo.title}</span>
       <span className="flex-shrink-0 text-[12px] font-mono font-semibold tabular-nums leading-none">
         {sessionSec >= 3600
           ? `${Math.floor(sessionSec / 3600)}:${pad(Math.floor((sessionSec % 3600) / 60))}:${pad(sessionSec % 60)}`
