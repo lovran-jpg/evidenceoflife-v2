@@ -477,7 +477,7 @@ export function DuesView({
                   Deadlines and habits
                 </h1>
                 <p className="mt-1 max-w-[54ch] text-[14px] leading-6 text-muted-foreground">
-                  Keep future work visible here, then pull the next actionable thing into Today.
+                  Future work stays visible. Pull the next thing into Today.
                 </p>
               </div>
 
@@ -500,12 +500,9 @@ export function DuesView({
             </div>
 
             <div className="mt-4 flex flex-wrap items-center gap-2">
-              <div className="rounded-full bg-background px-3 py-1.5 text-[12px] text-muted-foreground shadow-[inset_0_0_0_1px_hsl(var(--border)/0.7)]">
-                Move the next actionable item into Today.
-              </div>
               {noDateDeadlines.length > 0 ? (
                 <div className="rounded-full bg-[rgba(232,130,90,0.08)] px-3 py-1.5 text-[12px] text-[#b96644] shadow-[inset_0_0_0_1px_rgba(232,130,90,0.18)]">
-                  {noDateDeadlines.length} deadline{noDateDeadlines.length > 1 ? 's' : ''} still missing a date
+                  {noDateDeadlines.length} deadline{noDateDeadlines.length > 1 ? 's' : ''} without a date
                 </div>
               ) : (
                 <div className="rounded-full bg-background px-3 py-1.5 text-[12px] text-muted-foreground shadow-[inset_0_0_0_1px_hsl(var(--border)/0.7)]">
@@ -828,7 +825,7 @@ export function DuesView({
                 className="w-full flex items-center justify-between text-[12px] text-muted-foreground/62 uppercase tracking-[0.16em] mb-2.5 hover:text-muted-foreground transition-colors">
                 <span className="flex items-center gap-2">
                   <Calendar size={14} />
-                  No date yet ({noDateDeadlines.length})
+                  No date ({noDateDeadlines.length})
                 </span>
                 {noDateCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
               </button>
@@ -939,9 +936,9 @@ export function DuesView({
       {/* Empty */}
       {visibleActiveCount === 0 && (
         <div>
-          <p className="text-[13px] text-muted-foreground/65 text-center py-10 italic">
+          <p className="text-[13px] text-muted-foreground/65 text-center py-10">
             {lockedMode
-              ? (isDeadlineMode ? 'No deadlines yet.' : 'No habits yet.')
+              ? (isDeadlineMode ? 'No deadlines' : 'No habits')
               : t('dues.empty')}
           </p>
         </div>

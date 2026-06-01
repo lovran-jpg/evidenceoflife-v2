@@ -296,7 +296,7 @@ export function InsightsPanel({ moments, allMoments }: { moments: Moment[]; allM
 
   const maxWeekMin = Math.max(...insights.weeklyData.map(d => d.min), 1);
 
-  const scoreColor = insights.focusScore >= 70 ? 'text-green-500' : insights.focusScore >= 40 ? 'text-yellow-500' : 'text-red-400';
+  const scoreColor = insights.focusScore >= 70 ? 'text-primary' : insights.focusScore >= 40 ? 'text-foreground/70' : 'text-muted-foreground';
   const scoreLabel = insights.focusScore >= 80
     ? (lang === 'zh' ? '深度专注' : 'Deep Focus')
     : insights.focusScore >= 60
@@ -563,7 +563,7 @@ export function InsightsPanel({ moments, allMoments }: { moments: Moment[]; allM
                         <div className="text-right">
                           <div className="font-semibold tabular-nums">{fmtDur(cat.min)}</div>
                           {diff && Math.abs(diff.diff) >= 5 && (
-                            <div className={`text-[12px] font-medium ${diff.diff > 0 ? 'text-green-500' : 'text-red-400'}`}>
+                            <div className={`text-[12px] font-medium ${diff.diff > 0 ? 'text-primary' : 'text-muted-foreground'}`}>
                               {diff.diff > 0 ? '+' : ''}{fmtDur(Math.abs(diff.diff))}
                             </div>
                           )}
