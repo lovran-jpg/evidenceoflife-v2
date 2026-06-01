@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { CheckCircle2, Timer, Camera, MapPin, Link2, Sparkles } from 'lucide-react';
 import type { Moment } from '@/types';
 import { useLanguage } from '@/hooks/useLanguage';
-
 interface EvidenceReviewCardProps {
   moments: Moment[];
   todosDone?: number;
@@ -18,6 +17,7 @@ interface EvidenceReviewCardProps {
 export function EvidenceReviewCard({ moments, todosDone, todosTotal, reflection, onSaveReflection }: EvidenceReviewCardProps) {
   const { t } = useLanguage();
   const [draft, setDraft] = useState('');
+  const [celebrating, setCelebrating] = useState(false);
 
   const stats = useMemo(() => {
     let focusSeconds = 0;
@@ -60,10 +60,26 @@ export function EvidenceReviewCard({ moments, todosDone, todosTotal, reflection,
     if (!text) return;
     onSaveReflection(text);
     setDraft('');
+    // Gentle celebration — wiring the habit with a calm moment of payoff.
+    setCelebrating(true);
+    window.setTimeout(() => setCelebrating(false), 1400);
   };
 
   return (
-    <div className="rounded-2xl border border-[#e7d9cc]/70 bg-gradient-to-b from-[#fdf8f2] to-[#f9f1e8] p-4 shadow-[0_8px_24px_rgba(110,92,76,0.06)] dark:border-foreground/[0.12] dark:from-foreground/[0.05] dark:to-foreground/[0.02]">
+    <div className={`relative overflow-hidden rounded-2xl border border-[#e7d9cc]/70 bg-gradient-to-b from-[#fdf8f2] to-[#f9f1e8] p-4 shadow-[0_8px_24px_rgba(110,92,76,0.06)] dark:border-foreground/[0.12] dark:from-foreground/[0.05] dark:to-foreground/[0.02] ${celebrating ? 'animate-keep-glow' : ''}`}>
+      {celebrating && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-6 flex justify-center gap-3" aria-hidden>
+          {['💛', '✨', '💛'].map((c, i) => (
+            <span
+              key={i}
+              className="animate-keep-rise text-lg"
+              style={{ animationDelay: `${i * 120}ms` }}
+            >
+              {c}
+            </span>
+          ))}
+        </div>
+      )}
       <div className="flex items-center gap-2">
         <span className="text-lg">{hasEvidence ? '🌙' : '✨'}</span>
         <h3 className="text-sm font-semibold text-[#6b5544] dark:text-foreground/85">{t('review.title')}</h3>

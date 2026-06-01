@@ -494,6 +494,41 @@
     }
   }
 
+  /* Gentle "kept this day" celebration — calm, not loud (Calm/Stoic tone) */
+  .animate-keep-rise {
+    animation: keepRise 1.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  @keyframes keepRise {
+    0% {
+      opacity: 0;
+      transform: translateY(8px) scale(0.7);
+    }
+    25% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-34px) scale(1.05);
+    }
+  }
+
+  .animate-keep-glow {
+    animation: keepGlow 1.2s ease-out forwards;
+  }
+
+  @keyframes keepGlow {
+    0% {
+      box-shadow: 0 0 0 0 hsl(28 60% 60% / 0.0);
+    }
+    35% {
+      box-shadow: 0 0 0 6px hsl(28 60% 60% / 0.18);
+    }
+    100% {
+      box-shadow: 0 0 0 14px hsl(28 60% 60% / 0.0);
+    }
+  }
+
   /* Subtle texture */
   .texture-paper {
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
