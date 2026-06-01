@@ -36,30 +36,23 @@ const steps = [
   {
     number: '02',
     id: 'focus',
-    label: 'Focus',
+    label: 'Live',
     title: 'Turn intent into recorded time',
-    body: 'Start a focus session from the timeline and keep actual effort attached to the task.',
+    body: 'Start a focus session from the timeline so the hours you actually live stay attached to the task.',
   },
   {
     number: '03',
     id: 'recap',
-    label: 'Recap',
-    title: 'Capture what really happened',
-    body: 'Add the note, photo, mood or place while the memory is still fresh.',
+    label: 'Capture',
+    title: 'Capture the evidence it happened',
+    body: 'Add the note, photo, mood, place or link while the memory is still fresh.',
   },
   {
     number: '04',
     id: 'calendar',
-    label: 'Calendar',
-    title: 'Let the calendar become a receipt',
-    body: 'Plans and moments settle into a day, week, month and year you can revisit.',
-  },
-  {
-    number: '05',
-    id: 'map',
-    label: 'Map',
-    title: 'Remember life by where it happened',
-    body: 'Places become a visual trail, turning scattered outings into a map of lived experience.',
+    label: 'Revisit',
+    title: 'Reopen life by time and place',
+    body: 'Plans and moments settle into a day, week, month, year and map you can revisit anytime.',
   },
 ];
 
@@ -81,56 +74,72 @@ const featurePillars = [
   },
 ];
 
-const productModules = [
+// Modules grouped into three layers so the landing page mirrors the in-app
+// mental model: the core loop users must understand first, the evidence types
+// that prove a day happened, and the obligations that keep life moving.
+const moduleGroups = [
   {
-    icon: Clock3,
-    title: 'Today timeline',
-    body: 'A single surface for plans, imported events, todos and recorded moments across your waking hours.',
+    label: 'Core loop',
+    caption: 'The main loop everyone learns first.',
+    items: [
+      {
+        icon: Clock3,
+        title: 'Today timeline',
+        body: 'A single surface for plans, imported events, todos and recorded moments across your waking hours.',
+      },
+      {
+        icon: Timer,
+        title: 'Focus sessions',
+        body: 'Log real work time from a pomodoro-style session and attach it to the day it happened.',
+      },
+      {
+        icon: NotebookPen,
+        title: 'Fast recaps',
+        body: 'Close the loop with short notes, photos, moods and tags without turning journaling into homework.',
+      },
+      {
+        icon: CalendarDays,
+        title: 'Calendar and map recall',
+        body: 'Revisit your days by time and place, with week, month, year and map views that make recall effortless.',
+      },
+    ],
   },
   {
-    icon: Timer,
-    title: 'Focus sessions',
-    body: 'Log real work time from a pomodoro-style session and attach it to the day it happened.',
+    label: 'Evidence types',
+    caption: 'The material that proves life happened.',
+    items: [
+      {
+        icon: Images,
+        title: 'Photo evidence',
+        body: 'Attach visual proof to moments so ordinary days regain texture when you look back.',
+      },
+      {
+        icon: MapPin,
+        title: 'Place memory',
+        body: 'Tag restaurants, cafes, parks, museums and trips, then rediscover them on a personal map.',
+      },
+      {
+        icon: Link2,
+        title: 'Links and references',
+        body: 'Save useful links with previews so the references around a day stay connected to the day itself.',
+      },
+    ],
   },
   {
-    icon: NotebookPen,
-    title: 'Fast recaps',
-    body: 'Close the loop with short notes, photos, moods and tags without turning journaling into homework.',
-  },
-  {
-    icon: CalendarDays,
-    title: 'Calendar sync',
-    body: 'Bring Google Calendar events into your timeline so plans and reality can meet in one place.',
-  },
-  {
-    icon: Pin,
-    title: 'Deadlines and dues',
-    body: 'Track urgent work, multi-step obligations, reminders, photos and links without losing them in notes.',
-  },
-  {
-    icon: Repeat,
-    title: 'Habits without guilt',
-    body: 'Keep repeatable routines visible as part of life, not as a streak machine designed to shame you.',
-  },
-  {
-    icon: MapPin,
-    title: 'Place memory',
-    body: 'Tag restaurants, cafes, parks, museums and trips, then rediscover them on a personal map.',
-  },
-  {
-    icon: Link2,
-    title: 'Links and references',
-    body: 'Save useful links with previews so the references around a day stay connected to the day itself.',
-  },
-  {
-    icon: Images,
-    title: 'Photo evidence',
-    body: 'Attach visual proof to moments so ordinary days regain texture when you look back.',
-  },
-  {
-    icon: ShieldCheck,
-    title: 'Private by default',
-    body: 'Built as a personal memory system, not a social feed and not another public performance layer.',
+    label: 'Life obligations',
+    caption: 'The things that keep life moving.',
+    items: [
+      {
+        icon: Pin,
+        title: 'Deadlines and dues',
+        body: 'Track urgent work, multi-step obligations, reminders, photos and links without losing them in notes.',
+      },
+      {
+        icon: Repeat,
+        title: 'Habits without guilt',
+        body: 'Keep repeatable routines visible as part of life, not as a streak machine designed to shame you.',
+      },
+    ],
   },
 ];
 
@@ -228,19 +237,19 @@ export default function Landing() {
           <div className="relative mx-auto flex max-w-3xl flex-col items-center">
             <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(212,135,95,0.22)] bg-[rgba(255,250,244,0.9)] px-3.5 py-1.5 text-sm font-medium text-[#c9784e] shadow-sm">
               <Sparkles size={14} />
-              The anti-blank-journal for real life
+              Don't let your days disappear
             </div>
 
             <h1 className="mt-7 text-balance text-4xl font-semibold leading-[1.04] tracking-[-0.04em] text-[#2d221d] sm:text-6xl">
-              Your day is more than a to-do list.
+              Plan your day.
               <br />
-              <span className="text-[#c9784e]">Keep the evidence.</span>
+              <span className="text-[#c9784e]">Keep what actually happened.</span>
             </h1>
 
             <p className="mt-6 max-w-2xl text-pretty text-lg leading-8 text-[#6d594d]">
-              Evidence of Life helps you plan the day, record what actually happened,
-              and revisit it through a timeline, calendar, map, photos, deadlines, habits and links.
-              It is productivity with a receipt - built for people who want proof they lived, not another scorecard.
+              Evidence of Life turns your daily plans, work sessions, photos, places, notes, links,
+              deadlines and habits into one private record of what actually happened — through a single
+              loop: plan the day, live it, capture the evidence, and revisit it later.
             </p>
 
             <div className="mt-9 flex w-full flex-col items-center justify-center gap-3 sm:flex-row">
@@ -326,10 +335,10 @@ export default function Landing() {
         <section className="border-y border-[rgba(124,82,56,0.08)] bg-[rgba(255,250,244,0.62)]">
           <div className="mx-auto grid max-w-5xl grid-cols-2 gap-6 px-6 py-10 text-center sm:grid-cols-4 lg:px-8">
             {[
-              ['Today timeline', 'plans and moments together'],
-              ['Focus + recap', 'actual time, real context'],
-              ['Dues + habits', 'obligations without chaos'],
-              ['Calendar + map', 'browse by when and where'],
+              ['Plan', 'tasks, dues and routines on one timeline'],
+              ['Live', 'focus sessions record real time'],
+              ['Capture', 'notes, photos, places and links'],
+              ['Revisit', 'browse by day, year and map'],
             ].map(([stat, label]) => (
               <div key={label}>
                 <div className="text-xl font-semibold tracking-tight text-[#c9784e]">{stat}</div>
@@ -373,19 +382,43 @@ export default function Landing() {
             </div>
           </div>
 
-          <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {productModules.map((feature) => (
-              <div
-                key={feature.title}
-                className="group rounded-2xl border border-[rgba(124,82,56,0.1)] bg-[rgba(255,250,244,0.78)] p-6 transition-shadow hover:shadow-[0_24px_48px_-28px_rgba(45,34,29,0.4)]"
-              >
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[rgba(212,135,95,0.14)] text-[#c9784e]">
-                  <feature.icon size={20} />
+          <div className="mt-14 space-y-12">
+            {moduleGroups.map((group) => (
+              <div key={group.label}>
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-[#c9784e]">
+                    {group.label}
+                  </h3>
+                  <span className="text-sm text-[#9a8473]">{group.caption}</span>
                 </div>
-                <h3 className="mt-5 text-lg font-semibold text-[#342821]">{feature.title}</h3>
-                <p className="mt-2 text-[15px] leading-7 text-[#786457]">{feature.body}</p>
+                <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                  {group.items.map((feature) => (
+                    <div
+                      key={feature.title}
+                      className="group rounded-2xl border border-[rgba(124,82,56,0.1)] bg-[rgba(255,250,244,0.78)] p-6 transition-shadow hover:shadow-[0_24px_48px_-28px_rgba(45,34,29,0.4)]"
+                    >
+                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[rgba(212,135,95,0.14)] text-[#c9784e]">
+                        <feature.icon size={20} />
+                      </div>
+                      <h3 className="mt-5 text-lg font-semibold text-[#342821]">{feature.title}</h3>
+                      <p className="mt-2 text-[15px] leading-7 text-[#786457]">{feature.body}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
+
+            <div className="flex items-center gap-4 rounded-2xl border border-[rgba(124,82,56,0.1)] bg-[rgba(255,250,244,0.78)] p-6">
+              <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-[rgba(212,135,95,0.14)] text-[#c9784e]">
+                <ShieldCheck size={20} />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-[#342821]">Private by default</h3>
+                <p className="mt-1 text-[15px] leading-7 text-[#786457]">
+                  Built as a personal memory system, not a social feed and not another public performance layer.
+                </p>
+              </div>
+            </div>
           </div>
         </section>
 
