@@ -606,15 +606,22 @@ export function FloatingTimer({ todo, isPaused, pauseState, onClick, accentColor
       onPointerDown={e => { e.stopPropagation(); }}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
       className={cn(
-        "flex h-9 max-w-[280px] items-center gap-2 px-3 rounded-2xl shadow-[0_4px_14px_hsl(var(--foreground)/0.08)] transition-colors text-left border cursor-pointer select-none overflow-hidden",
-        isPaused && "bg-[hsl(var(--surface-soft))] border-border text-muted-foreground"
+        "flex h-9 max-w-[280px] items-center gap-2 pl-2.5 pr-3 rounded-2xl shadow-[0_6px_18px_hsl(var(--foreground)/0.10)] transition-colors text-left cursor-pointer select-none overflow-hidden",
+        isPaused && "bg-[hsl(var(--surface-soft))] text-muted-foreground"
       )}
       style={!isPaused ? {
-        backgroundColor: colorWithAlpha(treeColor, 0.1),
-        borderColor: colorWithAlpha(treeColor, 0.24),
+        backgroundColor: colorWithAlpha(treeColor, 0.12),
         color: treeColor,
       } : undefined}
     >
+      <span
+        className={cn(
+          "h-1.5 w-1.5 flex-shrink-0 rounded-full",
+          isPaused ? "bg-muted-foreground/50" : "animate-pulse"
+        )}
+        style={!isPaused ? { backgroundColor: treeColor } : undefined}
+        aria-hidden
+      />
       <span className="text-base leading-none flex-shrink-0">{treeEmoji}</span>
       <span className="min-w-0 flex-1 truncate text-[11px] font-medium leading-none">{todo.title}</span>
       <span className="flex-shrink-0 text-[12px] font-mono font-semibold tabular-nums leading-none">
