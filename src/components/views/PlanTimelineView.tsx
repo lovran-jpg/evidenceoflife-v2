@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useCallback, useEffect, type ReactNode } from 'react';
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { parseISO, format, isToday as isTodayFn } from 'date-fns';
 import { Clock, Check, X, Plus, CalendarDays, Trash2, ArrowLeft, Pencil, Timer } from 'lucide-react';
 import { cn, isImeComposing } from '@/lib/utils';
@@ -22,146 +22,41 @@ import {
   getPlanTimelineRhythmPreset,
   presetToNowMarkers,
 } from '@/lib/planTimelineRhythmPresets';
-
-const HOUR_HEIGHT = 56;
-const NOW_VIEWPORT_ANCHOR = 0.16;
-const PX_PER_MIN = HOUR_HEIGHT / 60;
-const DRAG_SNAP_MIN = 5;
-const MIN_BLOCK_MIN = 5;
-const REST_COLOR = 'hsl(195, 50%, 55%)';
-const SHOW_FREE_TIME_LABELS = true;
-/** Left time column — matches timeline grid proportions in light mode */
-const TIME_RAIL_WIDTH_PX = 56;
-/** Calm planner canvas (light only — cool neutral, avoid heavy gray cast) */
-const TIMELINE_CANVAS_LIGHT = '#f9fafc';
-/** Rounded “card” silhouette for timed blocks */
-const BLOCK_CORNER_PX = 14;
-/** In Both mode short blocks: plan dashed top+bottom seams crush title — soften chrome */
-const SLIM_BOTH_OUTER_PX = 34;
-/** Very short inflated shells: shave resize-hit strips + widen title lane */
-const ULTRA_SHORT_OUTER_PX = 30;
-/** Drag a planned block beyond the timeline by this much to unschedule it. */
-const DRAG_UNSCHEDULE_MARGIN_PX = 18;
-/** Timeline event titles stay ≤ PlanView task list titles (`TodoItem` uses `text-[16px]`). */
-const MAX_TIMELINE_TITLE_FONT_PX = 16;
-
-/** e.g. 36m, 1h 50m — matches floating interval pills */
-function formatGapMinutesLabel(totalMin: number): string {
-  if (totalMin < 60) return `${totalMin}m`;
-  const h = Math.floor(totalMin / 60);
-  const m = totalMin % 60;
-  if (m === 0) return `${h}h`;
-  return `${h}h ${m}m`;
-}
-
-function opaqueMix(canvasCss: string, accentCss: string, accentFraction: number): string {
-  const pct = Math.round(accentFraction * 100);
-  return `color-mix(in srgb, ${canvasCss} ${100 - pct}%, ${accentCss} ${pct}%)`;
-}
-
-function solidFillGradient(
-  canvasCss: string,
-  accentCss: string,
-  top: number,
-  mid: number,
-  bot: number,
-  /** On dark blocks, skip heavy horizontal darkening — it reads as “muddy” on near-black. */
-  variant: 'default' | 'darkTint' = 'default',
-): string {
-  const quietTop = Math.max(top, mid, bot);
-  const quietBottom = Math.min(top, mid, bot);
-  /** Calm paper wash. The previous bell gradient created muddy/fluorescent bands,
-   * especially in short blocks. A single directional wash keeps category color
-   * visible without making blocks look like highlighter tape. */
-  return `linear-gradient(180deg, ${opaqueMix(canvasCss, accentCss, quietTop)} 0%, ${opaqueMix(canvasCss, accentCss, bot)} 58%, ${opaqueMix(canvasCss, accentCss, quietBottom)} 100%)`;
-}
-
-function TimelineIntervalPill({
-  isDarkMode,
-  children,
-  className,
-  variant = 'default',
-}: {
-  isDarkMode: boolean;
-  children: ReactNode;
-  className?: string;
-  /** `subtle` — short gaps / low remaining: lighter, no floating shadow */
-  variant?: 'default' | 'subtle';
-}) {
-  const subtle = variant === 'subtle';
-  return (
-    <div
-      className={cn(
-        'inline-flex max-w-[min(100%,280px)] items-center justify-center truncate rounded-full font-mono font-medium tabular-nums tracking-tight',
-        subtle ? 'px-2 py-px text-[10px]' : 'px-2.5 py-[3px] text-[11px] sm:text-[12px]',
-        className,
-      )}
-      style={{
-        backgroundColor: subtle
-          ? isDarkMode
-            ? 'hsl(var(--muted) / 0.4)'
-            : 'rgba(255, 255, 255, 0.78)'
-          : isDarkMode
-            ? 'hsl(var(--card))'
-            : '#ffffff',
-        border: subtle
-          ? isDarkMode
-            ? '1px solid hsl(var(--border) / 0.3)'
-            : '1px solid rgba(60, 60, 67, 0.07)'
-          : isDarkMode
-            ? '1px solid hsl(var(--border) / 0.42)'
-            : '1px solid rgba(60, 60, 67, 0.11)',
-        boxShadow: subtle
-          ? 'none'
-          : isDarkMode
-            ? '0 6px 18px rgba(0, 0, 0, 0.22)'
-            : '0 6px 18px rgba(15, 23, 42, 0.085)',
-        color: subtle
-          ? isDarkMode
-            ? 'hsl(var(--muted-foreground) / 0.82)'
-            : 'rgba(72, 72, 74, 0.58)'
-          : isDarkMode
-            ? 'hsl(var(--muted-foreground) / 0.9)'
-            : 'rgba(72, 72, 74, 0.78)',
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-function hourLabel(h: number): string {
-  return `${String(h).padStart(2, '0')}:00`;
-}
-
-function fmtTime(totalMin: number): string {
-  const h = Math.floor(totalMin / 60);
-  const m = totalMin % 60;
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-}
-
-function localMinuteToISOString(dayStr: string, totalMin: number): string {
-  const hours = Math.floor(totalMin / 60);
-  const minutes = totalMin % 60;
-  return new Date(
-    `${dayStr}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`
-  ).toISOString();
-}
-
-function snapMinute(totalMin: number, step = DRAG_SNAP_MIN): number {
-  return Math.round(totalMin / step) * step;
-}
-
-function getSmartDuration(title: string, tags?: string[]): number {
-  const tag = tags?.[0] || autoClassifyTag(title) || '';
-  if (['admin', 'finance', 'shopping', 'travel'].includes(tag)) return 15;
-  if (['life'].includes(tag)) return 20;
-  if (['social'].includes(tag)) return 30;
-  if (['event'].includes(tag)) return 60;
-  if (['health'].includes(tag)) return 45;
-  if (['study', 'work'].includes(tag)) return 60;
-  return 30;
-}
+import {
+  HOUR_HEIGHT,
+  NOW_VIEWPORT_ANCHOR,
+  PX_PER_MIN,
+  DRAG_SNAP_MIN,
+  MIN_BLOCK_MIN,
+  REST_COLOR,
+  SHOW_FREE_TIME_LABELS,
+  TIME_RAIL_WIDTH_PX,
+  TIMELINE_CANVAS_LIGHT,
+  BLOCK_CORNER_PX,
+  SLIM_BOTH_OUTER_PX,
+  ULTRA_SHORT_OUTER_PX,
+  DRAG_UNSCHEDULE_MARGIN_PX,
+  MAX_TIMELINE_TITLE_FONT_PX,
+  formatGapMinutesLabel,
+  TimelineIntervalPill,
+  hourLabel,
+  fmtTime,
+  localMinuteToISOString,
+  snapMinute,
+  getSmartDuration,
+  getTagColor,
+  softenTagForTimeline,
+  deepenWarmTimelineColor,
+  adjustTagForDarkMode,
+  timelineFillGradient,
+  timelineBlockShell,
+  getTagIcon,
+  assignColumns,
+  slotKey,
+  slotToMin,
+  type TimeBlock,
+  type SlotKey,
+} from './planTimeline/planTimelinePrimitives';
 
 interface PlanTimelineViewProps {
   todos: Todo[];
@@ -179,301 +74,6 @@ interface PlanTimelineViewProps {
   getTimerElapsed?: (todoId: string) => number;
   /** Plan page rhythm picker — shifts “now” marker + stays in sync with Execution chart */
   rhythmPresetId?: string;
-}
-
-interface TimeBlock {
-  id: string;
-  title: string;
-  startMin: number;
-  endMin: number;
-  type: 'plan';
-  emoji?: string;
-  source: 'todo' | 'moment' | 'imported';
-  isCompleted?: boolean;
-  tags?: string[];
-  photos?: string[];
-  progress?: number;
-  timerActiveStartMin?: number; // minute when timer was actually started (for fill calculation)
-  // Plan vs Actual tracking
-  planStartMin?: number;
-  planEndMin?: number;
-  actualStartMin?: number; // set when pomodoro was actually started
-  actualEndMin?: number; // set when pomodoro ended
-  hasActual?: boolean; // whether actual execution has started
-  sessionGroupKey?: string;
-}
-
-/* Tag color palette — fixed category colors for clear differentiation */
-import { TAG_CATEGORY_COLORS, TAG_CATEGORY_ICONS, autoClassifyTag } from '@/lib/autoTag';
-
-const FALLBACK_TAG_COLORS = [
-  'hsl(var(--primary))',
-  'hsl(var(--accent))',
-  'hsl(var(--chip-foreground))',
-  'hsl(var(--destructive))',
-  'hsl(var(--foreground) / 0.7)',
-];
-
-function getTagColor(tags?: string[], title?: string): string | undefined {
-  // Try stored tag first
-  if (tags && tags.length > 0) {
-    const tag = tags[0].toLowerCase();
-    if (TAG_CATEGORY_COLORS[tag]) return TAG_CATEGORY_COLORS[tag];
-    const hash = tag.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-    return FALLBACK_TAG_COLORS[hash % FALLBACK_TAG_COLORS.length];
-  }
-  // Auto-classify by title
-  if (title) {
-    const autoTag = autoClassifyTag(title);
-    if (autoTag && TAG_CATEGORY_COLORS[autoTag]) return TAG_CATEGORY_COLORS[autoTag];
-  }
-  return undefined;
-}
-
-/* ── Theme-aware tag color adjustment ──
-   Tag hexes were tuned for a light canvas. In dark mode we color-mix them into
-   near-black / card surfaces for task bodies; mid-saturation mid-L hexes read as
-   muddy. Lift lightness and cap saturation so every category reads as a soft
-   tint (same hue, calmer), and keep strokes/borders from screaming. */
-
-function hexToHSL(hex: string): { h: number; s: number; l: number } | null {
-  if (!hex.startsWith('#') || hex.length !== 7) return null;
-  const r = parseInt(hex.slice(1, 3), 16) / 255;
-  const g = parseInt(hex.slice(3, 5), 16) / 255;
-  const b = parseInt(hex.slice(5, 7), 16) / 255;
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const l = (max + min) / 2;
-  let h = 0;
-  let s = 0;
-  if (max !== min) {
-    const d = max - min;
-    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-    switch (max) {
-      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-      case g: h = (b - r) / d + 2; break;
-      case b: h = (r - g) / d + 4; break;
-    }
-    h /= 6;
-  }
-  return { h: h * 360, s: s * 100, l: l * 100 };
-}
-
-function hslToHex(h: number, s: number, l: number): string {
-  const sN = s / 100;
-  const lN = l / 100;
-  const c = (1 - Math.abs(2 * lN - 1)) * sN;
-  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
-  const m = lN - c / 2;
-  let r = 0, g = 0, b = 0;
-  if (h < 60) { r = c; g = x; b = 0; }
-  else if (h < 120) { r = x; g = c; b = 0; }
-  else if (h < 180) { r = 0; g = c; b = x; }
-  else if (h < 240) { r = 0; g = x; b = c; }
-  else if (h < 300) { r = x; g = 0; b = c; }
-  else { r = c; g = 0; b = x; }
-  const toHex = (v: number) => Math.round((v + m) * 255).toString(16).padStart(2, '0');
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-}
-
-function softenTagForTimeline(color: string | undefined, isDarkMode: boolean): string | undefined {
-  if (!color) return color;
-  const hsl = hexToHSL(color);
-  if (!hsl) return color;
-  if (isDarkMode) {
-    const newS = Math.min(34, Math.max(20, hsl.s * 0.28 + 8));
-    const newL = Math.min(70, Math.max(56, hsl.l + 12));
-    return hslToHex(hsl.h, newS, newL);
-  }
-  // Light timeline wants colored paper, not fluorescent highlighter ink.
-  const newS = Math.min(28, Math.max(14, hsl.s * 0.22 + 6));
-  const newL = Math.min(76, Math.max(66, hsl.l + 16));
-  return hslToHex(hsl.h, newS, newL);
-}
-
-function deepenWarmTimelineColor(color: string | undefined): string | undefined {
-  if (!color) return color;
-  const hsl = hexToHSL(color);
-  if (!hsl) return color;
-  const isWarmYellow = hsl.h >= 32 && hsl.h <= 58;
-  if (!isWarmYellow) return color;
-  return hslToHex(
-    hsl.h,
-    Math.min(72, Math.max(hsl.s + 8, 46)),
-    Math.max(42, hsl.l - 7)
-  );
-}
-
-function adjustTagForDarkMode(color: string | undefined): string | undefined {
-  if (!color) return color;
-  // Only adjust hex strings; CSS-var hsl() colors already adapt via the theme.
-  const hsl = hexToHSL(color);
-  if (!hsl) return color;
-  /** Dark timeline blocks need hue identity, but not saturated glowing stickers. */
-  const newS = Math.min(42, Math.max(24, hsl.s * 0.34 + 10));
-  const liftL =
-    hsl.l < 48 ? Math.min(70, hsl.l + 22) : hsl.l < 62 ? Math.min(72, hsl.l + 12) : Math.min(74, hsl.l + 4);
-  const newL = Math.max(56, liftL);
-  return hslToHex(hsl.h, newS, newL);
-}
-
-function timelineFillGradient(
-  isDarkMode: boolean,
-  canvasCss: string,
-  accentCss: string,
-  top: number,
-  mid: number,
-  bot: number,
-  variant: 'default' | 'darkTint',
-): string {
-  const scale = isDarkMode ? 0.72 : 1.08;
-  const topMix = Math.max(0, Math.min(isDarkMode ? 0.17 : 0.28, top * scale));
-  const midMix = Math.max(0, Math.min(isDarkMode ? 0.13 : 0.21, mid * scale));
-  const botMix = Math.max(0, Math.min(isDarkMode ? 0.1 : 0.16, bot * scale));
-
-  // Keep a visible colored body. The accent is already mixed into the canvas,
-  // so this should read as a filled time block, not just a faint outline.
-  return solidFillGradient(canvasCss, accentCss, topMix, midMix, botMix, variant);
-}
-
-function timelineBlockShell(
-  isDarkMode: boolean,
-  canvasCss: string,
-  accentCss: string,
-  intensity: 'plan' | 'actual' | 'active' | 'done' | 'ghost',
-): { background: string; border: string; shadow: string } {
-  const mixes = {
-    plan: isDarkMode ? [0.18, 0.13, 0.1] : [0.27, 0.205, 0.16],
-    actual: isDarkMode ? [0.2, 0.15, 0.11] : [0.3, 0.225, 0.17],
-    active: isDarkMode ? [0.23, 0.17, 0.12] : [0.34, 0.255, 0.19],
-    done: isDarkMode ? [0.15, 0.11, 0.085] : [0.19, 0.145, 0.11],
-    ghost: isDarkMode ? [0.08, 0.062, 0.05] : [0.12, 0.09, 0.07],
-  }[intensity];
-  const borderMix = isDarkMode
-    ? intensity === 'active' ? 0.28 : intensity === 'plan' ? 0.22 : 0.24
-    : intensity === 'active' ? 0.3 : intensity === 'plan' ? 0.24 : 0.26;
-  const background = timelineFillGradient(isDarkMode, canvasCss, accentCss, mixes[0], mixes[1], mixes[2], isDarkMode ? 'darkTint' : 'default');
-  const border = `color-mix(in srgb, ${canvasCss} ${100 - Math.round(borderMix * 100)}%, ${accentCss} ${Math.round(borderMix * 100)}%)`;
-  const shadow = isDarkMode
-    ? `inset 0 0 0 1px ${border}, 0 8px 18px rgba(0,0,0,0.12)`
-    : `inset 0 0 0 1px ${border}, 0 8px 20px rgba(24, 24, 27, 0.03)`;
-  return { background, border, shadow };
-}
-
-function getTagIcon(tags?: string[], title?: string): string | undefined {
-  const tag = tags?.[0] || (title ? autoClassifyTag(title) : undefined);
-  if (tag && TAG_CATEGORY_ICONS[tag]) return TAG_CATEGORY_ICONS[tag];
-  return undefined;
-}
-
-/* Column assignment for overlapping blocks */
-function assignColumns(blocks: TimeBlock[]) {
-  const COLLISION_BUFFER_MIN = 6;
-  type Segment = { start: number; end: number };
-  const getSegments = (block: TimeBlock): Segment[] => {
-    const segments: Segment[] = [];
-
-    if (block.planStartMin != null && block.planEndMin != null) {
-      segments.push({ start: block.planStartMin, end: Math.max(block.planEndMin, block.planStartMin + 1) });
-    }
-
-    if (block.actualStartMin != null && block.actualEndMin != null) {
-      segments.push({ start: block.actualStartMin, end: Math.max(block.actualEndMin, block.actualStartMin + 1) });
-    }
-
-    if (segments.length === 0) {
-      segments.push({ start: block.startMin, end: Math.max(block.endMin, block.startMin + 1) });
-    }
-
-    segments.sort((a, b) => a.start - b.start || a.end - b.end);
-
-    const merged: Segment[] = [];
-    segments.forEach(segment => {
-      const prev = merged[merged.length - 1];
-      if (!prev || segment.start > prev.end + COLLISION_BUFFER_MIN) {
-        merged.push({ ...segment });
-        return;
-      }
-      prev.end = Math.max(prev.end, segment.end);
-    });
-
-    return merged;
-  };
-
-  const overlaps = (a: Segment[], b: Segment[]) => {
-    for (const segA of a) {
-      for (const segB of b) {
-        if (
-          segA.start < segB.end + COLLISION_BUFFER_MIN &&
-          segA.end > segB.start - COLLISION_BUFFER_MIN
-        ) {
-          return true;
-        }
-      }
-    }
-    return false;
-  };
-
-  const sorted = [...blocks].sort((a, b) => {
-    const aFirst = getSegments(a)[0];
-    const bFirst = getSegments(b)[0];
-    return aFirst.start - bFirst.start
-      || (bFirst.end - bFirst.start) - (aFirst.end - aFirst.start)
-      || a.id.localeCompare(b.id);
-  });
-  const n = sorted.length;
-  if (n === 0) return [];
-
-  const segmentsByIndex = sorted.map(getSegments);
-  const colAssign = new Array(n).fill(-1);
-  for (let i = 0; i < n; i++) {
-    const usedCols = new Set<number>();
-    for (let j = 0; j < i; j++) {
-      if (overlaps(segmentsByIndex[i], segmentsByIndex[j])) {
-        usedCols.add(colAssign[j]);
-      }
-    }
-
-    let bestCol = 0;
-    while (usedCols.has(bestCol)) bestCol += 1;
-    colAssign[i] = bestCol;
-  }
-
-  const parent = Array.from({ length: n }, (_, i) => i);
-  const find = (x: number): number => parent[x] === x ? x : (parent[x] = find(parent[x]));
-  const union = (a: number, b: number) => { parent[find(a)] = find(b); };
-  for (let i = 0; i < n; i++) {
-    for (let j = i + 1; j < n; j++) {
-      if (overlaps(segmentsByIndex[i], segmentsByIndex[j])) union(i, j);
-    }
-  }
-
-  const groupCols = new Map<number, Set<number>>();
-  for (let i = 0; i < n; i++) {
-    const g = find(i);
-    if (!groupCols.has(g)) groupCols.set(g, new Set());
-    groupCols.get(g)!.add(colAssign[i]);
-  }
-  const groupColMap = new Map<number, Map<number, number>>();
-  for (const [g, colSet] of groupCols) {
-    const sc = [...colSet].sort((a, b) => a - b);
-    const mapping = new Map<number, number>();
-    sc.forEach((c, idx) => mapping.set(c, idx));
-    groupColMap.set(g, mapping);
-  }
-
-  return sorted.map((block, i) => {
-    const g = find(i);
-    const mapping = groupColMap.get(g)!;
-    return { block, col: mapping.get(colAssign[i])!, totalCols: mapping.size };
-  });
-}
-
-type SlotKey = string;
-function slotKey(h: number, half: 0 | 30): SlotKey { return `${h}:${half}`; }
-function slotToMin(key: SlotKey): { start: number; end: number } {
-  const [h, m] = key.split(':').map(Number);
-  return { start: h * 60 + m, end: h * 60 + m + 30 };
 }
 
 export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdateTodo, onAddTodo, onDropTodo, onUnscheduleTodo, onDeleteTodo, onRenameTodo, onStartTimer, activeTimerIds, getTimerElapsed, rhythmPresetId }: PlanTimelineViewProps) {
