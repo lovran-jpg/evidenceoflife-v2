@@ -805,6 +805,30 @@ export function MapView({ moments, placesData }: MapViewProps) {
     };
   }, [viewMode, showPlaceDetail, mapPreviewFailed]);
 
+  // Force the main map to recompute its size whenever it becomes visible again
+  // (closing the place detail or switching world/city views). The container is
+  // toggled with display:none while a detail is open, which leaves Leaflet with a
+  // stale 0×0 size — the markers stay correctly positioned but the tiles render
+  // black until invalidateSize() runs. The ResizeObserver above is timing-flaky
+  // for display toggles, so we also fire invalidateSize() on a short schedule.
+  useEffect(() => {
+    if (MAP_SAFE_MODE || mapPreviewFailed) return;
+    if (showPlaceDetail) return; // map is hidden; nothing to refresh yet
+    if (!mapRef.current) return;
+
+    const map = mapRef.current;
+    const timers = [0, 60, 160, 320, 600].map((ms) =>
+      setTimeout(() => {
+        try {
+          map.invalidateSize();
+        } catch {
+          // ignore stale leaflet state
+        }
+      }, ms)
+    );
+    return () => timers.forEach(clearTimeout);
+  }, [showPlaceDetail, viewMode, mapPreviewFailed]);
+
   // Fit to visited cities when switching to world view
   useEffect(() => {
     if (MAP_SAFE_MODE || mapPreviewFailed) return;
