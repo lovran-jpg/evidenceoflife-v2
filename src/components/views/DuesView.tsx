@@ -793,7 +793,7 @@ export function DuesView({
                 <Target size={14} />
                 {t('dues.todayUrgent')}
               </h2>
-              <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(320px,1fr))]">
+              <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr))]">
                 {todayUrgent.map(due => (
                   <DueCard key={due.id} due={due} onUpdate={updateDue} onDelete={deleteDue}
                     onAddToToday={handleAddToToday} justAdded={justAdded === due.id}
@@ -817,7 +817,7 @@ export function DuesView({
                 {upcomingCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
               </button>
               {!upcomingCollapsed && (
-                <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(320px,1fr))]">
+                <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr))]">
                   {upcoming.map(due => (
                     <DueCard key={due.id} due={due} onUpdate={updateDue} onDelete={deleteDue}
                       onAddToToday={handleAddToToday} justAdded={justAdded === due.id}
@@ -842,7 +842,7 @@ export function DuesView({
                 {noDateCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
               </button>
               {!noDateCollapsed && (
-                <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(320px,1fr))]">
+                <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr))]">
                   {noDateDeadlines.map(due => (
                     <DueCard key={due.id} due={due} onUpdate={updateDue} onDelete={deleteDue}
                       onAddToToday={handleAddToToday} justAdded={justAdded === due.id}
@@ -965,7 +965,7 @@ export function DuesView({
             {completedCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
           </button>
           {!completedCollapsed && (
-            <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(320px,1fr))]">
+            <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,440px),1fr))]">
               {completedDues.map(due => (
                 <DueCard key={due.id} due={due} onUpdate={updateDue} onDelete={deleteDue}
                   onAddToToday={handleAddToToday} justAdded={false}

@@ -225,10 +225,10 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
 
   return (
     <div id={`due-card-${due.id}`} tabIndex={0} onPaste={handleCardPaste} className={cn(
-      "bg-card rounded-[18px] p-3 group relative transition-all",
-      due.is_completed && "opacity-50"
+      "bg-card rounded-[20px] p-4 group relative transition-shadow hover:shadow-[0_8px_28px_-14px_rgba(0,0,0,0.18)]",
+      due.is_completed && "opacity-55"
     )} style={{ 
-      boxShadow: '0 2px 8px rgba(0,0,0,0.025)',
+      boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
       border: `1px solid ${timeLeft?.overdue ? 'hsl(var(--destructive) / 0.22)' : accentBorder}`,
     }}>
       <input ref={photoInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoUpload} />
@@ -236,7 +236,7 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
 
       {/* Type indicator dot + Title */}
       <div className="flex items-start gap-2.5">
-        <div className="mt-1.5 h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: accentColor }} />
+        <div className="mt-[7px] h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: accentColor }} />
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
@@ -260,13 +260,13 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
             </div>
             {!isHabit && due.steps.length > 0 && (
               <span className={cn(
-                "inline-flex flex-shrink-0 flex-col items-center justify-center rounded-[14px] px-2.5 py-1.5 text-[11px] font-medium leading-none",
+                "inline-flex flex-shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold leading-none tabular-nums",
                 due.steps.every(s => s.is_completed)
                   ? "bg-primary/10 text-primary"
-                  : "bg-secondary/75 text-muted-foreground"
+                  : "bg-secondary/70 text-muted-foreground"
               )}>
-                <span>{due.steps.filter(s => s.is_completed).length}/{due.steps.length}</span>
-                <span className="mt-1 text-[10px] opacity-80">steps</span>
+                {due.steps.filter(s => s.is_completed).length}/{due.steps.length}
+                <span className="text-[10px] font-medium opacity-60">steps</span>
               </span>
             )}
           </div>
@@ -399,10 +399,10 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
                   )}
                 </div>
                 {/* Right: label */}
-                <div className={cn("flex items-start gap-1.5 flex-1 min-w-0", !isLast && "pb-2")}>
+                <div className={cn("flex items-center gap-2 flex-1 min-w-0", !isLast && "pb-2")}>
                   <span className={cn(
-                    "flex-1 text-[13px] leading-snug pt-0.5",
-                    isCompleted ? "text-muted-foreground/35 line-through" : "text-foreground/72"
+                    "min-w-0 flex-1 truncate text-[13px] leading-snug",
+                    isCompleted ? "text-muted-foreground/40 line-through" : "text-foreground/75"
                   )}>
                     {step.title}
                   </span>
@@ -411,7 +411,7 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
                       get a "when did this happen" anchor on the card. */}
                   {isCompleted && step.completed_at && (
                     <span
-                      className="mt-1 flex-shrink-0 rounded-md bg-secondary/55 px-1.5 py-[1px] font-mono text-[10px] tabular-nums text-muted-foreground/65"
+                      className="flex-shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground/50"
                       title={formatDate(parseISO(step.completed_at), 'PPpp')}
                     >
                       {formatDate(parseISO(step.completed_at), 'MMM d')}
@@ -422,7 +422,7 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
                       <button
                         type="button"
                         className={cn(
-                          "mt-0.5 rounded-full p-1 transition-all flex-shrink-0",
+                          "rounded-full p-1 transition-all flex-shrink-0",
                           hasStepReminder
                             ? "text-primary bg-primary/10"
                             : "text-muted-foreground/25 opacity-0 group-hover/step:opacity-100 hover:bg-secondary hover:text-primary"
@@ -484,7 +484,7 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
                   </Popover>
                   <button
                     onClick={() => onDeleteStep(step.id)}
-                    className="opacity-0 group-hover/step:opacity-100 mt-1 text-muted-foreground/25 hover:text-destructive transition-opacity p-0.5 flex-shrink-0"
+                    className="opacity-0 group-hover/step:opacity-100 text-muted-foreground/25 hover:text-destructive transition-opacity p-0.5 flex-shrink-0"
                   >
                     <X size={10} />
                   </button>
@@ -699,7 +699,7 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
       )}
 
       {/* Action buttons row */}
-      <div className="mt-2.5 pt-2 border-t border-border/40">
+      <div className="mt-3 pt-2.5 border-t border-border/30">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
             {(due.links || [])[0] && (
@@ -806,7 +806,7 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
               )
             )}
           </div>
-          <div className="flex shrink-0 items-center gap-1.5">
+          <div className="flex shrink-0 items-center gap-0.5 opacity-50 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
             {/* Delete — bottom right, away from expand area */}
             {confirmDelete ? (
               <div className="flex items-center gap-1.5">
