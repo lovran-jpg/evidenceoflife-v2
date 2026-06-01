@@ -850,7 +850,9 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
     const hasActual = isTodo && block.hasActual;
     const isPlanOnly = hasPlan && !hasActual;
 
-    if (isTodo && displayMode === 'plan' && !hasPlan) {
+    // Live activity must always be visible: a task you're recording right now
+    // shouldn't vanish from the timeline just because you're in Plan view.
+    if (isTodo && displayMode === 'plan' && !hasPlan && !isTimerActive) {
       return null;
     }
 
@@ -888,7 +890,9 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
 
     // Determine what to render based on display mode
     const showPlan = hasPlan && (displayMode === 'plan' || displayMode === 'both');
-    const showActual = hasActual && (displayMode === 'actual' || displayMode === 'both');
+    // A plan-less task that's actively timing still shows its live actual block,
+    // even in Plan view — otherwise "what I'm doing now" disappears.
+    const showActual = hasActual && (displayMode === 'actual' || displayMode === 'both' || (isTimerActive && !hasPlan));
 
     // The outer container uses the widest range visible
     let visibleStart = block.startMin;
