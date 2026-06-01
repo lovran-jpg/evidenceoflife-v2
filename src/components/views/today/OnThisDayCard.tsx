@@ -133,12 +133,12 @@ export function OnThisDayCard({ moments, selectedDate, onRevisit }: OnThisDayCar
     <button
       type="button"
       onClick={() => onRevisit(memory.dateStr)}
-      className="group w-full rounded-2xl border border-[#dfe3ec]/70 bg-gradient-to-b from-[#f6f7fb] to-[#eef1f8] p-4 text-left shadow-[0_8px_24px_rgba(76,82,110,0.06)] transition-shadow hover:shadow-[0_10px_28px_rgba(76,82,110,0.12)] dark:border-foreground/[0.12] dark:from-foreground/[0.05] dark:to-foreground/[0.02]"
+      className="group w-full rounded-2xl border border-[#e8ddc4]/70 bg-gradient-to-b from-[#fbf6ea] to-[#f6efdf] p-4 text-left shadow-[0_8px_24px_rgba(120,100,60,0.06)] transition-shadow hover:shadow-[0_10px_28px_rgba(120,100,60,0.12)] dark:border-foreground/[0.12] dark:from-foreground/[0.05] dark:to-foreground/[0.02]"
     >
       <div className="flex items-center gap-2">
-        <Clock3 size={15} className="text-[#7c84a3] dark:text-foreground/55" />
-        <h3 className="text-sm font-semibold text-[#4a5170] dark:text-foreground/85">{t('onThisDay.title')}</h3>
-        <span className="ml-auto text-[11px] font-medium text-[#8a91ad] dark:text-foreground/45">{label}</span>
+        <Clock3 size={15} className="text-[#b59a5e] dark:text-foreground/55" />
+        <h3 className="text-sm font-semibold text-[#6e5b38] dark:text-foreground/85">{t('onThisDay.title')}</h3>
+        <span className="ml-auto text-[11px] font-medium text-[#9a8a66] dark:text-foreground/45">{label}</span>
       </div>
 
       <div className="mt-3 flex gap-3">
@@ -146,18 +146,18 @@ export function OnThisDayCard({ moments, selectedDate, onRevisit }: OnThisDayCar
           <img
             src={thumb}
             alt=""
-            className="h-16 w-16 flex-shrink-0 rounded-xl object-cover ring-1 ring-[#dfe3ec]/70 dark:ring-foreground/[0.1]"
+            className="h-16 w-16 flex-shrink-0 rounded-xl object-cover ring-1 ring-[#e8ddc4]/70 dark:ring-foreground/[0.1]"
           />
         )}
         <div className="min-w-0 flex-1">
           {moment.emoji && <span className="mr-1.5 text-base">{moment.emoji}</span>}
           {text ? (
-            <span className="text-[13px] leading-6 text-[#48506c] dark:text-foreground/85">{text}</span>
+            <span className="text-[13px] leading-6 text-[#544832] dark:text-foreground/85">{text}</span>
           ) : (
-            <span className="text-[13px] leading-6 text-[#8a91ad] dark:text-foreground/50">{t('onThisDay.noText')}</span>
+            <span className="text-[13px] leading-6 text-[#9a8a66] dark:text-foreground/50">{t('onThisDay.noText')}</span>
           )}
           {place && (
-            <span className="mt-1 flex items-center gap-1 text-[11px] text-[#8a91ad] dark:text-foreground/50">
+            <span className="mt-1 flex items-center gap-1 text-[11px] text-[#9a8a66] dark:text-foreground/50">
               <MapPin size={11} />
               {place}
             </span>
@@ -165,7 +165,7 @@ export function OnThisDayCard({ moments, selectedDate, onRevisit }: OnThisDayCar
         </div>
       </div>
 
-      <span className="mt-3 inline-flex items-center gap-1 text-[12px] font-semibold text-[#6b73a0] group-hover:gap-1.5 dark:text-foreground/70">
+      <span className="mt-3 inline-flex items-center gap-1 text-[12px] font-semibold text-[#9a7c3e] group-hover:gap-1.5 dark:text-foreground/70">
         {t('onThisDay.revisit')}
         <ArrowRight size={13} className="transition-transform group-hover:translate-x-0.5" />
       </span>
