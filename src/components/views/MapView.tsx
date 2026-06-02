@@ -40,13 +40,54 @@ const categoryColors: Record<string, string> = {
   other: '#c9a88c',
 };
 
-function addTileWithFallback(map: L.Map) {
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+interface TileSource {
+  url: string;
+  subdomains: string;
+  maxZoom: number;
+  className: string;
+}
+
+// Ordered list of basemap providers. The first that loads wins; if many of its
+// tiles fail (e.g. the host is blocked on this network — tile.openstreetmap.org
+// is unreachable from mainland China), we fall through to the next one. Carto's
+// dark basemap is primary: it rides a widely-reachable CDN and matches the dark UI.
+const TILE_SOURCES: TileSource[] = [
+  {
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    subdomains: 'abcd',
+    maxZoom: 20,
+    className: 'map-tiles-dark',
+  },
+  {
+    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    subdomains: 'abcd',
+    maxZoom: 20,
+    className: 'map-tiles-light',
+  },
+  {
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    subdomains: 'abc',
     maxZoom: 19,
     className: 'map-tiles-light',
+  },
+];
+
+function addResilientTiles(map: L.Map) {
+  // Attach a single basemap layer and NEVER tear it down. Earlier versions
+  // swapped/removed the tile layer on repeated `tileerror` events, but doing so
+  // while a pan/zoom animation was mid-flight made Leaflet's animation callback
+  // touch an already-removed layer and throw asynchronously — which blacked out
+  // the whole view after jumping between world & city a few times. The tile
+  // hosts are reachable, so a plain persistent layer is both simpler and stable.
+  const src = TILE_SOURCES[0];
+  L.tileLayer(src.url, {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    subdomains: src.subdomains,
+    maxZoom: src.maxZoom,
+    className: src.className,
   }).addTo(map);
 }
+
 
 // Warm orange accent for life map
 const LIFE_MAP_COLOR = '#e8825a';
@@ -775,7 +816,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
         map.on('zoomend', () => setWorldZoom(map.getZoom()));
         setWorldZoom(map.getZoom());
 
-        addTileWithFallback(map);
+        addResilientTiles(map);
         L.control.attribution({ position: 'bottomright', prefix: false }).addTo(map);
 
         [80, 200, 400, 800, 1400].forEach((ms) => {
@@ -1273,15 +1314,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
 
         detailMapRef.current = map;
 
-        const detailTileLayer = L.tileLayer(
-          'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-          {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-            maxZoom: 19,
-            className: 'map-tiles-light',
-          }
-        );
-        detailTileLayer.addTo(map);
+        addResilientTiles(map);
         L.control.attribution({ position: 'bottomright', prefix: false }).addTo(map);
 
         const color = categoryColors[showPlaceDetail.category] || categoryColors.other;
@@ -1307,8 +1340,6 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
           }, ms)
         );
 
-        detailTileLayer.on('load', fixDetailMap);
-
         resizeObserver = new ResizeObserver(() => {
           requestAnimationFrame(() => {
             fixDetailMap();
@@ -1317,7 +1348,6 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
         resizeObserver.observe(detailContainerRef.current);
 
         (map as any).__fixTimers = fixTimers;
-        (map as any).__detailTileLayer = detailTileLayer;
       } catch (err) {
         console.error('Failed to initialize place detail map', err);
         setDetailMapFailed(true);
@@ -1423,14 +1453,23 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
             </div>
           </div>
         ) : (
+          // The OUTER wrapper carries the view-dependent height. The inner div —
+          // the one Leaflet initializes — MUST keep a constant className: Leaflet
+          // imperatively adds its own classes (leaflet-container, leaflet-touch,
+          // leaflet-grab …) to this node, and if React ever rewrites className
+          // (e.g. a height class that differs between world/city view) it wipes
+          // those out, stripping `.leaflet-container` styling and blanking the
+          // map after switching views. Height now lives on the wrapper, so the
+          // ref'd node's className never changes.
           <div
-            ref={mapContainerRef}
             className={cn(
-              "rounded-2xl overflow-hidden shadow-sm",
+              "rounded-2xl overflow-hidden shadow-sm transition-[height] duration-200",
               viewMode === 'world' ? 'h-[320px] lg:h-[400px]' : 'h-[280px] lg:h-96'
             )}
             style={{ border: '1px solid hsl(var(--border) / 0.4)' }}
-          />
+          >
+            <div ref={mapContainerRef} className="h-full w-full" />
+          </div>
         )}
       </div>
 

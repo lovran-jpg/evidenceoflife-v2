@@ -429,7 +429,12 @@ export function PlanDrift({ allTodos, completedTodos, allMoments, todayDateStr, 
 
   const totalPlannedMin = drift.categories.reduce((s, c) => s + c.plannedMin, 0);
   const focusedDur = drift.totalActiveMin > 0 ? fmtDur(drift.totalActiveMin) : null;
-  const planRatio = totalPlannedMin > 0 ? Math.round((drift.totalActiveMin / totalPlannedMin) * 100) : null;
+  // Plan adherence: of the time you planned, how much did you actually spend on
+  // those planned things — bounded 0–100%. (The old metric divided the whole
+  // day's focus, including unplanned moments, by a tiny plan total, which could
+  // explode to absurd values like 693% when you'd barely planned anything.)
+  const coveredPlannedMin = drift.categories.reduce((s, c) => s + Math.min(c.plannedMin, c.actualMin), 0);
+  const planRatio = totalPlannedMin > 0 ? Math.round((coveredPlannedMin / totalPlannedMin) * 100) : null;
   const focusWord = lang === 'zh' ? '专注' : 'focused';
   const missedLabel = lang === 'zh' ? '错过' : 'missed';
   const leftWord = lang === 'zh' ? '剩余' : 'left';
@@ -569,7 +574,7 @@ export function PlanDrift({ allTodos, completedTodos, allMoments, todayDateStr, 
             <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-[19px]">
               {planRatio != null && totalPlannedMin > 0 && (
                 <span
-                  title={lang === 'zh' ? '专注时间占计划时间的比例' : 'Focused time vs planned time'}
+                  title={lang === 'zh' ? '计划的事情里实际做了多少' : 'How much of your plan you actually did'}
                   className="inline-flex items-center rounded-full border border-border/35 bg-background/45 px-2 py-0.5 font-mono text-[10px] font-medium tabular-nums text-muted-foreground/58"
                 >
                   {lang === 'zh' ? `计划完成 ${planRatio}%` : `${planRatio}% of plan`}

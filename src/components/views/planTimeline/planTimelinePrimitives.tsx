@@ -2,7 +2,7 @@ import { type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { TAG_CATEGORY_COLORS, TAG_CATEGORY_ICONS, autoClassifyTag } from '@/lib/autoTag';
 
-export const HOUR_HEIGHT = 56;
+export const HOUR_HEIGHT = 68;
 export const NOW_VIEWPORT_ANCHOR = 0.16;
 export const PX_PER_MIN = HOUR_HEIGHT / 60;
 export const DRAG_SNAP_MIN = 5;
@@ -327,7 +327,7 @@ export function getTagIcon(tags?: string[], title?: string): string | undefined 
 
 /* Column assignment for overlapping blocks */
 export function assignColumns(blocks: TimeBlock[]) {
-  const COLLISION_BUFFER_MIN = 6;
+  const COLLISION_BUFFER_MIN = 2;
   type Segment = { start: number; end: number };
   const getSegments = (block: TimeBlock): Segment[] => {
     const segments: Segment[] = [];

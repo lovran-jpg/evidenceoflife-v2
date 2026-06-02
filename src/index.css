@@ -635,6 +635,11 @@
     filter: none;
   }
 
+  /* Carto dark basemap — already dark, no filter needed (matches the dark UI). */
+  .map-tiles-dark {
+    filter: none;
+  }
+
   /* Safety net: loaded tiles must always be visible. Leaflet's fade-in can
      stall at opacity:0 (black map) when the container is initialized hidden or
      resized rapidly; force any loaded tile to full opacity. */
