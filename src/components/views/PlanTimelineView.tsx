@@ -888,6 +888,22 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
       && Math.abs((block.planEndMin ?? 0) - actualEnd) <= 2;
     const showBothMiniState = displayMode === 'both' && hasPlan && hasActual && !planActualIdentical && overlapRatio < 0.72;
 
+    // How far the actual START drifted from the planned start (minutes).
+    // Positive = started later than planned, negative = earlier. This is the
+    // single most legible "did I follow my plan?" signal, so we surface it as a
+    // small labeled chip on the actual block in Both mode.
+    const startDeltaMin = hasPlan && hasActual
+      ? Math.round((block.actualStartMin ?? 0) - (block.planStartMin ?? 0))
+      : 0;
+    const fmtDelta = (mins: number) => {
+      const a = Math.abs(mins);
+      const h = Math.floor(a / 60);
+      const m = a % 60;
+      return h > 0 ? (m > 0 ? `${h}h${m}m` : `${h}h`) : `${m}m`;
+    };
+    const showDeviationChip = displayMode === 'both' && hasPlan && hasActual
+      && !planActualIdentical && Math.abs(startDeltaMin) >= 5;
+
     // Determine what to render based on display mode
     const showPlan = hasPlan && (displayMode === 'plan' || displayMode === 'both');
     // A plan-less task that's actively timing still shows its live actual block,
@@ -1197,13 +1213,14 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
                   y1="3"
                   x2="9"
                   y2={Math.max(3, lineHeight - 3)}
-                  stroke={colorWithAlpha(0.22)}
+                  stroke={colorWithAlpha(0.42)}
                   strokeWidth="1.5"
+                  strokeDasharray="2 3"
                   strokeLinecap="round"
                 />
                 <path
                   d="M9 0 L13 6 L5 6 Z"
-                  fill={colorWithAlpha(0.32)}
+                  fill={colorWithAlpha(0.55)}
                   transform={`translate(0 ${arrowY - 6}) rotate(${arrowRotation} 9 3)`}
                 />
               </svg>
@@ -1308,6 +1325,28 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
                     borderRadius: `${BLOCK_CORNER_PX}px ${BLOCK_CORNER_PX}px 0 0`,
                   }}
                 />
+              )}
+              {/* Plan-deviation chip — how far the actual start drifted from plan.
+                  The clearest "did I stick to my plan?" signal in Both mode. */}
+              {showDeviationChip && actHeight >= 18 && blockWidthPx >= 88 && (
+                <div
+                  className="absolute right-1 top-1 z-20 flex items-center gap-[2px] rounded-full px-1.5 py-[1px] font-semibold leading-none pointer-events-none whitespace-nowrap"
+                  style={{
+                    fontSize: extraLargeBlockLayout ? '11px' : '10px',
+                    color: colorWithAlpha(isDarkMode ? 0.95 : 0.82),
+                    background: isDarkMode ? 'hsl(240 6% 9% / 0.72)' : 'hsl(0 0% 100% / 0.86)',
+                    boxShadow: `inset 0 0 0 1px ${colorWithAlpha(0.28)}`,
+                    backdropFilter: 'blur(2px)',
+                  }}
+                  title={lang === 'zh'
+                    ? `实际比计划${startDeltaMin > 0 ? '晚' : '早'}开始 ${fmtDelta(startDeltaMin)}`
+                    : `Started ${fmtDelta(startDeltaMin)} ${startDeltaMin > 0 ? 'later' : 'earlier'} than planned`}
+                >
+                  <span style={{ fontSize: '0.95em', lineHeight: 1 }}>{startDeltaMin > 0 ? '↓' : '↑'}</span>
+                  {lang === 'zh'
+                    ? `${startDeltaMin > 0 ? '晚' : '早'}${fmtDelta(startDeltaMin)}`
+                    : `${fmtDelta(startDeltaMin)} ${startDeltaMin > 0 ? 'late' : 'early'}`}
+                </div>
               )}
               {isTimerActive && (
                 <>
