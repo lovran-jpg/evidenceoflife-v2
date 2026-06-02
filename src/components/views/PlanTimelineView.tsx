@@ -2058,62 +2058,43 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
               if (previewTagColor) return `${previewTagColor}${Math.round(alpha * 255).toString(16).padStart(2, '0')}`;
               return isPastDrop ? `rgba(75, 148, 120, ${alpha})` : `hsl(var(--primary) / ${alpha})`;
             };
-            const previewDashColor = previewColorWithAlpha(isPastDrop ? 0.38 : 0.52);
+            const previewDashColor = previewColorWithAlpha(isPastDrop ? 0.42 : 0.55);
+            const previewHeight = Math.max(minToY(Math.min(dropIndicatorMin + previewDur, BED_TOTAL_MIN)) - minToY(dropIndicatorMin), 28);
+            const previewCompact = previewHeight < 46;
             return (
               <div
-                className="absolute left-0 right-0 z-40 pointer-events-none"
+                className="absolute left-0 right-0 z-40 overflow-hidden pointer-events-none"
                 style={{
                   top: minToY(dropIndicatorMin),
-                  height: Math.max(minToY(Math.min(dropIndicatorMin + previewDur, BED_TOTAL_MIN)) - minToY(dropIndicatorMin), 32),
+                  height: previewHeight,
+                  borderRadius: `${BLOCK_CORNER_PX}px`,
+                  border: `1px dashed ${previewDashColor}`,
+                  background: `linear-gradient(180deg, ${previewColorWithAlpha(isPastDrop ? 0.13 : 0.07)} 0%, ${previewColorWithAlpha(isPastDrop ? 0.045 : 0.025)} 100%)`,
+                  boxShadow: `0 8px 24px ${previewColorWithAlpha(0.04)}`,
                 }}
               >
-                <div
-                  className="absolute inset-0 overflow-hidden"
-                  style={{
-                    borderRadius: `${BLOCK_CORNER_PX}px`,
-                    background: `linear-gradient(180deg, ${previewColorWithAlpha(isPastDrop ? 0.13 : 0.07)} 0%, ${previewColorWithAlpha(isPastDrop ? 0.045 : 0.025)} 100%)`,
-                    boxShadow: `inset 0 0 0 1px ${previewColorWithAlpha(0.08)}, 0 8px 24px ${previewColorWithAlpha(0.035)}`,
-                  }}
-                >
+                {isPastDrop && (
                   <div
-                    className="absolute inset-0 pointer-events-none"
-                    style={{
-                      borderRadius: `${BLOCK_CORNER_PX}px`,
-                      backgroundImage: [
-                        `repeating-linear-gradient(90deg, ${previewDashColor} 0 6px, transparent 6px 12px)`,
-                        `repeating-linear-gradient(90deg, ${previewDashColor} 0 6px, transparent 6px 12px)`,
-                        `repeating-linear-gradient(180deg, ${previewDashColor} 0 6px, transparent 6px 12px)`,
-                        `repeating-linear-gradient(180deg, ${previewDashColor} 0 6px, transparent 6px 12px)`,
-                      ].join(', '),
-                      backgroundPosition: 'left top, left bottom, left top, right top',
-                      backgroundSize: '100% 2px, 100% 2px, 2px 100%, 2px 100%',
-                      backgroundRepeat: 'no-repeat',
-                    }}
+                    className="absolute left-0 top-0 bottom-0 w-[3px]"
+                    style={{ backgroundColor: previewColorWithAlpha(0.32) }}
                   />
-                  {isPastDrop && (
-                    <div
-                      className="absolute left-0 top-0 bottom-0 w-[3px]"
-                      style={{
-                        borderRadius: `${BLOCK_CORNER_PX}px 0 0 ${BLOCK_CORNER_PX}px`,
-                        backgroundColor: previewColorWithAlpha(0.3),
-                      }}
-                    />
+                )}
+                <div className={cn('flex h-full min-w-0 items-center gap-2 px-3', isPastDrop && 'pl-3.5')}>
+                  {isPastDrop && <span className="flex-shrink-0 text-[13px] leading-none" style={{ color: previewColor }}>✓</span>}
+                  <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium leading-none text-foreground/88">
+                    {previewTitle || (isPastDrop ? 'Log as done' : 'Drop to schedule')}
+                  </span>
+                  {!previewCompact && (
+                    <span className="flex-shrink-0 font-mono text-[10.5px] leading-none text-muted-foreground/55">
+                      {fmtTime(dropIndicatorMin)} → {fmtTime(Math.min(dropIndicatorMin + previewDur, BED_TOTAL_MIN))}
+                    </span>
                   )}
-                </div>
-                <div className="relative z-10 flex h-full flex-col justify-center px-3.5 py-2">
-                  <div className="flex items-center gap-2">
-                    {isPastDrop && <span className="flex-shrink-0 text-[14px]" style={{ color: previewColor }}>✓</span>}
-                    <span className="truncate text-[13px] font-medium text-foreground/86">
-                      {previewTitle || (isPastDrop ? 'Log as done' : 'Drop to schedule')}
-                    </span>
-                    <span className="rounded-full bg-background/70 px-1.5 py-[2px] text-[10px] font-medium shadow-[inset_0_0_0_1px_hsl(var(--border)/0.35)]" style={{ color: previewColor }}>
-                      {isPastDrop ? `✓ ${durLabel}` : durLabel}
-                    </span>
-                  </div>
-                  <div className="mt-1 font-mono text-[11px] text-muted-foreground/58">
-                    {fmtTime(dropIndicatorMin)} → {fmtTime(Math.min(dropIndicatorMin + previewDur, BED_TOTAL_MIN))}
-                    {isPastDrop && <span className="ml-1 opacity-70">· done</span>}
-                  </div>
+                  <span
+                    className="flex-shrink-0 rounded-full bg-background/75 px-1.5 py-[2px] text-[10px] font-medium leading-none shadow-[inset_0_0_0_1px_hsl(var(--border)/0.35)]"
+                    style={{ color: previewColor }}
+                  >
+                    {isPastDrop ? `✓ ${durLabel}` : durLabel}
+                  </span>
                 </div>
               </div>
             );
