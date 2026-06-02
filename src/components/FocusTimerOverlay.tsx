@@ -284,6 +284,122 @@ export function FocusTimerOverlay({
 
   const stageInfo = TREE_STAGES[currentStage];
 
+  // Worked-so-far label for quiet context on the rest screen.
+  const workedLabel = (() => {
+    const wH = Math.floor(sessionDisplaySec / 3600);
+    const wM = Math.floor((sessionDisplaySec % 3600) / 60);
+    if (wH > 0) return wM > 0 ? `${wH}h ${wM}m` : `${wH}h`;
+    return `${wM}m`;
+  })();
+
+  // ── Dedicated REST screen ──
+  // When paused, the focus chrome (ring, tree, stop/complete flow) is the wrong
+  // mental model — the user is taking a breather, not finishing. Render a calm,
+  // breathing rest card instead: big break time, one obvious Resume action.
+  if (isPaused && !previewMode) {
+    return (
+      <div
+        className="fixed inset-0 z-[80] cursor-pointer overflow-hidden animate-fade-in"
+        style={{ backgroundColor: 'hsl(var(--overlay-backdrop))' }}
+        onClick={() => onMinimize()}
+      >
+        <div className="absolute inset-0 pointer-events-none">
+          <div
+            className="absolute left-1/2 top-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl"
+            style={{ backgroundColor: colorWithAlpha(treeColor, 0.06) }}
+          />
+        </div>
+
+        <div className="relative z-10 flex min-h-full items-center justify-center px-4 py-6 sm:px-6 sm:py-8">
+          <div
+            className="w-full max-w-[360px] rounded-[32px] border border-border/60 bg-[hsl(var(--surface-contrast)/0.97)] px-6 py-8 shadow-[0_18px_54px_hsl(var(--foreground)/0.15)] backdrop-blur-xl sm:max-w-[376px]"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Eyebrow */}
+            <div className="flex items-center justify-center gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60" style={{ backgroundColor: treeColor }} />
+                <span className="relative inline-flex h-2 w-2 rounded-full" style={{ backgroundColor: treeColor }} />
+              </span>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted-foreground/55">
+                {lang === 'zh' ? '休息中' : 'On a break'}
+              </span>
+            </div>
+
+            {/* Breathing circle with the rest time at its heart */}
+            <div className="mt-7 flex justify-center">
+              <div className="relative flex h-[180px] w-[180px] items-center justify-center">
+                {/* breathing rings */}
+                <span
+                  className="absolute inset-0 rounded-full border"
+                  style={{ borderColor: colorWithAlpha(treeColor, 0.18), animation: 'breathe 4s ease-in-out infinite' }}
+                />
+                <span
+                  className="absolute inset-[14px] rounded-full border"
+                  style={{ borderColor: colorWithAlpha(treeColor, 0.12), animation: 'breathe 4s ease-in-out infinite 0.4s' }}
+                />
+                <div
+                  className="absolute inset-[26px] rounded-full"
+                  style={{ background: `radial-gradient(circle at 50% 45%, ${colorWithAlpha(treeColor, 0.14)}, transparent 70%)` }}
+                />
+                <div className="relative z-10 flex flex-col items-center">
+                  <span className="font-mono text-[40px] font-light leading-none tabular-nums tracking-[0.02em] text-foreground/90">
+                    {pad(Math.floor(restSec / 60))}:{pad(restSec % 60)}
+                  </span>
+                  <span className="mt-2 text-[11px] tracking-[0.05em] text-muted-foreground/50">
+                    {lang === 'zh' ? '已休息' : 'resting'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Task context — quiet, the break is the focus now */}
+            <div className="mt-6 text-center">
+              <p className="text-[13px] font-medium leading-snug text-foreground/80">
+                {todo.title}
+              </p>
+              <p className="mt-1.5 text-[11px] tabular-nums text-muted-foreground/45">
+                {lang === 'zh' ? `本次已专注 ${workedLabel}` : `${workedLabel} focused so far`}
+                {accumulatedLabel && (lang === 'zh' ? ` · 累计 ${accumulatedLabel}` : ` · ${accumulatedLabel} total`)}
+              </p>
+            </div>
+
+            {/* Resume — the one obvious action */}
+            <button
+              onClick={handlePauseResume}
+              className="mt-7 flex h-14 w-full items-center justify-center gap-2.5 rounded-full text-[15px] font-semibold text-white/95 transition-all hover:brightness-[0.97] active:brightness-[0.93]"
+              style={{
+                backgroundColor: treeColor,
+                boxShadow: `0 6px 20px ${colorWithAlpha(treeColor, 0.32)}`,
+              }}
+            >
+              <Play size={18} className="fill-current" />
+              {lang === 'zh' ? '继续专注' : 'Resume focus'}
+            </button>
+
+            {/* Secondary actions — calm, low-emphasis */}
+            <div className="mt-3 flex items-center justify-center gap-5">
+              <button
+                onClick={() => onMinimize()}
+                className="text-[12px] font-medium text-muted-foreground/55 transition-colors hover:text-foreground/75"
+              >
+                {lang === 'zh' ? '收起' : 'Minimize'}
+              </button>
+              <span className="h-3 w-px bg-border/60" />
+              <button
+                onClick={handleCancel}
+                className="text-[12px] font-medium text-destructive/55 transition-colors hover:text-destructive/80"
+              >
+                {lang === 'zh' ? '放弃本次' : 'Discard'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+
   return (
     <div
       className="fixed inset-0 z-[80] cursor-pointer overflow-hidden animate-fade-in"
