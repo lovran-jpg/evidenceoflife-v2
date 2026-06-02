@@ -148,7 +148,15 @@ Deno.serve(async (req) => {
       const addr = json.address || {};
       // Extract city-level name - prefer actual city over neighborhood/district
       // For places like "Morningside Heights, Manhattan, New York" we want "New York"
-      const cityName = addr.city || addr.town || addr.municipality || addr.county || addr.state_district || addr.state || addr.province || addr.city_district || addr.district || addr.village || '';
+      let cityName = addr.city || addr.town || addr.municipality || addr.county || addr.state_district || addr.state || addr.province || addr.city_district || addr.district || addr.village || '';
+      // In China the direct-administered municipalities (Beijing/Shanghai/Tianjin/Chongqing)
+      // tag their districts as `city`, e.g. "海淀区". Keep everything at the municipal (市)
+      // level: if the picked name is a district (ends with 区), bump up to a 市-level field.
+      if (typeof cityName === 'string' && /区$/.test(cityName)) {
+        const municipal = [addr.municipality, addr.city, addr.county, addr.state, addr.province]
+          .find((v: unknown) => typeof v === 'string' && /市$/.test(v));
+        if (municipal) cityName = municipal as string;
+      }
       const display =
         json.name || (json.display_name ? json.display_name.split(',').slice(0, 2).join(', ') : '');
       const category = detectCategory({ class: json.class, type: json.type, display_name: json.display_name, address: json.address });
