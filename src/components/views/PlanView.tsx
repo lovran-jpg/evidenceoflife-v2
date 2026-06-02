@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useLanguage } from '@/hooks/useLanguage';
-import { Plus, Trash2, Timer, Circle, CheckCircle2, ChevronDown, ChevronRight, Square, Pause, Play, Check, X, Loader2, Mic, ArrowUp, Bell, Repeat, ListTodo, CalendarDays, NotebookPen, Camera, MapPin, List, LayoutGrid } from 'lucide-react';
+import { Plus, Trash2, Timer, Circle, CheckCircle2, ChevronDown, ChevronRight, Square, Pause, Play, Check, X, Loader2, Mic, ArrowUp, Bell, Repeat, ListTodo, CalendarDays, NotebookPen, Camera, MapPin, List, LayoutGrid, CornerDownLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn, isImeComposing } from '@/lib/utils';
 import { extractLeadingEmoji } from '@/lib/emoji';
@@ -16,6 +16,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 
 import { useCustomOptions } from '@/hooks/useCustomOptions';
+import { useTaskHistory, useTaskSuggestions } from '@/hooks/useTaskHistory';
 import { useReminders } from '@/hooks/useReminders';
 import { PlanTimelineView } from '@/components/views/PlanTimelineView';
 import { autoClassifyTag, TAG_CATEGORY_COLORS } from '@/lib/autoTag';
@@ -789,6 +790,10 @@ export function PlanView({
 
   const [newTitle, setNewTitle] = useState('');
   const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
+  const taskHistory = useTaskHistory();
+  const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
+  const taskSuggestions = useTaskSuggestions(taskHistory, suggestionsDismissed ? '' : newTitle);
+  const taskInputRef = useRef<HTMLTextAreaElement>(null);
   const taskColumnRef = useRef<HTMLDivElement>(null);
   const timelineFrameRef = useRef<HTMLDivElement>(null);
   const [taskInputDock, setTaskInputDock] = useState<{ left: number; width: number } | null>(null);
@@ -1233,6 +1238,17 @@ export function PlanView({
         }
       }
     } finally { setIsAddingQuick(false); }
+  };
+
+  const acceptSuggestion = (title: string) => {
+    setNewTitle(title);
+    setSuggestionsDismissed(true);
+    requestAnimationFrame(() => {
+      const el = taskInputRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(title.length, title.length);
+    });
   };
 
   const toggleSegment = (id: string) => {
@@ -1928,7 +1944,27 @@ export function PlanView({
               style={{ left: taskInputDock.left, width: taskInputDock.width, bottom: 16 }}
             >
               <div className="pointer-events-auto">
-              <div className="bg-[hsl(var(--toolbar-background))] border border-border rounded-[20px] shadow-[0_2px_10px_hsl(var(--foreground)/0.08)] overflow-visible">
+              <div className="relative bg-[hsl(var(--toolbar-background))] border border-border rounded-[20px] shadow-[0_2px_10px_hsl(var(--foreground)/0.08)] overflow-visible">
+                {taskSuggestions.length > 0 && (
+                  <div className="absolute bottom-full left-0 mb-1.5 w-full max-w-[320px] bg-card border border-border rounded-xl shadow-xl p-1 z-[70] animate-scale-in">
+                    <p className="px-2 pt-1 pb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground/55">
+                      {lang === 'zh' ? '之前写过' : 'You wrote before'}
+                    </p>
+                    {taskSuggestions.map(s => (
+                      <button
+                        key={s.title}
+                        onClick={() => acceptSuggestion(s.title)}
+                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-[13px] text-foreground text-left hover:bg-secondary transition-colors"
+                      >
+                        <CornerDownLeft size={13} className="flex-shrink-0 text-muted-foreground/50" />
+                        <span className="truncate">{s.title}</span>
+                        {s.count > 1 && (
+                          <span className="ml-auto flex-shrink-0 text-[10px] text-muted-foreground/50">×{s.count}</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <div className="flex items-center gap-1.5 px-2.5 py-1.5">
                   {/* ➕ menu button */}
                   <div className="relative">
@@ -1984,8 +2020,13 @@ export function PlanView({
                       </div>
                     )}
                   </div>
-                  <textarea value={newTitle} onChange={e => setNewTitle(e.target.value)}
-                    onKeyDown={e => { if (!isAddingQuick && isEnterSubmit(e)) { e.preventDefault(); handleAdd(); } }}
+                  <textarea value={newTitle} onChange={e => { setNewTitle(e.target.value); setSuggestionsDismissed(false); }}
+                    ref={taskInputRef}
+                    onKeyDown={e => {
+                      if (e.key === 'Tab' && taskSuggestions.length > 0 && !e.shiftKey) { e.preventDefault(); acceptSuggestion(taskSuggestions[0].title); return; }
+                      if (e.key === 'Escape' && taskSuggestions.length > 0) { e.preventDefault(); setSuggestionsDismissed(true); return; }
+                      if (!isAddingQuick && isEnterSubmit(e)) { e.preventDefault(); handleAdd(); }
+                    }}
                     placeholder={tLang('plan.addTask') || 'Add a task...'} rows={1}
                     className="flex-1 bg-transparent resize-none focus:outline-none text-foreground placeholder:text-muted-foreground/60 text-[13px] leading-5"
                     style={{ minHeight: '24px', maxHeight: '72px' }} />
