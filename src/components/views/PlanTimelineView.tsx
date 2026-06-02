@@ -1069,9 +1069,9 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
                     className="h-5 w-5 flex-shrink-0 rounded-md border border-background/70 object-cover shadow-sm"
                   />
                 )}
-                {block.emoji && (
+                {(block.emoji || tagIcon) && (
                   <span className="flex-shrink-0 leading-none" style={{ fontSize: '13px' }}>
-                    {block.emoji}
+                    {block.emoji || tagIcon}
                   </span>
                 )}
                 {hideTitleTooNarrow ? (
@@ -1102,7 +1102,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
                     className="h-7 w-7 flex-shrink-0 rounded-lg border border-background/70 object-cover shadow-sm"
                   />
                 )}
-                {block.emoji && <span className="flex-shrink-0" style={{ fontSize: '15px' }}>{block.emoji}</span>}
+                {(block.emoji || tagIcon) && <span className="flex-shrink-0" style={{ fontSize: '15px' }}>{block.emoji || tagIcon}</span>}
                 {!hideTitleTooNarrow && <span className="truncate" style={{ fontSize: '15px', fontWeight: 600, color: 'hsl(var(--foreground))' }}>{block.title}</span>}
               </div>
               {height > 34 && (
@@ -1323,7 +1323,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
               {showTitleInActual && actHeight > 20 && (
                 <div className="px-2 py-1 relative z-10">
                   <div className="flex items-center gap-1 min-w-0">
-                    {block.emoji && <span className="flex-shrink-0" style={{ fontSize: '12px' }}>{block.emoji}</span>}
+                    {(block.emoji || tagIcon) && <span className="flex-shrink-0" style={{ fontSize: '12px' }}>{block.emoji || tagIcon}</span>}
                     <span className="truncate" style={{ fontSize: '12px', fontWeight: 600, color: 'hsl(var(--foreground))' }}>
                       {block.title}
                     </span>
