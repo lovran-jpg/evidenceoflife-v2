@@ -20,6 +20,7 @@ import {
   RotateCcw,
   Settings,
   Sparkles,
+  X,
 } from 'lucide-react';
 import { useLifeReminder } from '@/hooks/useLifeReminder';
 import { useProfile } from '@/hooks/useProfile';
@@ -30,6 +31,7 @@ import { toast } from 'sonner';
 import { GoogleCalendarButton } from '@/components/GoogleCalendarButton';
 import { supabase } from '@/integrations/supabase/client';
 import { TAG_CATEGORY_ICONS } from '@/lib/autoTag';
+import { getMomentDisplayTags } from '@/lib/momentTags';
 import { buildEvidenceExport, serializeEvidenceExport, evidenceExportFilename } from '@/lib/exportEvidence';
 import { buildLocalLifeReplay } from '@/components/views/today/todayHelpers';
 import { format } from 'date-fns';
@@ -82,6 +84,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [reflectionOpen, setReflectionOpen] = useState(false);
+  const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
@@ -514,16 +517,27 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
                   <p className="line-clamp-3 text-[13px] font-medium leading-5 text-foreground/82">
                     {memory.text?.split('---DETAIL---')[0] || (lang === 'zh' ? '一条生活证据' : 'A piece of evidence')}
                   </p>
-                  {memory.tags && memory.tags.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {memory.tags.slice(0, 2).map((tag, i) => (
-                        <span key={i} className="rounded-full bg-secondary/65 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground/64">
-                          {TAG_CATEGORY_ICONS[tag] || '•'} {tag}
-                        </span>
-                      ))}
-                    </div>
+                  {(() => {
+                    const displayTags = getMomentDisplayTags(memory.tags);
+                    return displayTags.length > 0 ? (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {displayTags.slice(0, 2).map((tag, i) => (
+                          <span key={i} className="rounded-full bg-secondary/65 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground/64">
+                            {TAG_CATEGORY_ICONS[tag] || '•'} {tag}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null;
+                  })()}
+                  {memory.photos.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setLightboxPhoto(memory.photos[0])}
+                      className="mt-2 block w-full overflow-hidden rounded-[14px] border border-border/40 bg-secondary/30"
+                    >
+                      <img src={memory.photos[0]} alt="" loading="lazy" className="max-h-48 w-full object-contain" />
+                    </button>
                   )}
-                  {memory.photos.length > 0 && <img src={memory.photos[0]} alt="" className="mt-2 h-24 w-full rounded-[14px] object-cover" />}
                 </div>
               ))}
             </div>
@@ -568,6 +582,15 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
           </section>
         )}
       </div>
+
+      {lightboxPhoto && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-background/95 backdrop-blur-sm animate-fade-in" onClick={() => setLightboxPhoto(null)}>
+          <button onClick={() => setLightboxPhoto(null)} className="absolute top-4 right-4 z-10 p-2 text-muted-foreground hover:text-foreground">
+            <X size={24} />
+          </button>
+          <img src={lightboxPhoto} alt="" className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain" onClick={e => e.stopPropagation()} />
+        </div>
+      )}
     </div>
   );
 }

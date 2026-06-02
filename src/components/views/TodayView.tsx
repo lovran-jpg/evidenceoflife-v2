@@ -35,6 +35,7 @@ import dailyPainting from '@/assets/daily-painting.jpg';
 import { WeekDateBar } from '@/components/WeekDateBar';
 import { useLanguage } from '@/hooks/useLanguage';
 import { mergedWallClockFocusMinutes } from '@/lib/mergedWallClockMinutes';
+import { getMomentDisplayTags } from '@/lib/momentTags';
 import { useCustomOptions } from '@/hooks/useCustomOptions';
 import { DueLink, DueWithStats, useDues } from '@/hooks/useDues';
 import { useIsDarkMode } from '@/hooks/useIsDarkMode';
@@ -71,15 +72,6 @@ import { MemoryHorizonsCard } from './today/MemoryHorizonsCard';
 type MomentEditUpdates = Partial<Omit<Moment, 'location'>> & {
   location?: Moment['location'] | null;
 };
-
-// Internal/system tags that should never be shown to the user as evidence labels.
-const HIDDEN_MOMENT_TAGS = new Set(['focus-session', 'daily-reflection', '__recap_daily__']);
-
-// Meaningful category tags for a moment, used to render small "evidence" chips.
-function getMomentDisplayTags(tags?: string[]): string[] {
-  if (!tags) return [];
-  return tags.filter(tag => !HIDDEN_MOMENT_TAGS.has(tag) && !tag.startsWith('todo-session:'));
-}
 
 interface TodayViewProps {
   selectedDate: Date;
