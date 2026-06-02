@@ -216,7 +216,3 @@ async function fetchPagedMoments(userId: string, locationsOnly: boolean): Promis
 export async function fetchAllMoments(userId: string): Promise<{ data: Moment[]; error: any }> {
   return fetchPagedMoments(userId, false);
 }
-
-export async function fetchAllLocationMoments(userId: string): Promise<{ data: Moment[]; error: any }> {
-  return fetchPagedMoments(userId, true);
-}
