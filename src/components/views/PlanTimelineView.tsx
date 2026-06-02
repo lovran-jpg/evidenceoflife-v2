@@ -132,8 +132,8 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
   );
 
   const timelineCanvasBg = isDarkMode ? 'hsl(240 5% 6%)' : TIMELINE_CANVAS_LIGHT;
-  const timelineHourLineColor = isDarkMode ? 'hsl(240 4% 100% / 0.075)' : 'rgba(55, 55, 62, 0.07)';
-  const timelineHalfHourLineColor = isDarkMode ? 'hsl(240 4% 100% / 0.045)' : 'rgba(55, 55, 62, 0.044)';
+  const timelineHourLineColor = isDarkMode ? 'hsl(240 4% 100% / 0.12)' : 'rgba(55, 55, 62, 0.10)';
+  const timelineHalfHourLineColor = isDarkMode ? 'hsl(240 4% 100% / 0.06)' : 'rgba(55, 55, 62, 0.055)';
   const timelineRailLabelColor = isDarkMode ? 'hsl(240 5% 86% / 0.46)' : 'rgba(75, 75, 80, 0.48)';
   const timelinePastTint = isDarkMode ? 'hsl(240 4% 100% / 0.018)' : 'rgba(15, 23, 42, 0.014)';
   
