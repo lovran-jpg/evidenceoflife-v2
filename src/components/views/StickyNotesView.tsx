@@ -743,8 +743,8 @@ export function StickyNotesView() {
       </div>
 
       <div className="flex-shrink-0 bg-gradient-to-t from-[hsl(var(--surface-soft))] via-[hsl(var(--surface-soft)/0.96)] to-[hsl(var(--surface-soft)/0)] px-5 pb-4 pt-3">
-        <div className="rounded-[22px] bg-background/70 p-1 backdrop-blur-xl shadow-[0_18px_44px_rgba(80,68,58,0.12)]">
-          <div className={cn('flex min-h-[44px] items-center gap-2 rounded-[18px] border px-3 py-2', palette.bg, palette.border)}>
+        <div className="rounded-[22px] bg-background/70 p-1 backdrop-blur-xl shadow-[0_18px_44px_hsl(var(--foreground)/0.1)]">
+          <div className="flex min-h-[44px] items-center gap-2 rounded-[18px] border border-border bg-card px-3 py-2 transition-colors focus-within:border-foreground/20">
             <span className={cn('flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full', palette.header, palette.text)}>
               <Plus size={14} />
             </span>
@@ -753,12 +753,16 @@ export function StickyNotesView() {
               onChange={e => setNewNoteTitle(e.target.value)}
               onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => { if (isEnterSubmit(e)) handleAddNote(); }}
               placeholder={config.notePlaceholder}
-              className={cn('min-w-0 flex-1 bg-transparent text-sm font-medium focus:outline-none placeholder:opacity-45', palette.text)}
+              className="min-w-0 flex-1 bg-transparent text-sm font-medium text-foreground focus:outline-none placeholder:text-muted-foreground placeholder:opacity-70"
             />
             <button
               onClick={handleAddNote}
               disabled={!newNoteTitle.trim()}
-              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#dfb9a8] text-white transition-colors hover:bg-[#d6aa96] disabled:opacity-35"
+              className={cn(
+                'flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full transition-all hover:brightness-95 disabled:opacity-30',
+                palette.header,
+                palette.text,
+              )}
             >
               <Plus size={15} />
             </button>
