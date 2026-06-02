@@ -431,7 +431,6 @@ export function PlanDrift({ allTodos, completedTodos, allMoments, todayDateStr, 
   const focusedDur = drift.totalActiveMin > 0 ? fmtDur(drift.totalActiveMin) : null;
   const planRatio = totalPlannedMin > 0 ? Math.round((drift.totalActiveMin / totalPlannedMin) * 100) : null;
   const focusWord = lang === 'zh' ? '专注' : 'focused';
-  const plannedWord = lang === 'zh' ? '计划' : 'planned';
   const missedLabel = lang === 'zh' ? '错过' : 'missed';
   const leftWord = lang === 'zh' ? '剩余' : 'left';
 
@@ -569,8 +568,11 @@ export function PlanDrift({ allTodos, completedTodos, allMoments, todayDateStr, 
           {(planRatio != null && totalPlannedMin > 0) || remainingStr ? (
             <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-[19px]">
               {planRatio != null && totalPlannedMin > 0 && (
-                <span className="inline-flex items-center rounded-full border border-border/35 bg-background/45 px-2 py-0.5 font-mono text-[10px] font-medium tabular-nums text-muted-foreground/58">
-                  {planRatio}% {plannedWord}
+                <span
+                  title={lang === 'zh' ? '专注时间占计划时间的比例' : 'Focused time vs planned time'}
+                  className="inline-flex items-center rounded-full border border-border/35 bg-background/45 px-2 py-0.5 font-mono text-[10px] font-medium tabular-nums text-muted-foreground/58"
+                >
+                  {lang === 'zh' ? `计划完成 ${planRatio}%` : `${planRatio}% of plan`}
                 </span>
               )}
               {remainingStr && (
