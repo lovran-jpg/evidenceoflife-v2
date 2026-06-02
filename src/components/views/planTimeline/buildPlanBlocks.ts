@@ -195,6 +195,17 @@ export function buildPlanBlocks(
   });
 
   // Moments with time
+  // Focus-session moments that belong to a todo (tag `todo-session:<id>`) are
+  // the SAME work as that todo — the timer just stored the worked span on a
+  // separate moment row. Merge those spans back INTO the parent todo block so
+  // a planned task you focused on renders as ONE block (plan outline + actual
+  // fill), instead of a faint plan block PLUS a duplicate same-named session
+  // block sitting next to it.
+  const todoBlockByGroup = new Map<string, TimeBlock>();
+  blocks.forEach(b => {
+    if (b.source === 'todo' && b.sessionGroupKey) todoBlockByGroup.set(b.sessionGroupKey, b);
+  });
+
   moments.forEach(m => {
     if (!m.timer_started_at) return;
     const d = parseISO(m.timer_started_at);
@@ -206,6 +217,21 @@ export function buildPlanBlocks(
     }
     const sessionGroupKey = m.tags?.find(tag => tag.startsWith('todo-session:'));
     const isFocusSession = !!m.tags?.includes('focus-session');
+
+    // Absorb into the parent todo block when one is on the timeline.
+    const parent = sessionGroupKey ? todoBlockByGroup.get(sessionGroupKey) : undefined;
+    if (parent && isFocusSession) {
+      const aStart = parent.actualStartMin != null ? Math.min(parent.actualStartMin, startMin) : startMin;
+      const aEnd = parent.actualEndMin != null ? Math.max(parent.actualEndMin, endMin) : endMin;
+      parent.actualStartMin = aStart;
+      parent.actualEndMin = Math.max(aEnd, aStart + 5);
+      parent.hasActual = true;
+      parent.startMin = Math.min(parent.startMin, aStart);
+      parent.endMin = Math.max(parent.endMin, parent.actualEndMin);
+      if (m.photos?.length) parent.photos = [...(parent.photos || []), ...m.photos];
+      return;
+    }
+
     blocks.push({
       id: `moment-${m.id}`,
       title: m.text || m.emoji || 'Moment',
