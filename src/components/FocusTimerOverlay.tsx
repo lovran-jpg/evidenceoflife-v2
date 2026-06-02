@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Slider } from '@/components/ui/slider';
-import { Pause, Play, Square, X, Check, Timer } from 'lucide-react';
+import { Pause, Play, Square, X, Check, Timer, ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Todo } from '@/hooks/useTodos';
 import { autoClassifyTag, TAG_CATEGORY_COLORS } from '@/lib/autoTag';
@@ -229,15 +229,18 @@ export function FocusTimerOverlay({
     })());
   }, [pauseState, updatePauseState]);
 
-  // Slider seeds with EXISTING progress (not 100) so "Continue Later" without
-  // touching the slider preserves whatever was already recorded — instead of
-  // silently jumping to 100%-but-not-completed (an inconsistent state).
-  // The "Complete" button bypasses this value entirely (always 100%, see below).
-  const [completionProgress, setCompletionProgress] = useState(() => Math.max(0, Math.min(100, todo.progress || 0)));
+  // Slider DEFAULTS to 100% and renders muted/gray until the user actually
+  // drags it. Most "End this phase" taps mean "this block is basically done";
+  // forcing the user to push the slider to the end every time was friction.
+  // `progressTouched` drives both the brighten-on-edit styling and whether we
+  // trust the slider value over the task's existing progress.
+  const [completionProgress, setCompletionProgress] = useState(100);
+  const [progressTouched, setProgressTouched] = useState(false);
 
   useEffect(() => {
-    setCompletionProgress(Math.max(0, Math.min(100, todo.progress || 0)));
-  }, [todo.id, todo.progress]);
+    setCompletionProgress(100);
+    setProgressTouched(false);
+  }, [todo.id]);
 
   // "Complete" is a decisive action: it always means 100% done, regardless of
   // where the slider sits. The slider exists only to record partial progress
@@ -247,10 +250,13 @@ export function FocusTimerOverlay({
   }, [onComplete, sessionWorkingSec]);
 
   // 阶段性结束：保存本段计入历史、结束本轮计时器，任务仍开放。进度封顶 99%
-  // （与「完成任务」区分开）。若真要 100% 收尾应点 Complete。
+  // （与「完成任务」区分开）。若用户没动滑块，保留任务原有进度，避免凭空抬到 99%。
   const handleContinueLater = useCallback(() => {
-    onSaveAndContinue(sessionWorkingSec, Math.min(99, completionProgress));
-  }, [completionProgress, onSaveAndContinue, sessionWorkingSec]);
+    const nextProgress = progressTouched
+      ? Math.min(99, completionProgress)
+      : Math.max(0, Math.min(99, todo.progress || 0));
+    onSaveAndContinue(sessionWorkingSec, nextProgress);
+  }, [completionProgress, progressTouched, todo.progress, onSaveAndContinue, sessionWorkingSec]);
 
   const handleFinishAtSuggestion = useCallback((completed: boolean) => {
     if (!suggestedEndDate || !onFinishAt) return;
@@ -489,21 +495,34 @@ export function FocusTimerOverlay({
               </div>
             ) : (
               <div className="rounded-[24px] border border-border/60 bg-[hsl(var(--surface-soft)/0.72)] p-3 shadow-[inset_0_1px_0_hsl(var(--surface-contrast)/0.5)]">
+                {/* Back affordance — a mis-tapped stop must never trap the user
+                    in the end panel. This returns to the live timer untouched. */}
+                <button
+                  type="button"
+                  onClick={() => setShowStopConfirm(false)}
+                  className="mb-2 flex items-center gap-1 rounded-full px-1.5 py-1 text-[11px] font-medium text-muted-foreground/60 transition-colors hover:text-foreground/80"
+                >
+                  <ChevronLeft size={14} />
+                  <span>{lang === 'zh' ? '返回计时' : 'Back to timer'}</span>
+                </button>
                 <div className="rounded-[18px] border border-border/60 bg-[hsl(var(--surface-contrast)/0.78)] px-3.5 py-2.5">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--text-soft))]">
                       {lang === 'zh' ? '完成进度' : 'Progress'}
                     </span>
-                    <span className="font-mono text-[11px] tabular-nums text-foreground/72">
+                    <span className={cn(
+                      'font-mono text-[11px] tabular-nums transition-colors',
+                      progressTouched ? 'text-foreground/80' : 'text-muted-foreground/40',
+                    )}>
                       {completionProgress}%
                     </span>
                   </div>
                   <Slider
                     value={[completionProgress]}
-                    onValueChange={([v]) => setCompletionProgress(v)}
+                    onValueChange={([v]) => { setCompletionProgress(v); setProgressTouched(true); }}
                     max={100}
                     step={5}
-                    className="mt-2 w-full"
+                    className={cn('mt-2 w-full transition-opacity', progressTouched ? 'opacity-100' : 'opacity-45')}
                   />
                 </div>
                 <p className="mt-2 px-0.5 text-center text-[10px] leading-relaxed text-muted-foreground/50">
