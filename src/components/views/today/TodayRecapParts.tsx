@@ -14,8 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  localTimeOnDateISO,
-  durationSeconds,
+  buildTimerSpanISO,
   getImportedEventEffectiveStart,
   getImportedEventEffectiveEnd,
   parseSubtitleDetail,
@@ -343,12 +342,12 @@ export function MomentTimeEditor({ moment, onEditMoment }: { moment: Moment; onE
 
   const handleSave = () => {
     if (!onEditMoment) return;
-    const dateStr = format(parseISO(moment.date || moment.createdAt), 'yyyy-MM-dd');
-    const startISO = localTimeOnDateISO(dateStr, editStart);
-    const endISO = localTimeOnDateISO(dateStr, editEnd);
-    if (!startISO || !endISO) return;
-    const diffSec = durationSeconds(startISO, endISO);
-    onEditMoment(moment.id, { timer_started_at: startISO, timer_ended_at: endISO, timer_seconds: diffSec } as Partial<Moment>);
+    const span = buildTimerSpanISO(editStart, editEnd, {
+      anchorISO: moment.timer_started_at,
+      fallbackDateStr: format(parseISO(moment.date || moment.createdAt), 'yyyy-MM-dd'),
+    });
+    if (!span) return;
+    onEditMoment(moment.id, { timer_started_at: span.startISO, timer_ended_at: span.endISO, timer_seconds: span.seconds } as Partial<Moment>);
     setIsEditing(false);
   };
 
@@ -406,19 +405,21 @@ export function ImportedEventTimeEditor({ event, onUpdate }: { event: ImportedEv
 
   const handleSave = () => {
     if (!onUpdate) return;
-    const dateStr = format(start, 'yyyy-MM-dd');
-    const startISO = localTimeOnDateISO(dateStr, editStart);
-    const endISO = localTimeOnDateISO(dateStr, editEnd);
-    if (!startISO || !endISO) return;
+    const effectiveStart = getImportedEventEffectiveStart(event);
+    const span = buildTimerSpanISO(editStart, editEnd, {
+      anchorISO: effectiveStart,
+      fallbackDateStr: format(start, 'yyyy-MM-dd'),
+    });
+    if (!span) return;
     const hasTimerOverride = Boolean(event.timer_started_at || event.timer_ended_at || (event.timer_seconds ?? 0) > 0);
     if (hasTimerOverride) {
       onUpdate(event.id, {
-        timer_started_at: startISO,
-        timer_ended_at: endISO,
-        timer_seconds: durationSeconds(startISO, endISO),
+        timer_started_at: span.startISO,
+        timer_ended_at: span.endISO,
+        timer_seconds: span.seconds,
       });
     } else {
-      onUpdate(event.id, { start_time: startISO, end_time: endISO });
+      onUpdate(event.id, { start_time: span.startISO, end_time: span.endISO });
     }
     setIsEditing(false);
   };

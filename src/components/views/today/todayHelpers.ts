@@ -26,6 +26,63 @@ export function durationSeconds(startISO: string, endISO: string): number {
   return Math.max(0, Math.floor((new Date(endISO).getTime() - new Date(startISO).getTime()) / 1000));
 }
 
+/** Local `yyyy-MM-dd` for a Date (no UTC shift). */
+function localDateKey(d: Date): string {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+/**
+ * Build a robust start/end timer span from two `HH:mm` clock strings.
+ *
+ * Why this exists: a focus session can be started one day and stopped the
+ * next — e.g. a user starts a timer at 23:30 and forgets to stop it until
+ * 09:30 the following morning. Naively attaching both clock times to a single
+ * calendar date yields an end that lands *before* the start (23:30 → 09:30 on
+ * the same day), which corrupts the duration and pushes the start into the
+ * future, leaving the task stuck in an un-resumable state.
+ *
+ * Rules:
+ *  - The start anchors to the calendar date of `anchorISO` when it is a valid
+ *    timestamp (the real moment the timer began); otherwise it falls back to
+ *    `fallbackDateStr` (the contextual day being viewed).
+ *  - The end normally shares the start's date, but when its clock time is
+ *    strictly before the start's it rolls forward to the next calendar day,
+ *    correctly modelling an overnight session.
+ *
+ * Returns `null` when the inputs cannot form a valid span.
+ */
+export function buildTimerSpanISO(
+  startTime: string,
+  endTime: string,
+  opts: { anchorISO?: string | null; fallbackDateStr: string }
+): { startISO: string; endISO: string; seconds: number } | null {
+  let startDateStr = opts.fallbackDateStr;
+  if (opts.anchorISO) {
+    const anchor = new Date(opts.anchorISO);
+    if (!Number.isNaN(anchor.getTime())) startDateStr = localDateKey(anchor);
+  }
+
+  const startISO = localTimeOnDateISO(startDateStr, startTime);
+  if (!startISO) return null;
+  let endISO = localTimeOnDateISO(startDateStr, endTime);
+  if (!endISO) return null;
+
+  // Overnight: an end clock time strictly before the start belongs to the next
+  // day. Equal times stay a zero-length span rather than rolling a full 24h.
+  if (new Date(endISO).getTime() < new Date(startISO).getTime()) {
+    const nextDay = new Date(`${startDateStr}T00:00:00`);
+    nextDay.setDate(nextDay.getDate() + 1);
+    const rolled = localTimeOnDateISO(localDateKey(nextDay), endTime);
+    if (!rolled) return null;
+    endISO = rolled;
+  }
+
+  return { startISO, endISO, seconds: durationSeconds(startISO, endISO) };
+}
+
 export function getImportedEventEffectiveStart(event: ImportedEvent): string {
   return event.timer_started_at || event.start_time;
 }

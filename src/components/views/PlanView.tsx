@@ -28,6 +28,7 @@ import { useWorkTypes } from '@/hooks/useWorkTypes';
 import { WorkType, WORK_TYPE_META, resolveWorkType, getWorkTypeKey } from '@/lib/workType';
 import { tidyTaskTitle } from '@/lib/tidyTaskTitle';
 import { useIsDarkMode } from '@/hooks/useIsDarkMode';
+import { buildTimerSpanISO } from '@/components/views/today/todayHelpers';
 import {
   getPlanTimelineRhythmPreset,
   loadPlanTimelineRhythmPresetId,
@@ -1676,10 +1677,9 @@ export function PlanView({
                       onDelete={() => deleteTodoWithUndo(todo.id)}
                       onUpdateTitle={(title) => updateTodo(todo.id, { title })}
                       onUpdateTime={(startTime, endTime) => {
-                        const startISO = new Date(`${todayStr}T${startTime}:00`).toISOString();
-                        const endISO = new Date(`${todayStr}T${endTime}:00`).toISOString();
-                        const diffSec = Math.max(0, Math.floor((new Date(endISO).getTime() - new Date(startISO).getTime()) / 1000));
-                        updateTodo(todo.id, { timer_started_at: startISO, timer_ended_at: endISO, timer_seconds: diffSec });
+                        const span = buildTimerSpanISO(startTime, endTime, { anchorISO: todo.timer_started_at, fallbackDateStr: todayStr });
+                        if (!span) return;
+                        updateTodo(todo.id, { timer_started_at: span.startISO, timer_ended_at: span.endISO, timer_seconds: span.seconds });
                       }}
                       onFocus={() => handleStartFocus(todo)}
                       isTiming={activeTimerTodos.some(t => t.id === todo.id)}
@@ -1769,10 +1769,9 @@ export function PlanView({
                               onDelete={() => deleteTodoWithUndo(todo.id)}
                               onUpdateTitle={(title) => updateTodo(todo.id, { title })}
                               onUpdateTime={(startTime, endTime) => {
-                                const startISO = new Date(`${todayStr}T${startTime}:00`).toISOString();
-                                const endISO = new Date(`${todayStr}T${endTime}:00`).toISOString();
-                                const diffSec = Math.max(0, Math.floor((new Date(endISO).getTime() - new Date(startISO).getTime()) / 1000));
-                                updateTodo(todo.id, { timer_started_at: startISO, timer_ended_at: endISO, timer_seconds: diffSec });
+                                const span = buildTimerSpanISO(startTime, endTime, { anchorISO: todo.timer_started_at, fallbackDateStr: todayStr });
+                                if (!span) return;
+                                updateTodo(todo.id, { timer_started_at: span.startISO, timer_ended_at: span.endISO, timer_seconds: span.seconds });
                               }}
                               onFocus={() => handleStartFocus(todo)}
                               isTiming={activeTimerTodos.some(t => t.id === todo.id)}
@@ -1831,10 +1830,9 @@ export function PlanView({
                             onDelete={() => deleteTodoWithUndo(todo.id)}
                             onUpdateTitle={(title) => updateTodo(todo.id, { title })}
                             onUpdateTime={(startTime, endTime) => {
-                              const startISO = new Date(`${todayStr}T${startTime}:00`).toISOString();
-                              const endISO = new Date(`${todayStr}T${endTime}:00`).toISOString();
-                              const diffSec = Math.max(0, Math.floor((new Date(endISO).getTime() - new Date(startISO).getTime()) / 1000));
-                              updateTodo(todo.id, { timer_started_at: startISO, timer_ended_at: endISO, timer_seconds: diffSec });
+                              const span = buildTimerSpanISO(startTime, endTime, { anchorISO: todo.timer_started_at, fallbackDateStr: todayStr });
+                              if (!span) return;
+                              updateTodo(todo.id, { timer_started_at: span.startISO, timer_ended_at: span.endISO, timer_seconds: span.seconds });
                             }}
                             onFocus={() => handleStartFocus(todo)}
                             isTiming={activeTimerTodos.some(t => t.id === todo.id)}

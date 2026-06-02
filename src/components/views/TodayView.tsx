@@ -47,8 +47,7 @@ import {
   DETAIL_SEPARATOR,
   uniquePhotoList,
   moveIsoToDateKeepingLocalTime,
-  localTimeOnDateISO,
-  durationSeconds,
+  buildTimerSpanISO,
   getImportedEventEffectiveStart,
   getImportedEventEffectiveEnd,
   parseSubtitleDetail,
@@ -266,12 +265,12 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
 
   const handleMomentTimerConfirm = (data: { startTime: string; endTime: string }) => {
     if (timerMomentId) {
-      const dateStr = format(selectedDate, 'yyyy-MM-dd');
-      const startISO = localTimeOnDateISO(dateStr, data.startTime);
-      const endISO = localTimeOnDateISO(dateStr, data.endTime);
-      if (!startISO || !endISO) return;
-      const diffSec = durationSeconds(startISO, endISO);
-      const updates = { timer_started_at: startISO, timer_ended_at: endISO, timer_seconds: diffSec };
+      const span = buildTimerSpanISO(data.startTime, data.endTime, {
+        anchorISO: momentTimerStartedAt ?? originalTimerSnapshot?.startedAt,
+        fallbackDateStr: format(selectedDate, 'yyyy-MM-dd'),
+      });
+      if (!span) return;
+      const updates = { timer_started_at: span.startISO, timer_ended_at: span.endISO, timer_seconds: span.seconds };
       if (timerTargetType === 'moment') onEditMoment?.(timerMomentId, updates as Partial<Moment>);
       else onUpdateImportedEvent?.(timerMomentId, updates as Partial<ImportedEvent>);
     }
