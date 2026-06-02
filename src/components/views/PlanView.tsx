@@ -1087,6 +1087,24 @@ export function PlanView({
     }
   }, []);
 
+  // Re-clamp a saved dock position back into view on window resize. Without
+  // this, a position saved while the window was wider can leave the pills (and
+  // their clipped timers) stranded off the right/bottom edge.
+  useEffect(() => {
+    if (!timerDockPos) return;
+    const reclamp = () => {
+      setTimerDockPos((current) => {
+        if (!current) return current;
+        const clamped = clampTimerDock(current.x, current.y);
+        if (clamped.x === current.x && clamped.y === current.y) return current;
+        return clamped;
+      });
+    };
+    reclamp();
+    window.addEventListener('resize', reclamp);
+    return () => window.removeEventListener('resize', reclamp);
+  }, [timerDockPos, clampTimerDock]);
+
   const withFreshTimerStart = useCallback((todo: Todo) => {
     const timerStartedAt = freshTimerStarts[todo.id];
     return timerStartedAt ? { ...todo, timer_started_at: timerStartedAt } : todo;
@@ -1630,7 +1648,7 @@ export function PlanView({
       {!captureSheetOpen && !overlayOpen && activeTimerTodos.filter(t => t.id !== showOverlayForId).length > 0 && (
         <div
           ref={timerDockRef}
-          className="fixed z-[70] flex cursor-grab touch-none select-none flex-col gap-2 active:cursor-grabbing"
+          className="fixed z-[70] flex cursor-grab touch-none select-none flex-col items-end gap-2 active:cursor-grabbing"
           style={{
             pointerEvents: 'auto',
             ...(timerDockPos ? { left: timerDockPos.x, top: timerDockPos.y } : { right: recapDock ? recapDock.right : 8, bottom: recapDock ? recapDock.bottom + 48 : 16 }),

@@ -737,11 +737,12 @@ export function FloatingTimer({ todo, isPaused, pauseState, onClick, accentColor
       onPointerDown={e => { e.stopPropagation(); }}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
       className={cn(
-        "flex h-9 max-w-[280px] items-center gap-2 pl-2.5 pr-3 rounded-2xl shadow-[0_6px_18px_hsl(var(--foreground)/0.10)] transition-colors text-left cursor-pointer select-none overflow-hidden",
-        isPaused && "bg-[hsl(var(--surface-soft))] text-muted-foreground"
+        "flex h-9 w-max max-w-[260px] items-center gap-2 pl-2 pr-2 rounded-2xl border shadow-[0_6px_18px_hsl(var(--foreground)/0.1)] transition-colors text-left cursor-pointer select-none overflow-hidden",
+        isPaused && "bg-[hsl(var(--surface-soft))] border-border text-muted-foreground"
       )}
       style={!isPaused ? {
         backgroundColor: colorWithAlpha(treeColor, 0.12),
+        borderColor: colorWithAlpha(treeColor, 0.45),
         color: treeColor,
       } : undefined}
     >
@@ -754,8 +755,11 @@ export function FloatingTimer({ todo, isPaused, pauseState, onClick, accentColor
         aria-hidden
       />
       <span className="text-base leading-none flex-shrink-0">{treeEmoji}</span>
-      <span className="min-w-0 flex-1 truncate text-[11px] font-medium leading-none">{todo.title}</span>
-      <span className="flex-shrink-0 text-[12px] font-mono font-semibold tabular-nums leading-none">
+      <span className="min-w-0 max-w-[120px] flex-shrink truncate text-[11px] font-medium leading-none">{todo.title}</span>
+      <span
+        className="flex-shrink-0 rounded-md px-1.5 py-1 text-[12px] font-mono font-semibold tabular-nums leading-none"
+        style={!isPaused ? { backgroundColor: colorWithAlpha(treeColor, 0.16) } : undefined}
+      >
         {sessionSec >= 3600
           ? `${Math.floor(sessionSec / 3600)}:${pad(Math.floor((sessionSec % 3600) / 60))}:${pad(sessionSec % 60)}`
           : `${pad(Math.floor(sessionSec / 60))}:${pad(sessionSec % 60)}`}
