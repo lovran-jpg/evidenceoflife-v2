@@ -866,8 +866,15 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
     const actualStart = isDraggingThis && dragging?.target === 'actual' && dragPreview
       ? dragPreview.startMin
       : (block.actualStartMin ?? block.startMin);
-    const liveActualEnd = isTimerActive && getTimerElapsed
-      ? actualStart + Math.max(1, Math.ceil(getTimerElapsed(block.id) / 60))
+    // While a timer is running the activity is happening *right now*, so the live
+    // actual block should always reach the "now" line — never leave a gap below it.
+    // We extend to whichever is later: the accumulated focused minutes, or the
+    // current wall-clock moment (when viewing today).
+    const liveActualEnd = isTimerActive
+      ? Math.max(
+          actualStart + (getTimerElapsed ? Math.max(1, Math.ceil(getTimerElapsed(block.id) / 60)) : 1),
+          isViewingToday ? nowPreciseMin : 0,
+        )
       : null;
     const baseActualEnd = isDraggingThis && dragging?.target === 'actual' && dragPreview
       ? dragPreview.endMin
