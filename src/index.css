@@ -224,6 +224,32 @@
     font-weight: 500;
   }
 
+  /* Global slim scrollbars — replace chunky native bars app-wide with a soft,
+     hover-revealing pill. Track stays invisible so panels/timeline feel clean. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--foreground) / 0.16) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--foreground) / 0.14);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--foreground) / 0.3);
+  }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
   /* EN: pixel overrides scaled ×1.125 from previous values */
   body:not(.lang-zh) .text-xs { font-size: 1rem; }
   body:not(.lang-zh) .text-sm { font-size: 1.125rem; }
@@ -427,6 +453,42 @@
 }
 
 @layer utilities {
+  /* Slim, unobtrusive scrollbars — replaces the chunky native bars.
+     Thumb is a soft translucent pill that only reads on hover; track is
+     invisible so the timeline/panels feel clean. Firefox uses thin + color. */
+  .scrollbar-slim {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--foreground) / 0.18) transparent;
+  }
+  .scrollbar-slim::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-slim::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-slim::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--foreground) / 0.16);
+    border-radius: 9999px;
+    border: 1px solid transparent;
+    background-clip: padding-box;
+  }
+  .scrollbar-slim::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--foreground) / 0.32);
+  }
+  .scrollbar-slim::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* Fully hidden scrollbar while keeping scroll behavior */
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
   /* Week bar slide animations — always show full 7 days, Apple-style */
   @keyframes weekSlideOutLeft {
     from { transform: translateX(0); opacity: 1; }

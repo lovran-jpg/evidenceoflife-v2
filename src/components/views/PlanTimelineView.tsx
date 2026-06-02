@@ -1954,7 +1954,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
     >
       {/* Timeline area */}
       <div
-        className="relative flex flex-1 overflow-y-auto"
+        className="relative flex flex-1 overflow-y-auto scrollbar-slim"
         style={{ maxHeight: 600, backgroundColor: timelineCanvasBg }}
         ref={containerRef}
         onDragOver={handleTimelineDragOver}
