@@ -26,6 +26,7 @@ import { useLifeReminder } from '@/hooks/useLifeReminder';
 import { useProfile } from '@/hooks/useProfile';
 import { useDues } from '@/hooks/useDues';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useAccentColor } from '@/hooks/useAccentColor';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { GoogleCalendarButton } from '@/components/GoogleCalendarButton';
@@ -73,6 +74,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
   const { dues } = useDues();
   const [showLifeCalendar, setShowLifeCalendar] = useState(false);
   const { lang, setLang, t } = useLanguage();
+  const { accentId, setAccentId, options: accentOptions } = useAccentColor();
 
   const [displayName, setDisplayName] = useState(profile?.display_name || '');
   const [isEditingName, setIsEditingName] = useState(false);
@@ -405,6 +407,35 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
                       <button onClick={() => setLang('zh')} className={cn('rounded-full px-3 py-1.5 text-[12px] font-semibold transition-colors', lang === 'zh' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground')}>中文</button>
                       <button onClick={() => setLang('en')} className={cn('rounded-full px-3 py-1.5 text-[12px] font-semibold transition-colors', lang === 'en' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground')}>EN</button>
                     </div>
+                  </div>
+                </div>
+
+                <div className="rounded-[24px] border border-border/55 bg-card/72 p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/45">{lang === 'zh' ? '主题色' : 'Accent color'}</p>
+                  <p className="mt-1 text-[12px] text-muted-foreground/58">{lang === 'zh' ? '挑一个你喜欢的品牌色，全站即时生效。' : 'Pick a brand color — applies across the app instantly.'}</p>
+                  <div className="mt-3 flex flex-wrap items-center gap-2.5">
+                    {accentOptions.map(opt => {
+                      const selected = opt.id === accentId;
+                      return (
+                        <button
+                          key={opt.id}
+                          onClick={() => setAccentId(opt.id)}
+                          title={lang === 'zh' ? opt.labelZh : opt.labelEn}
+                          aria-label={`${opt.labelEn} accent`}
+                          aria-pressed={selected}
+                          className={cn(
+                            'relative h-8 w-8 rounded-full transition-transform hover:scale-105 focus:outline-none',
+                            selected ? 'scale-105' : 'ring-1 ring-border/50',
+                          )}
+                          style={{
+                            backgroundColor: `hsl(${opt.hsl})`,
+                            ...(selected ? { boxShadow: `0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(${opt.hsl})` } : {}),
+                          }}
+                        >
+                          {selected && <Check size={14} className="absolute inset-0 m-auto text-white drop-shadow" />}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
