@@ -307,7 +307,7 @@ export function autoClassifyTag(title: string): Category | undefined {
 export const TAG_CATEGORY_COLORS: Record<string, string> = {
   study: '#6F7EF7',
   work: '#7468E8',
-  admin: '#C4663A',
+  admin: '#6E7891',
   life: '#D5AE4C',
   health: '#55B98B',
   event: '#B775E3',

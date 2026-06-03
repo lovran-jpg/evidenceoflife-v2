@@ -39,7 +39,7 @@ describe('inferWorkType', () => {
     expect(inferWorkType({ title: 'submit insurance form' })).toBe('admin');
   });
 
-  it('falls back to admin when there is no signal', () => {
-    expect(inferWorkType({ title: '' })).toBe('admin');
+  it('falls back to shallow when there is no signal', () => {
+    expect(inferWorkType({ title: '' })).toBe('shallow');
   });
 });

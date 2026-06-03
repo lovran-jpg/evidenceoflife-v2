@@ -22,8 +22,8 @@ export const WORK_TYPE_META: Record<WorkType, { label: string; shortLabel: strin
   admin: {
     label: 'Admin',
     shortLabel: 'Admin',
-    color: '#C4663A',
-    bg: '#FFF0EB',
+    color: '#5E6884',
+    bg: '#F1F2F6',
   },
   errand: {
     label: 'Errand',
@@ -91,7 +91,9 @@ export function inferWorkType(input: { title?: string; text?: string; tags?: str
   };
 
   if (category === 'study') scores.deep += 3;
-  if (category === 'work') scores.admin += 2;
+  // "work" is a broad bucket (projects, coding, interview prep, resume...) that
+  // mostly is NOT clerical busywork, so nudge it toward shallow rather than admin.
+  if (category === 'work') scores.shallow += 1;
   if (category === 'health') scores.recovery += 2;
   if (category === 'shopping' || category === 'travel') scores.errand += 3;
   if (category === 'life') scores.errand += 1;
@@ -109,10 +111,14 @@ export function inferWorkType(input: { title?: string; text?: string; tags?: str
     '回复', '邮件', '消息', '看看', '听课', '看课',
   ]) * 2;
 
+  // Admin = clerical / bureaucratic logistics only. Keep this list specific so
+  // it does not swallow real work ("fix bug", "update code", "改方案").
   scores.admin += scoreMatches(source, [
-    'survey', 'form', 'schedule', 'submit', 'application', 'apply', 'upload', 'fix', 'update',
-    'appointment', 'insurance', 'account', 'paperwork', 'organize', 'set up',
-    '填表', '安排', '预约', '申请', '提交', '修', '改', 'check adhd',
+    'survey', 'form', 'schedule', 'submit', 'application', 'apply', 'upload',
+    'appointment', 'insurance', 'account', 'paperwork', 'register', 'registration',
+    'renew', 'tax', 'taxes', 'bill', 'invoice', 'refund', 'reimburse', 'reservation',
+    'booking', 'password', 'verify', 'sign up', 'visa', 'passport', 'license',
+    '填表', '安排', '预约', '申请', '提交', '报税', '账单', '注册', '续费', '密码', 'check adhd',
   ]) * 2;
 
   scores.errand += scoreMatches(source, [
@@ -143,10 +149,12 @@ export function inferWorkType(input: { title?: string; text?: string; tags?: str
     scores.recovery += 2;
   }
 
+  // Default to "shallow" (light, undifferentiated work) when no signal wins —
+  // admin must now earn a strict lead instead of being the catch-all bucket.
   const ordered: WorkType[] = ['deep', 'shallow', 'admin', 'errand', 'recovery'];
   return ordered.reduce((best, current) => (
     scores[current] > scores[best] ? current : best
-  ), 'admin');
+  ), 'shallow');
 }
 
 export function resolveWorkType(input: {
