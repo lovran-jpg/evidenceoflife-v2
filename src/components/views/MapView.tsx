@@ -622,17 +622,22 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
       try {
         const { supabase } = await import('@/integrations/supabase/client');
 
-        // Step 1: Only resolve city names for clusters that don't already have a name from the database
-        const unresolvedCities = initialCities.filter(c => !c.cityName || c.cityName.startsWith('Area '));
+        // Step 1: Resolve city names for clusters that don't already have a
+        // proper name from the database. We also re-resolve names that are still
+        // a raw administrative district (e.g. "海淀区" / "Haidian District"), so
+        // the card shows the municipality ("北京市" / "Beijing") instead.
+        const isRawDistrict = (name?: string) => !!name && (/区$/.test(name) || /\bDistrict$/i.test(name));
+        const needsResolve = (name?: string) => !name || name.startsWith('Area ') || isRawDistrict(name);
+        const unresolvedCities = initialCities.filter(c => needsResolve(c.cityName));
         if (unresolvedCities.length > 0) {
           const resolved = [...initialCities];
           for (let i = 0; i < resolved.length; i++) {
             if (geoSeqCancelled) return;
-            // Skip cities that already have a name from the database
-            if (resolved[i].cityName && !resolved[i].cityName.startsWith('Area ')) continue;
+            // Skip cities that already have a proper municipal name
+            if (!needsResolve(resolved[i].cityName)) continue;
             try {
               const { data } = await supabase.functions.invoke('geo', {
-                body: { type: 'reverse', lat: resolved[i].centerLat, lng: resolved[i].centerLng },
+                body: { type: 'reverse', lat: resolved[i].centerLat, lng: resolved[i].centerLng, lang },
               });
               if (data?.city && data.city.trim()) {
                 resolved[i] = { ...resolved[i], cityName: data.city.trim() };
@@ -697,7 +702,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
 
     runGeoSequence();
     return () => { geoSeqCancelled = true; };
-  }, [allPlaces, placesData]);
+  }, [allPlaces, placesData, lang]);
 
   // Auto-select closest city to user's location on first load
   useEffect(() => {

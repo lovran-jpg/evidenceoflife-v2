@@ -9,7 +9,7 @@ const corsHeaders: Record<string, string> = {
 
 type Body =
   | { type: 'search'; q: string; limit?: number }
-  | { type: 'reverse'; lat: number; lng: number }
+  | { type: 'reverse'; lat: number; lng: number; lang?: string }
   | { type: 'reclassify'; places: Array<{ id: string; name: string; lat: number; lng: number }> }
   | { type: 'boundaries'; cities: Array<{ name: string; lat: number; lng: number }> };
 
@@ -141,7 +141,10 @@ Deno.serve(async (req) => {
     if (body.type === 'reverse') {
       const lat = Number(body.lat);
       const lng = Number(body.lng);
-      const url = `https://nominatim.openstreetmap.org/reverse?format=json&accept-language=en&lat=${lat}&lon=${lng}&addressdetails=1`;
+      // Localize names when requested (e.g. zh → "北京市" instead of "Beijing").
+      const rawLang = String((body as any).lang ?? 'en').toLowerCase();
+      const lang = /^[a-z]{2}(-[a-z]{2})?$/.test(rawLang) ? rawLang : 'en';
+      const url = `https://nominatim.openstreetmap.org/reverse?format=json&accept-language=${lang}&lat=${lat}&lon=${lng}&addressdetails=1`;
       const res = await fetchWithRetry(url);
       if (!res.ok) return Response.json({ name: `${lat.toFixed(4)}, ${lng.toFixed(4)}`, city: '', category: 'other' }, { headers: { ...corsHeaders } });
       const json = (await res.json()) as { display_name?: string; name?: string; class?: string; type?: string; address?: any };
@@ -149,10 +152,10 @@ Deno.serve(async (req) => {
       // Extract city-level name - prefer actual city over neighborhood/district
       // For places like "Morningside Heights, Manhattan, New York" we want "New York"
       let cityName = addr.city || addr.town || addr.municipality || addr.county || addr.state_district || addr.state || addr.province || addr.city_district || addr.district || addr.village || '';
-      // Names come back in English (accept-language=en). In China the direct-administered
-      // municipalities (Beijing/Shanghai/Tianjin/Chongqing) tag their districts as `city`,
-      // e.g. "Haidian District". Keep everything at the municipal level: if the picked name
-      // is a district (ends with "District" or 区), bump up to a higher admin field.
+      // In China the direct-administered municipalities (Beijing/Shanghai/Tianjin/
+      // Chongqing) tag their districts as `city`, e.g. "Haidian District" / "海淀区".
+      // Keep everything at the municipal level: if the picked name is a district
+      // (ends with "District" or 区), bump up to a higher admin field.
       const isDistrict = (v: unknown) => typeof v === 'string' && (/区$/.test(v) || /\bDistrict$/i.test(v));
       if (isDistrict(cityName)) {
         const municipal = [addr.municipality, addr.city, addr.county, addr.state, addr.province]
