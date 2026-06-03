@@ -70,13 +70,17 @@ interface PlanTimelineViewProps {
   onDeleteTodo?: (id: string) => void;
   onRenameTodo?: (id: string, title: string) => void;
   onStartTimer?: (todoId: string) => void;
+  /** Edit a moment row (focus-session or standalone) shown on the timeline. */
+  onUpdateMoment?: (id: string, updates: Partial<Moment>) => void;
+  /** Remove a moment row shown on the timeline. */
+  onDeleteMoment?: (id: string) => void;
   activeTimerIds?: Set<string>;
   getTimerElapsed?: (todoId: string) => number;
   /** Plan page rhythm picker — shifts “now” marker + stays in sync with Execution chart */
   rhythmPresetId?: string;
 }
 
-export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdateTodo, onAddTodo, onDropTodo, onUnscheduleTodo, onDeleteTodo, onRenameTodo, onStartTimer, activeTimerIds, getTimerElapsed, rhythmPresetId }: PlanTimelineViewProps) {
+export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdateTodo, onAddTodo, onDropTodo, onUnscheduleTodo, onDeleteTodo, onRenameTodo, onStartTimer, onUpdateMoment, onDeleteMoment, activeTimerIds, getTimerElapsed, rhythmPresetId }: PlanTimelineViewProps) {
   const { t, lang } = useLanguage();
   const { getWorkType } = useWorkTypes();
   const tOr = useCallback((key: string, fallback: string) => {
@@ -137,7 +141,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
   const timelineRailLabelColor = isDarkMode ? 'hsl(240 5% 86% / 0.46)' : 'rgba(75, 75, 80, 0.48)';
   const timelinePastTint = isDarkMode ? 'hsl(240 4% 100% / 0.018)' : 'rgba(15, 23, 42, 0.014)';
   
-  const [dragging, setDragging] = useState<{ id: string; target: 'plan' | 'actual'; edge: 'move' | 'top' | 'bottom'; startY: number; startMin: number; origStart: number; origEnd: number } | null>(null);
+  const [dragging, setDragging] = useState<{ id: string; target: 'plan' | 'actual' | 'moment'; edge: 'move' | 'top' | 'bottom'; startY: number; startMin: number; origStart: number; origEnd: number } | null>(null);
   const [dragPreview, setDragPreview] = useState<{ startMin: number; endMin: number } | null>(null);
   const [dragOutside, setDragOutside] = useState(false);
   const [slotAddTitle, setSlotAddTitle] = useState('');
@@ -380,8 +384,23 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
     return null;
   }, []);
 
+  // Moment blocks carry their real row id behind a `moment-` prefix on the
+  // timeline. Strip it so moment edit/delete hooks receive the DB id.
+  const parseMomentBlockId = useCallback((blockId: string) =>
+    blockId.startsWith('moment-') ? blockId.slice('moment-'.length) : null, []);
+
   const handleMouseDown = useCallback((e: React.MouseEvent, block: TimeBlock, edge: 'move' | 'top' | 'bottom') => {
-    if (block.source === 'imported' || block.source === 'moment') return;
+    if (block.source === 'imported') return;
+    // Moment blocks have a single (actual) span — drag/resize edits that span.
+    if (block.source === 'moment') {
+      if (!onUpdateMoment) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const startMin = clientYToMin(e.clientY);
+      setDragging({ id: block.id, target: 'moment', edge, startY: e.clientY, startMin, origStart: block.startMin, origEnd: block.endMin });
+      setDragPreview({ startMin: block.startMin, endMin: block.endMin });
+      return;
+    }
     const isTimerActive = !!activeTimerIds?.has(block.id);
     const target = getBlockEditTarget(block, displayMode, isTimerActive);
     if (!target) return;
@@ -396,7 +415,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
       : (block.planEndMin ?? block.endMin);
     setDragging({ id: block.id, target, edge, startY: e.clientY, startMin, origStart, origEnd });
     setDragPreview({ startMin: origStart, endMin: origEnd });
-  }, [activeTimerIds, clientYToMin, displayMode, getBlockEditTarget]);
+  }, [activeTimerIds, clientYToMin, displayMode, getBlockEditTarget, onUpdateMoment]);
 
   const isOutsideTimeline = useCallback((clientX: number, clientY: number) => {
     if (!containerRef.current) return false;
@@ -490,7 +509,16 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
         const endISO = localMinuteToISOString(targetDay, dragPreview.endMin);
         const diffSec = Math.max(0, (dragPreview.endMin - dragPreview.startMin) * 60);
 
-        if (dragging.target === 'plan') {
+        if (dragging.target === 'moment') {
+          const momentId = parseMomentBlockId(dragging.id);
+          if (momentId) {
+            onUpdateMoment?.(momentId, {
+              timer_started_at: startISO,
+              timer_ended_at: endISO,
+              timer_seconds: diffSec,
+            } as Partial<Moment>);
+          }
+        } else if (dragging.target === 'plan') {
           // 计划模式下调整计划时间
           onUpdateTodo(dragging.id, {
             plan_started_at: startISO,
@@ -514,7 +542,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
     setDragging(null);
     setDragPreview(null);
     setDragOutside(false);
-  }, [dragging, dragPreview, dragOutside, onUpdateTodo, onUnscheduleTodo, rangeDragging, activeTimerIds, displayMode, date, isOutsideTimeline]);
+  }, [dragging, dragPreview, dragOutside, onUpdateTodo, onUnscheduleTodo, rangeDragging, activeTimerIds, displayMode, date, isOutsideTimeline, onUpdateMoment, parseMomentBlockId]);
 
   const parseHHMM = (value: string): number | null => {
     const match = value.match(/^(\d{1,2}):(\d{2})$/);
@@ -551,9 +579,20 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
     const d = date || new Date().toISOString().slice(0, 10);
     const startISO = localMinuteToISOString(d, parsedStart);
     const endISO = localMinuteToISOString(d, parsedEnd);
+    const momentId = parseMomentBlockId(blockId);
+    if (momentId) {
+      // Moments only have an actual span — write it to the timer fields.
+      onUpdateMoment?.(momentId, {
+        timer_started_at: startISO,
+        timer_ended_at: endISO,
+        timer_seconds: Math.max(0, (parsedEnd - parsedStart) * 60),
+      } as Partial<Moment>);
+      setEditingTimeBlockId(null);
+      return;
+    }
     onUpdateTodo(blockId, { plan_started_at: startISO, plan_ended_at: endISO } as any);
     setEditingTimeBlockId(null);
-  }, [editingTimeStart, editingTimeEnd, date, onUpdateTodo]);
+  }, [editingTimeStart, editingTimeEnd, date, onUpdateTodo, onUpdateMoment, parseMomentBlockId]);
 
   const handleRestToggle = useCallback(() => {
     if (restStartMin !== null) {
@@ -750,6 +789,11 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
   }, [isViewingToday, minToY, nowMin]);
 
   const removeBlockFromTimeline = useCallback((block: TimeBlock) => {
+    if (block.source === 'moment') {
+      const momentId = parseMomentBlockId(block.id);
+      if (momentId) onDeleteMoment?.(momentId);
+      return;
+    }
     if (block.source !== 'todo') return;
 
     if (displayMode === 'plan') {
@@ -775,7 +819,19 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
       timer_seconds: 0,
       is_completed: false,
     } as any);
-  }, [displayMode, onUpdateTodo]);
+  }, [displayMode, onUpdateTodo, onDeleteMoment, parseMomentBlockId]);
+
+  // Rename either a todo block or a moment block, routing to the right hook.
+  const renameBlock = useCallback((block: TimeBlock, title: string) => {
+    const trimmed = title.trim();
+    if (!trimmed || trimmed === block.title) return;
+    const momentId = parseMomentBlockId(block.id);
+    if (momentId) {
+      onUpdateMoment?.(momentId, { text: trimmed } as Partial<Moment>);
+      return;
+    }
+    onRenameTodo?.(block.id, trimmed);
+  }, [onRenameTodo, onUpdateMoment, parseMomentBlockId]);
 
   const renderBlock = (block: TimeBlock, col: number, totalCols: number) => {
     const isDraggingThis = dragging?.id === block.id;
@@ -795,7 +851,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
       (blockTodoForTimer.progress ?? 0) < 100
     );
     const editTarget = getBlockEditTarget(block, displayMode, !!isTimerActive);
-    const isEditable = !isImported && !isMoment && !!editTarget;
+    const isEditable = !isImported && (isMoment ? !!onUpdateMoment : !!editTarget);
     const isEditingThis = editingBlockId === block.id;
     const showLiveBadge = isTimerActive && !block.isCompleted;
     const tagIcon = getTagIcon(block.tags, block.title);
@@ -1501,6 +1557,15 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
                 <Trash2 size={14} />
               </button>
             )}
+            {block.source === 'moment' && onDeleteMoment && (
+              <button
+                onClick={() => removeBlockFromTimeline(block)}
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive"
+                title={lang === 'zh' ? '删除' : 'Delete'}
+              >
+                <Trash2 size={14} />
+              </button>
+            )}
           </div>
         )}
 
@@ -1627,7 +1692,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
                     onBlur={(e) => {
                       if (e.relatedTarget && e.currentTarget.contains(e.relatedTarget as Node)) return;
                       if (editingBlockTitle.trim() && editingBlockTitle.trim() !== block.title) {
-                        onRenameTodo?.(block.id, editingBlockTitle.trim());
+                        renameBlock(block, editingBlockTitle);
                       }
                       handleSaveBlockTime(block.id);
                       setEditingBlockId(null);
@@ -1640,7 +1705,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
                       onKeyDown={e => {
                         const nev = e.nativeEvent as KeyboardEvent;
                         if (e.key === 'Enter' && !isImeComposing(nev) && editingBlockTitle.trim()) {
-                          onRenameTodo?.(block.id, editingBlockTitle.trim());
+                          renameBlock(block, editingBlockTitle);
                           handleSaveBlockTime(block.id);
                           setEditingBlockId(null);
                         }

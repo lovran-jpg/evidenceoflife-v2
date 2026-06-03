@@ -464,6 +464,8 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
                 onSwitchToRecap={() => setTodayMode('recap')}
                 moments={dateMoments}
                 onAddMoment={(data) => handleAddMoment(data)}
+                onEditMoment={handleEditMoment}
+                onDeleteMoment={handleDeleteMoment}
               />
             )}
           </>

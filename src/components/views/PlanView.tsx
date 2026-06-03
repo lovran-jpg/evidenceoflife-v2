@@ -668,6 +668,8 @@ export function PlanView({
   todos: todosProp,
   importedEvents: importedEventsProp = [],
   onAddMoment,
+  onEditMoment,
+  onDeleteMoment,
 }: {
   onTodosChanged?: () => void;
   date?: string;
@@ -692,6 +694,8 @@ export function PlanView({
     timer_seconds?: number | null;
     date?: string;
   }) => Promise<any>;
+  onEditMoment?: (id: string, updates: Partial<Moment>) => void;
+  onDeleteMoment?: (id: string) => void;
 }) {
   const todayStr = date || format(new Date(), 'yyyy-MM-dd');
   const {
@@ -2134,6 +2138,8 @@ export function PlanView({
                 const todo = todos.find(t => t.id === id);
                 if (todo) handleStartFocus(todo);
               }}
+              onUpdateMoment={onEditMoment}
+              onDeleteMoment={onDeleteMoment}
               activeTimerIds={activeTimerIdSet}
               getTimerElapsed={getTimerElapsedForId}
             />
