@@ -337,7 +337,7 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
   };
 
   return (
-    <div className="relative flex-1 min-h-0 flex flex-col pb-0">
+    <div className="relative flex-1 min-h-full flex flex-col pb-0">
       <div className="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         {/* Header with view switcher */}
         <div className="flex items-center justify-between px-4 py-2.5 gap-2">
