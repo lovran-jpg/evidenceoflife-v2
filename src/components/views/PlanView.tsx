@@ -348,9 +348,11 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
   const [editEnd, setEditEnd] = useState('');
   const hasProgress = todo.progress > 0 && todo.progress < 100 && !todo.is_completed;
 
-  // "Resting" = worked before but not actively timing right now
+  // "Resting" = partial progress left behind (not done), waiting to be resumed.
+  // A plain ended session with no remaining progress is just recorded, not resumable.
   const priorWorkSec = todo.timer_seconds || 0;
-  const isResting = !isTiming && !todo.is_completed && priorWorkSec > 0 && !!todo.timer_ended_at;
+  const isResting = !isTiming && !todo.is_completed && priorWorkSec > 0 && !!todo.timer_ended_at
+    && todo.progress > 0 && todo.progress < 100;
   const restSec = isResting
     ? Math.max(0, Math.floor((Date.now() - new Date(todo.timer_ended_at!).getTime()) / 1000))
     : 0;

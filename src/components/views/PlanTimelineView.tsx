@@ -790,7 +790,9 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
       !isTimerActive &&
       (blockTodoForTimer.timer_seconds || 0) > 0 &&
       blockTodoForTimer.timer_ended_at &&
-      !blockTodoForTimer.timer_started_at
+      !blockTodoForTimer.timer_started_at &&
+      (blockTodoForTimer.progress ?? 0) > 0 &&
+      (blockTodoForTimer.progress ?? 0) < 100
     );
     const editTarget = getBlockEditTarget(block, displayMode, !!isTimerActive);
     const isEditable = !isImported && !isMoment && !!editTarget;
