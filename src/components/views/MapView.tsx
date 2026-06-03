@@ -1404,24 +1404,31 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
   return (
     <div className="flex-1 flex flex-col pb-6">
       {/* Header */}
-      <div className="px-5 py-4 flex items-center gap-2">
+      <div className="px-5 pt-5 pb-4 flex items-center gap-3">
         {viewMode === 'city' ? (
           <>
-            <button onClick={() => { setViewMode('world'); }} className="p-1 hover:bg-secondary rounded-xl transition-colors">
-              <ChevronLeft size={20} />
+            <button onClick={() => { setViewMode('world'); }} className="p-1 -ml-1 hover:bg-secondary rounded-xl transition-colors">
+              <ChevronLeft size={22} />
             </button>
-            <h1 className="text-lg font-semibold">{currentCity?.cityName || t('map.places')}</h1>
+            <h1 className="text-[26px] font-bold font-display tracking-tight leading-none">{currentCity?.cityName || t('map.places')}</h1>
             <span className="text-muted-foreground/60 text-xs ml-auto tabular-nums">
               {cityPlaces.length} {t('map.places')}
             </span>
           </>
         ) : (
           <>
-            <Globe size={16} className="text-primary" />
-            <h1 className="text-lg font-semibold">{lang === 'zh' ? '生活足迹' : 'Life Map'}</h1>
-            <span className="text-muted-foreground/60 text-xs ml-auto tabular-nums">
-              {cities.length} {lang === 'zh' ? '个城市' : (cities.length === 1 ? 'city' : 'cities')} · {totalPlaces} {t('map.places')}
-            </span>
+            <div
+              className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0"
+              style={{ backgroundColor: `${LIFE_MAP_COLOR}1F`, color: LIFE_MAP_COLOR }}
+            >
+              <Globe size={24} strokeWidth={2.25} />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-[28px] font-bold font-display tracking-tight leading-none">{lang === 'zh' ? '生活足迹' : 'Life Map'}</h1>
+              <p className="text-[13px] text-muted-foreground/60 mt-1 tabular-nums">
+                {cities.length} {lang === 'zh' ? '个城市' : (cities.length === 1 ? 'city' : 'cities')} · {totalPlaces} {t('map.places')}
+              </p>
+            </div>
           </>
         )}
       </div>
