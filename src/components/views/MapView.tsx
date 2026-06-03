@@ -40,6 +40,27 @@ const categoryColors: Record<string, string> = {
   other: '#c9a88c',
 };
 
+// When a place is saved as a generic 'other' (common for geocoded spots like
+// 海淀区 whose POIs never got a category), guess a category from its name so the
+// city card still shows a real palette instead of flat terracotta.
+const CATEGORY_NAME_HINTS: { category: Category; keywords: string[] }[] = [
+  { category: 'coffee', keywords: ['coffee', 'café', 'cafe', 'espresso', 'starbucks', 'latte', '咖啡', '星巴克'] },
+  { category: 'restaurant', keywords: ['restaurant', 'diner', 'bistro', 'kitchen', 'grill', 'noodle', 'bar', 'pizza', 'sushi', 'bbq', '餐', '饭', '面', '火锅', '烧烤', '食', '酒馆', '小吃'] },
+  { category: 'park', keywords: ['park', 'garden', 'lake', 'trail', 'mountain', 'river', 'forest', 'beach', '公园', '园', '湖', '山', '河', '湿地', '植物园'] },
+  { category: 'museum', keywords: ['museum', 'gallery', 'theater', 'theatre', 'library', 'temple', 'cathedral', 'palace', 'art', '博物馆', '美术馆', '展', '剧院', '图书馆', '寺', '宫', '画廊', '艺术'] },
+];
+
+const resolveCategory = (place: { name?: string; category?: string }): string => {
+  if (place.category && place.category !== 'other' && categoryColors[place.category]) {
+    return place.category;
+  }
+  const name = (place.name || '').toLowerCase();
+  for (const { category, keywords } of CATEGORY_NAME_HINTS) {
+    if (keywords.some(k => name.includes(k))) return category;
+  }
+  return 'other';
+};
+
 interface TileSource {
   url: string;
   subdomains: string;
@@ -1495,7 +1516,8 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                 // (food red, coffee brown, park green, culture purple…) instead
                 // of one flat terracotta.
                 const counts = city.places.reduce<Record<string, number>>((acc, p) => {
-                  const key = categoryColors[p.category] ? p.category : 'other';
+                  const resolved = resolveCategory(p);
+                  const key = categoryColors[resolved] ? resolved : 'other';
                   acc[key] = (acc[key] || 0) + 1;
                   return acc;
                 }, {});
