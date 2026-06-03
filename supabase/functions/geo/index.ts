@@ -160,7 +160,24 @@ Deno.serve(async (req) => {
       if (isDistrict(cityName)) {
         const municipal = [addr.municipality, addr.city, addr.county, addr.state, addr.province]
           .find((v: unknown) => typeof v === 'string' && v.trim() && !isDistrict(v));
-        if (municipal) cityName = municipal as string;
+        if (municipal) {
+          cityName = municipal as string;
+        } else {
+          // At building-level zoom, Nominatim often returns ONLY the district as
+          // `city` with no province/state field — but it always carries the
+          // ISO 3166-2 province code. Map the 4 direct-administered municipalities
+          // by that code so e.g. "海淀区" (CN-BJ) resolves to "北京市" / "Beijing".
+          const iso = String(addr['ISO3166-2-lvl4'] || '').toUpperCase();
+          const isZh = lang.startsWith('zh');
+          const MUNICIPALITY_BY_ISO: Record<string, { zh: string; en: string }> = {
+            'CN-BJ': { zh: '北京市', en: 'Beijing' },
+            'CN-SH': { zh: '上海市', en: 'Shanghai' },
+            'CN-TJ': { zh: '天津市', en: 'Tianjin' },
+            'CN-CQ': { zh: '重庆市', en: 'Chongqing' },
+          };
+          const mapped = MUNICIPALITY_BY_ISO[iso];
+          if (mapped) cityName = isZh ? mapped.zh : mapped.en;
+        }
       }
       const display =
         json.name || (json.display_name ? json.display_name.split(',').slice(0, 2).join(', ') : '');
