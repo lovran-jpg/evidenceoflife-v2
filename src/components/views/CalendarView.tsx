@@ -32,6 +32,7 @@ import { cn } from '@/lib/utils';
 import { useImportedEvents } from '@/hooks/useImportedEvents';
 import { useAuth } from '@/hooks/useAuth';
 import { ICSImportManager } from '@/components/views/ICSImportManager';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { ViewSwitcher } from '@/components/Calendar/ViewSwitcher';
 import { useLanguage } from '@/hooks/useLanguage';
 import { DayView } from '@/components/Calendar/DayView';
@@ -473,27 +474,25 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
       </div>
 
       {/* ICS Import Manager */}
-      {showICSManager && (
-        <div className="px-4 pb-2">
-          <div className="bg-card border border-border rounded-xl p-3">
-            <ICSImportManager
-              events={importedEvents}
-              batches={batches}
-              loading={icsLoading}
-              onImport={async (file) => {
-                const ok = await importICS(file);
-                if (ok) setShowICSManager(false);
-                return ok;
-              }}
-              onDeleteBatch={deleteBatch}
-              onDeleteSelected={deleteSelected}
-              onSearchEvents={searchEvents}
-              onClose={() => setShowICSManager(false)}
-              onAddManualEvent={addManualEvent}
-            />
-          </div>
-        </div>
-      )}
+      <Dialog open={showICSManager} onOpenChange={setShowICSManager}>
+        <DialogContent className="max-w-md gap-0 rounded-2xl border-primary/30 bg-card p-4 shadow-[0_24px_60px_hsl(var(--primary)/0.22)] [&>button]:hidden">
+          <ICSImportManager
+            events={importedEvents}
+            batches={batches}
+            loading={icsLoading}
+            onImport={async (file) => {
+              const ok = await importICS(file);
+              if (ok) setShowICSManager(false);
+              return ok;
+            }}
+            onDeleteBatch={deleteBatch}
+            onDeleteSelected={deleteSelected}
+            onSearchEvents={searchEvents}
+            onClose={() => setShowICSManager(false)}
+            onAddManualEvent={addManualEvent}
+          />
+        </DialogContent>
+      </Dialog>
 
       {/* View content */}
       {viewMode === 'day' && (
@@ -642,8 +641,8 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
       <button
         onClick={() => setShowICSManager(prev => !prev)}
         className={cn(
-          "absolute bottom-6 right-6 z-30 flex h-12 w-12 items-center justify-center rounded-full border border-border/60 bg-card/95 shadow-[0_8px_22px_hsl(var(--foreground)/0.10)] backdrop-blur transition-transform active:scale-95",
-          showICSManager && "bg-primary text-primary-foreground border-primary/30"
+          "absolute bottom-6 right-6 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_10px_26px_hsl(var(--primary)/0.40)] transition-transform active:scale-95 hover:brightness-105",
+          showICSManager && "scale-95 brightness-95"
         )}
         title="Import calendar"
         aria-label="Import calendar"
