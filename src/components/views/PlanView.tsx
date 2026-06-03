@@ -1422,6 +1422,19 @@ export function PlanView({
       return null;
     }
 
+    // Only inherit the plan window as the actual span when the plan and the
+    // running timer started on the SAME day. A timer forgotten overnight has
+    // its plan rolled forward to today (rollOverYesterdayTodos), so inheriting
+    // it would drag yesterday's session onto today. Fall back to the real
+    // timer_started_at in that case.
+    const timerStartMs = new Date(todo.timer_started_at).getTime();
+    if (
+      !Number.isFinite(timerStartMs) ||
+      new Date(planStartMs).toDateString() !== new Date(timerStartMs).toDateString()
+    ) {
+      return null;
+    }
+
     return {
       startISO: todo.plan_started_at,
       endISO: todo.plan_ended_at,

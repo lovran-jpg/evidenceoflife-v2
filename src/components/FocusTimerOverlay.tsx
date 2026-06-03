@@ -167,7 +167,18 @@ export function FocusTimerOverlay({
   const suggestedEndDate = (() => {
     if (!startedDate) return null;
     const plannedEnd = todo.plan_ended_at ? new Date(todo.plan_ended_at) : null;
-    if (plannedEnd && plannedEnd.getTime() > startedAt && plannedEnd.getTime() < Date.now()) return plannedEnd;
+    // Only trust the planned end when it sits on the SAME calendar day the
+    // session actually started. A timer forgotten overnight gets its plan
+    // window rolled forward to today by rollOverYesterdayTodos, so an
+    // unguarded plan end would wrongly suggest "today" for yesterday's work.
+    if (
+      plannedEnd &&
+      plannedEnd.getTime() > startedAt &&
+      plannedEnd.getTime() < Date.now() &&
+      plannedEnd.toDateString() === startedDate.toDateString()
+    ) {
+      return plannedEnd;
+    }
     return new Date(startedAt + DEFAULT_SESSION_SEC * 1000);
   })();
   const suggestedEndLabel = suggestedEndDate
