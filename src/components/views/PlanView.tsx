@@ -507,6 +507,17 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
           <div className="flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap">
             <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/45">
               {statusLabel && (
+                isResting ? (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onFocus?.(); }}
+                    className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 -mx-1 text-amber-500/75 transition-colors hover:bg-amber-500/10"
+                    title={tLang('plan.resumeTimer')}
+                  >
+                    <Timer size={9} strokeWidth={2} className="text-amber-500/65" />
+                    <span className="font-medium text-amber-500/75">{statusLabel}</span>
+                  </button>
+                ) : (
                 <span className="inline-flex items-center gap-1">
                   {todo.is_completed
                     ? <CheckCircle2 size={9} strokeWidth={2} className="text-primary/70" />
@@ -523,6 +534,7 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
                     style={isDoing ? { color: hexWithAlpha(activeColor, '88') } : undefined}
                   >{statusLabel}</span>
                 </span>
+                )
               )}
               {/* Resting: show work time + rest duration */}
               {isResting && (
@@ -678,6 +690,7 @@ export function PlanView({
     timer_started_at?: string | null;
     timer_ended_at?: string | null;
     timer_seconds?: number | null;
+    date?: string;
   }) => Promise<any>;
 }) {
   const todayStr = date || format(new Date(), 'yyyy-MM-dd');
@@ -1418,12 +1431,21 @@ export function PlanView({
   const logFocusSessionMoment = useCallback(async (todo: Todo, workingSec: number, endedAtISO: string) => {
     if (!onAddMoment || !todo.timer_started_at || workingSec <= 0) return;
     const inheritedPlanRange = getInheritedPlanActualRange(todo);
+    const sessionStartISO = inheritedPlanRange?.startISO ?? todo.timer_started_at;
+    // Bucket the moment on the day the session actually STARTED, not the day
+    // currently being viewed. Otherwise a timer forgotten overnight (started
+    // yesterday, closed today) lands on today and shows as a phantom block.
+    const sessionStartMs = new Date(sessionStartISO).getTime();
+    const sessionDate = Number.isFinite(sessionStartMs)
+      ? format(new Date(sessionStartMs), 'yyyy-MM-dd')
+      : undefined;
     await onAddMoment({
+      ...(sessionDate ? { date: sessionDate } : {}),
       text: todo.title,
       emoji: extractLeadingEmoji(todo.title),
       photos: [],
       tags: ['focus-session', `todo-session:${todo.id}`, ...(todo.tags || [])],
-      timer_started_at: inheritedPlanRange?.startISO ?? todo.timer_started_at,
+      timer_started_at: sessionStartISO,
       timer_ended_at: endedAtISO,
       timer_seconds: workingSec,
     });

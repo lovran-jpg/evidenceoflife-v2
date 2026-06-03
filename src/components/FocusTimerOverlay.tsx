@@ -260,8 +260,17 @@ export function FocusTimerOverlay({
 
   const handleFinishAtSuggestion = useCallback((completed: boolean) => {
     if (!suggestedEndDate || !onFinishAt) return;
-    onFinishAt(suggestedEndElapsedSec, completed ? 100 : completionProgress, completed, suggestedEndDate.toISOString());
-  }, [completionProgress, onFinishAt, suggestedEndDate, suggestedEndElapsedSec]);
+    // When NOT completing (e.g. closing a forgotten timer), never fabricate a
+    // 100%-but-unfinished state from the default slider — that muddies the
+    // resume gating. Keep the task's existing progress unless the user dragged
+    // the slider, and cap at 99% to stay distinct from "complete".
+    const nextProgress = completed
+      ? 100
+      : progressTouched
+        ? Math.min(99, completionProgress)
+        : Math.max(0, Math.min(99, todo.progress || 0));
+    onFinishAt(suggestedEndElapsedSec, nextProgress, completed, suggestedEndDate.toISOString());
+  }, [completionProgress, progressTouched, todo.progress, onFinishAt, suggestedEndDate, suggestedEndElapsedSec]);
 
   const handleCancel = useCallback(() => {
     setShowDeath(true);

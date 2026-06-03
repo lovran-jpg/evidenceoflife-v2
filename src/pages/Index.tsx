@@ -329,6 +329,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
     timer_started_at?: string | null;
     timer_ended_at?: string | null;
     timer_seconds?: number | null;
+    date?: string;
   }) => {
     const newMoment = await addMoment({
       date: selectedDateStr,
