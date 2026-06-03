@@ -1544,18 +1544,19 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                         <p className="text-[11px] text-muted-foreground/60 mt-0.5">
                           {city.places.length} {lang === 'zh' ? '个地点' : (city.places.length === 1 ? 'place' : 'places')} · {city.totalVisits} {lang === 'zh' ? '次访问' : (city.totalVisits === 1 ? 'visit' : 'visits')}
                         </p>
-                        {/* Category mix bar — segments coloured per place kind */}
-                        <div className="flex items-center gap-0.5 mt-2 h-1.5">
+                        {/* Category mix — small coloured dots, one per place kind */}
+                        <div className="flex items-center gap-1 mt-1.5">
                           {breakdown.map(([cat, count]) => (
                             <span
                               key={cat}
-                              className="h-full rounded-full first:rounded-l-full last:rounded-r-full"
-                              style={{
-                                backgroundColor: categoryColors[cat] ?? LIFE_MAP_COLOR,
-                                width: `${Math.max((count / city.places.length) * 100, 6)}%`,
-                                opacity: 0.85,
-                              }}
-                            />
+                              className="inline-flex items-center gap-1 text-[10px] tabular-nums text-muted-foreground/50"
+                            >
+                              <span
+                                className="w-1.5 h-1.5 rounded-full"
+                                style={{ backgroundColor: categoryColors[cat] ?? LIFE_MAP_COLOR }}
+                              />
+                              {count}
+                            </span>
                           ))}
                         </div>
                       </div>
