@@ -1490,38 +1490,59 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
           ) : (
             <div className="space-y-2">
               {cities.map((city, i) => {
-                const intensity = Math.min(city.totalVisits / maxCityVisits, 1);
+                // Colour each city by the kinds of places it holds. Build an
+                // ordered category breakdown so the card shows a real palette
+                // (food red, coffee brown, park green, culture purple…) instead
+                // of one flat terracotta.
+                const counts = city.places.reduce<Record<string, number>>((acc, p) => {
+                  const key = categoryColors[p.category] ? p.category : 'other';
+                  acc[key] = (acc[key] || 0) + 1;
+                  return acc;
+                }, {});
+                const breakdown = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+                const dominantCategory = breakdown[0]?.[0] ?? 'other';
+                const accent = categoryColors[dominantCategory] ?? LIFE_MAP_COLOR;
+                const DominantIcon = getCategoryIcon(dominantCategory);
                 return (
                   <div
                     key={i}
                     onClick={() => { setSelectedCityIdx(i); setViewMode('city'); }}
-                    className="p-4 rounded-2xl bg-card shadow-sm border border-border/30 hover:shadow-md hover:border-border/50 cursor-pointer transition-all life-map-card-enter"
+                    className="group p-4 rounded-2xl bg-card shadow-sm border border-border/30 hover:shadow-md cursor-pointer transition-all life-map-card-enter"
                     style={{ animationDelay: `${i * 60}ms` }}
                   >
                     <div className="flex items-center gap-3">
                       <div
-                        className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                        style={{ backgroundColor: `${LIFE_MAP_COLOR}${Math.round((0.1 + intensity * 0.2) * 255).toString(16).padStart(2, '0')}` }}
+                        className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-105"
+                        style={{ backgroundColor: `${accent}24`, color: accent }}
                       >
-                        <MapPin size={18} style={{ color: LIFE_MAP_COLOR }} />
+                        <DominantIcon size={18} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-sm">{city.cityName || `Area ${i + 1}`}</p>
                         <p className="text-[11px] text-muted-foreground/60 mt-0.5">
                           {city.places.length} {lang === 'zh' ? '个地点' : (city.places.length === 1 ? 'place' : 'places')} · {city.totalVisits} {lang === 'zh' ? '次访问' : (city.totalVisits === 1 ? 'visit' : 'visits')}
                         </p>
+                        {/* Category mix bar — segments coloured per place kind */}
+                        <div className="flex items-center gap-0.5 mt-2 h-1.5">
+                          {breakdown.map(([cat, count]) => (
+                            <span
+                              key={cat}
+                              className="h-full rounded-full first:rounded-l-full last:rounded-r-full"
+                              style={{
+                                backgroundColor: categoryColors[cat] ?? LIFE_MAP_COLOR,
+                                width: `${Math.max((count / city.places.length) * 100, 6)}%`,
+                                opacity: 0.85,
+                              }}
+                            />
+                          ))}
+                        </div>
                       </div>
-                      {/* Intensity bar */}
-                      <div className="w-12 h-1.5 rounded-full bg-secondary/60 overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all duration-700"
-                          style={{
-                            width: `${Math.max(intensity * 100, 10)}%`,
-                            backgroundColor: LIFE_MAP_COLOR,
-                            opacity: 0.5 + intensity * 0.5,
-                          }}
-                        />
-                      </div>
+                      <span
+                        className="text-[11px] font-bold tabular-nums px-2 py-1 rounded-lg flex-shrink-0"
+                        style={{ color: accent, backgroundColor: `${accent}1A` }}
+                      >
+                        {city.totalVisits}
+                      </span>
                     </div>
                   </div>
                 );
@@ -1533,12 +1554,16 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
           {cities.length > 0 && (
             <div className="mt-6 grid grid-cols-3 gap-3">
               {[
-                { label: lang === 'zh' ? '城市' : 'Cities', value: cities.length },
-                { label: lang === 'zh' ? '地点' : 'Places', value: totalPlaces },
-                { label: lang === 'zh' ? '访问' : 'Visits', value: totalVisits },
+                { label: lang === 'zh' ? '城市' : 'Cities', value: cities.length, color: '#8b5cf6' },
+                { label: lang === 'zh' ? '地点' : 'Places', value: totalPlaces, color: '#22c55e' },
+                { label: lang === 'zh' ? '访问' : 'Visits', value: totalVisits, color: LIFE_MAP_COLOR },
               ].map(stat => (
-                <div key={stat.label} className="text-center py-3 rounded-2xl bg-card shadow-sm border border-border/30">
-                  <p className="text-lg font-bold" style={{ color: LIFE_MAP_COLOR }}>{stat.value}</p>
+                <div
+                  key={stat.label}
+                  className="text-center py-3 rounded-2xl bg-card shadow-sm border border-border/30"
+                  style={{ boxShadow: `inset 0 -2px 0 ${stat.color}33` }}
+                >
+                  <p className="text-lg font-bold" style={{ color: stat.color }}>{stat.value}</p>
                   <p className="text-[10px] text-muted-foreground/50 font-medium uppercase tracking-wider">{stat.label}</p>
                 </div>
               ))}
