@@ -1580,9 +1580,16 @@ export function PlanView({
             const finalProgress = progress ?? 100;
             const isDueChild = Boolean((overlayTodo as any).parent_due_id);
             const endedAtISO = new Date().toISOString();
-            const shouldDetachSession = finalProgress < 100;
             const snap = withFreshTimerStart(overlayTodo);
             const inheritedPlanRange = getInheritedPlanActualRange(snap);
+            // Detach into a correctly-dated moment when the work is partial OR
+            // when the session crossed a day (forgotten overnight timer). The
+            // todo itself was rolled forward to today, so keeping the timer on
+            // it would paint yesterday's work on today's timeline.
+            const sessionStartISO = inheritedPlanRange?.startISO ?? snap.timer_started_at;
+            const sessionCrossedDay = !!sessionStartISO &&
+              new Date(sessionStartISO).toDateString() !== new Date(endedAtISO).toDateString();
+            const shouldDetachSession = finalProgress < 100 || sessionCrossedDay;
             setPendingStopIds(prev => new Set([...prev, snap.id]));
             clearPauseState(snap.id);
             clearFreshTimerStart(snap.id);
@@ -1641,8 +1648,14 @@ export function PlanView({
             const finalProgress = completed ? 100 : progress;
             const isDueChild = Boolean((overlayTodo as any).parent_due_id);
             const snap = withFreshTimerStart(overlayTodo);
-            const shouldDetachSession = !completed;
             const inheritedPlanRange = getInheritedPlanActualRange(snap);
+            // Detach when not completed OR when the session crossed a day, so a
+            // completed forgotten-overnight timer lands on the day it happened
+            // (as a moment) instead of today's timeline.
+            const sessionStartISO = inheritedPlanRange?.startISO ?? snap.timer_started_at;
+            const sessionCrossedDay = !!sessionStartISO &&
+              new Date(sessionStartISO).toDateString() !== new Date(endedAtISO).toDateString();
+            const shouldDetachSession = !completed || sessionCrossedDay;
             setPendingStopIds(prev => new Set([...prev, snap.id]));
             clearPauseState(snap.id);
             clearFreshTimerStart(snap.id);
@@ -1653,7 +1666,7 @@ export function PlanView({
               }
               await updateTodo(snap.id, {
                 timer_started_at: shouldDetachSession ? null : (inheritedPlanRange?.startISO ?? snap.timer_started_at),
-                timer_ended_at: shouldDetachSession ? endedAtISO : endedAtISO,
+                timer_ended_at: shouldDetachSession ? null : endedAtISO,
                 timer_seconds: (snap.timer_seconds || 0) + workingSec,
                 progress: finalProgress,
                 is_completed: completed,
