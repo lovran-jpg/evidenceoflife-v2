@@ -667,7 +667,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
 
       {/* Global floating timer widgets — hidden when PlanView is active (it has its own) */}
       {!landingDemoMode && activeTimerTodos.length > 0 && !globalFocusId && !activeSheet && !(activeTab === 'today' && todayMode === 'plan') && (
-        <div className="fixed bottom-20 right-3 z-[60] flex flex-col gap-2" style={{ pointerEvents: 'auto' }}>
+        <div className="fixed bottom-28 right-4 z-[60] flex flex-col gap-2 max-w-[calc(100vw-2rem)]" style={{ pointerEvents: 'auto' }}>
           {activeTimerTodos.map(t => (
             <FloatingTimer
               key={t.id}
