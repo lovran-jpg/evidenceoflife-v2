@@ -546,7 +546,7 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
           </div>
 
           {/* Month grid */}
-          <div className="grid grid-cols-7 px-3 pb-8 flex-1 auto-rows-fr gap-x-1">
+          <div className="grid grid-cols-7 px-3 pb-8 flex-1 gap-x-1" style={{ gridAutoRows: 'minmax(78px, 116px)' }}>
             {days.map(day => {
               const dateStr = format(day, 'yyyy-MM-dd');
               const isCurrentMonth = isSameMonth(day, currentDate);
