@@ -245,39 +245,60 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
     return map;
   }, [effectiveTodos, dayRecords, importedEvents, isDarkMode, getWorkType]);
 
-  // Search
+  // Search — smart, multi-term, fuzzy-ish ranking across text, tags, location, type
   const searchResults = useMemo(() => {
-    if (!searchQuery.trim()) return [];
-    const q = searchQuery.toLowerCase();
-    const results: { id: string; date: string; type: 'moment' | 'todo' | 'imported'; text: string }[] = [];
-    
+    const raw = searchQuery.trim();
+    if (!raw) return [];
+    const terms = raw.toLowerCase().split(/\s+/).filter(Boolean);
+
+    type Hit = { id: string; date: string; type: 'moment' | 'todo' | 'imported'; text: string; score: number };
+    const hits: Hit[] = [];
+
+    // Score a record against all terms; require every term to match somewhere (AND).
+    const scoreOf = (haystacks: (string | undefined | null)[]): number => {
+      const fields = haystacks.map(h => (h || '').toLowerCase());
+      let total = 0;
+      for (const term of terms) {
+        let best = 0;
+        for (const f of fields) {
+          if (!f) continue;
+          const idx = f.indexOf(term);
+          if (idx === -1) continue;
+          // whole-word / prefix matches rank higher than mid-string
+          const wordBoundary = idx === 0 || /\s/.test(f[idx - 1]);
+          const s = wordBoundary ? (idx === 0 ? 3 : 2) : 1;
+          if (s > best) best = s;
+        }
+        if (best === 0) return -1; // this term matched nothing → reject
+        total += best;
+      }
+      return total;
+    };
+
     dayRecords.forEach((record, dateStr) => {
       record.moments.forEach(m => {
-        if ((m.text && m.text.toLowerCase().includes(q)) || 
-            (m.location?.name && m.location.name.toLowerCase().includes(q)) ||
-            (m.emoji && m.emoji.includes(q))) {
-          results.push({ id: m.id, date: dateStr, type: 'moment', text: m.text || m.emoji || '' });
-        }
+        const score = scoreOf([m.text, m.emoji, m.location?.name, ...(m.tags || [])]);
+        if (score >= 0) hits.push({ id: m.id, date: dateStr, type: 'moment', text: m.text || m.emoji || '', score });
       });
     });
-    
+
     effectiveTodos.forEach(t => {
-      if (t.title.toLowerCase().includes(q) && !t.date.startsWith('_due_')) {
-        results.push({ id: t.id, date: t.date, type: 'todo', text: t.title });
-      }
+      if (t.date.startsWith('_due_')) return;
+      const score = scoreOf([t.title, ...(t.tags || [])]);
+      if (score >= 0) hits.push({ id: t.id, date: t.date, type: 'todo', text: t.title, score });
     });
 
     importedEvents.forEach(ev => {
-      if (ev.title.toLowerCase().includes(q) || 
-          (ev.description && ev.description.toLowerCase().includes(q)) ||
-          (ev.location && ev.location.toLowerCase().includes(q))) {
+      const score = scoreOf([ev.title, ev.description, ev.location]);
+      if (score >= 0) {
         const dateStr = format(parseISO(ev.start_time), 'yyyy-MM-dd');
-        results.push({ id: ev.id, date: dateStr, type: 'imported', text: ev.title });
+        hits.push({ id: ev.id, date: dateStr, type: 'imported', text: ev.title, score });
       }
     });
-    
-    results.sort((a, b) => b.date.localeCompare(a.date));
-    return results.slice(0, 20);
+
+    // Higher score first, then most recent date.
+    hits.sort((a, b) => b.score - a.score || b.date.localeCompare(a.date));
+    return hits.slice(0, 30);
   }, [searchQuery, dayRecords, effectiveTodos, importedEvents]);
 
   const handleDateSelect = (date: Date) => {
@@ -546,14 +567,14 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
           </div>
 
           {/* Month grid */}
-          <div className="grid grid-cols-7 px-3 pb-8 flex-1 gap-x-1" style={{ gridAutoRows: 'minmax(66px, auto)' }}>
+          <div className="grid grid-cols-7 px-3 pb-8 flex-1 gap-x-1" style={{ gridAutoRows: 'minmax(60px, 1fr)' }}>
             {days.map(day => {
               const dateStr = format(day, 'yyyy-MM-dd');
               const isCurrentMonth = isSameMonth(day, currentDate);
               const dayIsToday = isToday(day);
               const events = dayEvents.get(dateStr) || [];
               const hasRecord = isCurrentMonth && events.length > 0;
-              const chips = events.slice(0, 4);
+              const chips = events.slice(0, 3);
               const overflow = events.length - chips.length;
 
               return (
@@ -645,7 +666,7 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
       <button
         onClick={() => setShowICSManager(prev => !prev)}
         className={cn(
-          "absolute bottom-6 right-6 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_10px_26px_hsl(var(--primary)/0.40)] transition-transform active:scale-95 hover:brightness-105",
+          "fixed bottom-6 right-6 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_10px_26px_hsl(var(--primary)/0.40)] transition-transform active:scale-95 hover:brightness-105",
           showICSManager && "scale-95 brightness-95"
         )}
         title="Import calendar"
