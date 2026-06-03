@@ -1857,14 +1857,14 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
                             }}
                             onMouseDown={e => e.stopPropagation()}
                           >
-                            {timeStr}
+                            {tallNarrowLayout ? durationStr : timeStr}
                           </button>
                         ) : (
                           <span
                             className="max-w-full whitespace-nowrap font-mono tabular-nums leading-none text-muted-foreground/70"
                             style={{ fontSize: timeFontSize, fontWeight: 500 }}
                           >
-                            {timeStr}
+                            {tallNarrowLayout ? durationStr : timeStr}
                           </span>
                         ))}
                         {hasActual && displayMode === 'actual' && editingActualBlockId === block.id && (
