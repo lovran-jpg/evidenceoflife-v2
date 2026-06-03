@@ -61,6 +61,47 @@ const resolveCategory = (place: { name?: string; category?: string }): string =>
   return 'other';
 };
 
+// China's four direct-administered municipalities tag their sub-divisions as
+// districts (海淀区 / "Haidian District"), so a place there gets stored with the
+// district as its city. Map those districts straight to the municipality so the
+// card reads "北京市" / "Beijing" instead of "海淀区". This runs client-side so it
+// works in the public demo too, where the authenticated geo lookup can't run.
+const MUNICIPALITY_DISTRICTS: { name: { zh: string; en: string }; districts: string[] }[] = [
+  {
+    name: { zh: '北京市', en: 'Beijing' },
+    districts: ['东城', '西城', '朝阳', '丰台', '石景山', '海淀', '门头沟', '房山', '通州', '顺义', '昌平', '大兴', '怀柔', '平谷', '密云', '延庆'],
+  },
+  {
+    name: { zh: '上海市', en: 'Shanghai' },
+    districts: ['黄浦', '徐汇', '长宁', '静安', '普陀', '虹口', '杨浦', '闵行', '宝山', '嘉定', '浦东新', '浦东', '金山', '松江', '青浦', '奉贤', '崇明'],
+  },
+  {
+    name: { zh: '天津市', en: 'Tianjin' },
+    districts: ['和平', '河东', '河西', '南开', '河北', '红桥', '东丽', '西青', '津南', '北辰', '武清', '宝坻', '滨海新', '宁河', '静海', '蓟州'],
+  },
+  {
+    name: { zh: '重庆市', en: 'Chongqing' },
+    districts: ['万州', '涪陵', '渝中', '大渡口', '江北', '沙坪坝', '九龙坡', '南岸', '北碚', '綦江', '大足', '渝北', '巴南', '黔江', '长寿', '江津', '合川', '永川', '南川', '璧山', '铜梁', '潼南', '荣昌', '开州', '梁平', '武隆'],
+  },
+];
+
+const normalizeMunicipalityDistrict = (name: string, isZh: boolean): string => {
+  if (!name) return name;
+  const isDistrict = /区$/.test(name) || /\bDistrict$/i.test(name);
+  if (!isDistrict) return name;
+  // Strip the suffix to compare against bare district stems (海淀区 → 海淀, "Haidian District" → "haidian").
+  const stemZh = name.replace(/区$/, '');
+  const stemEn = name.replace(/\s*District$/i, '').trim().toLowerCase();
+  for (const muni of MUNICIPALITY_DISTRICTS) {
+    for (const d of muni.districts) {
+      if (stemZh === d || stemEn === d.toLowerCase()) {
+        return isZh ? muni.name.zh : muni.name.en;
+      }
+    }
+  }
+  return name;
+};
+
 interface TileSource {
   url: string;
   subdomains: string;
@@ -612,7 +653,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
           if (dist < 30) { resolvedName = dbCity.name; break; }
         }
       }
-      c.cityName = resolvedName || `Area ${i + 1}`;
+      c.cityName = normalizeMunicipalityDistrict(resolvedName, lang.startsWith('zh')) || `Area ${i + 1}`;
     });
     setCities(initialCities);
 
@@ -640,7 +681,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                 body: { type: 'reverse', lat: resolved[i].centerLat, lng: resolved[i].centerLng, lang },
               });
               if (data?.city && data.city.trim()) {
-                resolved[i] = { ...resolved[i], cityName: data.city.trim() };
+                resolved[i] = { ...resolved[i], cityName: normalizeMunicipalityDistrict(data.city.trim(), lang.startsWith('zh')) };
               } else if (data?.name) {
                 const parts = String(data.name).split(',').map((s: string) => s.trim()).filter(Boolean);
                 if (parts.length >= 3) resolved[i] = { ...resolved[i], cityName: parts[parts.length - 2] };
