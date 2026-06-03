@@ -345,7 +345,7 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
             <button onClick={navigateBack} aria-label="Previous" className="p-2 hover:bg-secondary rounded-full transition-colors">
               <ChevronLeft size={20} />
             </button>
-            <h1 className="text-[18px] font-semibold font-display min-w-0 text-center whitespace-nowrap">
+            <h1 className="text-[26px] sm:text-[30px] font-bold font-display tracking-tight min-w-0 text-center whitespace-nowrap leading-none">
               {getHeaderTitle()}
             </h1>
             <button onClick={navigateForward} aria-label="Next" className="p-2 hover:bg-secondary rounded-full transition-colors">
@@ -537,21 +537,24 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
       {viewMode === 'month' && (
         <>
           {/* Week day headers */}
-          <div className="grid grid-cols-7 px-1 mb-0.5">
+          <div className="grid grid-cols-7 px-2 mb-1">
             {(lang === 'zh' ? WEEKDAYS_CN : weekDays).map((day, i) => (
-              <div key={i} className="text-center text-[10px] font-medium text-muted-foreground py-1">
+              <div key={i} className="text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/70 py-1">
                 {day}
               </div>
             ))}
           </div>
 
           {/* Month grid */}
-          <div className="grid grid-cols-7 px-1 flex-1 auto-rows-fr">
+          <div className="grid grid-cols-7 gap-1 px-2 pb-2 flex-1 auto-rows-fr">
             {days.map(day => {
               const dateStr = format(day, 'yyyy-MM-dd');
               const isCurrentMonth = isSameMonth(day, currentDate);
               const dayIsToday = isToday(day);
               const events = dayEvents.get(dateStr) || [];
+              const hasRecord = isCurrentMonth && events.length > 0;
+              const dominantColor = events[0]?.color || 'hsl(var(--primary))';
+              const badgeBg = dominantColor.startsWith('#') ? `${dominantColor}1F` : 'hsl(var(--secondary))';
               const maxBars = 3;
               const visibleEvents = events.slice(0, maxBars);
               const overflow = events.length - maxBars;
@@ -567,37 +570,64 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
                   }}
                   disabled={!isCurrentMonth}
                   className={cn(
-                    'flex flex-col items-stretch p-0.5 min-h-[72px] sm:min-h-[88px] border-t border-border/15 transition-colors',
-                    !isCurrentMonth && 'opacity-20 cursor-default',
-                    isCurrentMonth && 'hover:bg-secondary/30',
+                    'group relative flex flex-col items-stretch p-1.5 min-h-[72px] sm:min-h-[92px] rounded-2xl border transition-all overflow-hidden text-left',
+                    !isCurrentMonth && 'opacity-25 cursor-default border-transparent',
+                    isCurrentMonth && !hasRecord && 'border-border/30 hover:border-border/60 hover:bg-secondary/20',
+                    isCurrentMonth && hasRecord && 'border-transparent hover:-translate-y-0.5 hover:shadow-[0_8px_20px_hsl(var(--foreground)/0.10)]',
+                    dayIsToday && 'ring-2 ring-primary/70 ring-offset-1 ring-offset-background',
                   )}
                 >
+                  {/* Recorded-day color wash */}
+                  {hasRecord && (
+                    <>
+                      <span
+                        aria-hidden
+                        className="pointer-events-none absolute inset-0 rounded-2xl opacity-[0.13] transition-opacity group-hover:opacity-20"
+                        style={{ background: `linear-gradient(155deg, ${dominantColor}, transparent 78%)` }}
+                      />
+                      <span
+                        aria-hidden
+                        className="pointer-events-none absolute left-0 top-2 bottom-2 w-[3px] rounded-full"
+                        style={{ backgroundColor: dominantColor }}
+                      />
+                    </>
+                  )}
+
                   {/* Date number */}
-                  <div className="flex items-center justify-center mb-0.5">
+                  <div className="relative flex items-center justify-between mb-1">
                     <span className={cn(
-                      'text-xs w-6 h-6 flex items-center justify-center rounded-full',
-                      dayIsToday && 'bg-primary text-primary-foreground font-semibold',
-                      !dayIsToday && day.getDay() === 0 && isCurrentMonth && 'text-destructive',
+                      'text-[13px] w-6 h-6 flex items-center justify-center rounded-full font-medium',
+                      dayIsToday && 'bg-primary text-primary-foreground font-bold',
+                      !dayIsToday && hasRecord && 'font-bold text-foreground',
+                      !dayIsToday && !hasRecord && day.getDay() === 0 && isCurrentMonth && 'text-destructive',
                     )}>
                       {format(day, 'd')}
                     </span>
+                    {hasRecord && (
+                      <span
+                        className="text-[10px] font-semibold tabular-nums px-1.5 rounded-full"
+                        style={{ color: dominantColor, backgroundColor: badgeBg }}
+                      >
+                        {events.length}
+                      </span>
+                    )}
                   </div>
                   
                   {/* Event bars */}
-                  <div className="flex flex-col gap-px flex-1">
+                  <div className="relative flex flex-col gap-[3px] flex-1">
                     {visibleEvents.map((ev, i) => (
                       <div
                         key={i}
-                        className="h-[14px] rounded-sm px-1 flex items-center overflow-hidden"
+                        className="h-[15px] rounded-md px-1.5 flex items-center overflow-hidden"
                         style={getCalendarMonthBarStyle(ev.color, isDarkMode)}
                       >
-                        <span className="text-[8px] font-medium truncate leading-none" style={{ color: getActivityTextColor(ev.color, isDarkMode, 'strong') }}>
+                        <span className="text-[9px] font-medium truncate leading-none" style={{ color: getActivityTextColor(ev.color, isDarkMode, 'strong') }}>
                           {ev.label}
                         </span>
                       </div>
                     ))}
                     {overflow > 0 && (
-                      <span className="text-[8px] text-muted-foreground text-center">+{overflow} more</span>
+                      <span className="text-[9px] font-medium text-muted-foreground/80 pl-0.5">+{overflow} more</span>
                     )}
                   </div>
                 </button>
