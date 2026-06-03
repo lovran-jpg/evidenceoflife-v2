@@ -390,6 +390,11 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
   // (an explicit override). Otherwise the pill is just auto-inferred noise, so
   // we reveal it on row hover instead of cluttering every row.
   const hasExplicitWorkType = !!overrides[getWorkTypeKey('todo', todo.id)];
+  // The work-type pill is redundant when it would just repeat the tag pill
+  // (e.g. a task tagged "Admin" whose work type also resolves to Admin) — show
+  // a single chip instead of two identical "Admin" pills.
+  const workTypeMatchesTag = !!tagLabel &&
+    workTypeMeta?.shortLabel.toLowerCase() === tagLabel.toLowerCase();
   const statusLabel = todo.is_completed
     ? 'Done'
     : isDoing
@@ -562,7 +567,9 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
                     type="button"
                     className={cn(
                       "items-center gap-1 rounded-full px-1.5 py-[2px] text-[10px] font-medium transition-colors hover:brightness-95 dark:saturate-[0.85] dark:!text-foreground/80 dark:!bg-white/[0.06]",
-                      hasExplicitWorkType ? "inline-flex" : "hidden group-hover:inline-flex"
+                      workTypeMatchesTag
+                        ? "hidden"
+                        : hasExplicitWorkType ? "inline-flex" : "hidden group-hover:inline-flex"
                     )}
                     style={{ color: hexWithAlpha(workTypeMeta.color, 'B3'), backgroundColor: `${workTypeMeta.bg}73` }}
                     title="Work type"
