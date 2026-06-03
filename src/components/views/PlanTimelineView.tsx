@@ -1809,7 +1809,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
                       }}>{hideTitleTooNarrow ? '' : block.title}</span>
                     </div>
                     {editingTimeBlockId === block.id && (
-                      <div className="flex items-center gap-1 mt-0.5 flex-wrap" onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
+                      <div className={cn("mt-0.5 gap-1", narrowLayout ? "flex flex-col items-center" : "flex items-center flex-wrap")} onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
                         <input
                           autoFocus
                           value={editingTimeStart}
@@ -1822,7 +1822,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
                             if (e.key === 'Escape') setEditingTimeBlockId(null);
                           }}
                         />
-                        <span className="text-muted-foreground/50" style={{ fontSize: '10px' }}>→</span>
+                        <span className="text-muted-foreground/50" style={{ fontSize: '10px' }}>{narrowLayout ? '↓' : '→'}</span>
                         <input
                           value={editingTimeEnd}
                           onChange={e => setEditingTimeEnd(e.target.value)}
