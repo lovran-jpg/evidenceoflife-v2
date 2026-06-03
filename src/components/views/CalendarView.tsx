@@ -546,14 +546,14 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
           </div>
 
           {/* Month grid */}
-          <div className="grid grid-cols-7 px-3 pb-24 flex-1 auto-rows-fr gap-x-1">
+          <div className="grid grid-cols-7 px-3 pb-8 flex-1 auto-rows-fr gap-x-1">
             {days.map(day => {
               const dateStr = format(day, 'yyyy-MM-dd');
               const isCurrentMonth = isSameMonth(day, currentDate);
               const dayIsToday = isToday(day);
               const events = dayEvents.get(dateStr) || [];
               const hasRecord = isCurrentMonth && events.length > 0;
-              const chips = events.slice(0, 2);
+              const chips = events.slice(0, 4);
               const overflow = events.length - chips.length;
 
               return (
@@ -581,8 +581,8 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
                     {format(day, 'd')}
                   </span>
 
-                  {/* Event chips — brief labels per day */}
-                  <div className="flex flex-col gap-0.5 min-w-0 w-full px-0.5">
+                  {/* Event chips — brief labels per day, filling the cell height */}
+                  <div className="flex flex-col gap-0.5 min-w-0 w-full px-0.5 overflow-hidden">
                     {hasRecord && chips.map((ev, i) => (
                       <span
                         key={i}
