@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback, Component, type ErrorInfo, type ReactNode } from 'react';
 import { useDateLocale } from '@/hooks/useDateLocale';
-import { MapPin, Coffee, UtensilsCrossed, Trees, Building2, ChevronLeft, Globe } from 'lucide-react';
+import { MapPin, Coffee, UtensilsCrossed, Trees, Building2, ChevronLeft, ChevronRight, Globe, Search, X } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.heat';
@@ -477,6 +477,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
   const { t, lang } = useLanguage();
   const [viewMode, setViewMode] = useState<ViewMode>('city');
   const [activeCategory, setActiveCategory] = useState<Category>('all');
+  const [placeQuery, setPlaceQuery] = useState('');
   const [selectedPlace, setSelectedPlace] = useState<string | null>(null);
   const [showPlaceDetail, setShowPlaceDetail] = useState<PlaceInfo | null>(null);
   const [mapPreviewFailed, setMapPreviewFailed] = useState(false);
@@ -807,10 +808,28 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
   const currentCity = selectedCityIdx >= 0 ? cities[selectedCityIdx] : null;
   const cityPlaces = currentCity?.places || [];
 
+  // How many places sit in each category for the current city — drives the
+  // filter pills so users can see what's available ("Coffee 3") and we can hide
+  // categories the city has none of. Uses resolveCategory so the count matches
+  // the colour/icon the cards actually show.
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    cityPlaces.forEach(p => {
+      const cat = resolveCategory(p);
+      counts[cat] = (counts[cat] || 0) + 1;
+    });
+    return counts;
+  }, [cityPlaces]);
+
   const filteredPlaces = useMemo(() => {
-    if (activeCategory === 'all') return cityPlaces;
-    return cityPlaces.filter(p => p.category === activeCategory);
-  }, [cityPlaces, activeCategory]);
+    const q = placeQuery.trim().toLowerCase();
+    let list = activeCategory === 'all'
+      ? cityPlaces
+      : cityPlaces.filter(p => resolveCategory(p) === activeCategory);
+    if (q) list = list.filter(p => p.name.toLowerCase().includes(q));
+    // Most-visited first so the places that matter surface at the top.
+    return [...list].sort((a, b) => b.visits - a.visits);
+  }, [cityPlaces, activeCategory, placeQuery]);
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
@@ -1482,21 +1501,56 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
       {/* Category pills - city view only */}
       {viewMode === 'city' && (
         <div className="px-5 pb-3 flex gap-2 overflow-x-auto no-scrollbar">
-          {categoryKeys.map(({ id, labelKey, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => setActiveCategory(id)}
-              className={cn(
-                'flex items-center gap-1.5 whitespace-nowrap text-xs py-2 px-3.5 rounded-full transition-all font-medium',
-                activeCategory === id
-                  ? 'bg-foreground text-background shadow-sm'
-                  : 'bg-secondary/60 text-muted-foreground hover:bg-secondary hover:text-foreground'
-              )}
-            >
-              <Icon size={13} />
-              {t(labelKey)}
-            </button>
-          ))}
+          {categoryKeys
+            .filter(({ id }) => id === 'all' || (categoryCounts[id] ?? 0) > 0)
+            .map(({ id, labelKey, icon: Icon }) => {
+              const count = id === 'all' ? cityPlaces.length : (categoryCounts[id] ?? 0);
+              const isActive = activeCategory === id;
+              const accent = id === 'all' ? undefined : categoryColors[id];
+              return (
+                <button
+                  key={id}
+                  onClick={() => setActiveCategory(id)}
+                  aria-pressed={isActive}
+                  className={cn(
+                    'flex items-center gap-1.5 whitespace-nowrap text-xs py-2 px-3.5 rounded-full transition-all font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+                    isActive
+                      ? 'text-background shadow-sm'
+                      : 'bg-secondary/60 text-muted-foreground hover:bg-secondary hover:text-foreground'
+                  )}
+                  style={isActive ? { backgroundColor: accent ?? 'hsl(var(--foreground))' } : undefined}
+                >
+                  <Icon size={13} />
+                  {t(labelKey)}
+                  <span className={cn('tabular-nums', isActive ? 'opacity-80' : 'opacity-50')}>{count}</span>
+                </button>
+              );
+            })}
+        </div>
+      )}
+
+      {/* Place search - city view only, helps find a spot fast in busy cities */}
+      {viewMode === 'city' && cityPlaces.length > 4 && (
+        <div className="px-5 pb-3">
+          <div className="flex items-center gap-2 bg-secondary/50 rounded-full px-3.5 py-2">
+            <Search size={14} className="text-muted-foreground/60 flex-shrink-0" />
+            <input
+              value={placeQuery}
+              onChange={(e) => setPlaceQuery(e.target.value)}
+              placeholder={lang === 'zh' ? '搜索地点…' : 'Search places…'}
+              className="flex-1 bg-transparent text-sm focus:outline-none placeholder:text-muted-foreground/50 min-w-0"
+              aria-label={lang === 'zh' ? '搜索地点' : 'Search places'}
+            />
+            {placeQuery && (
+              <button
+                onClick={() => setPlaceQuery('')}
+                className="text-muted-foreground/60 hover:text-foreground flex-shrink-0"
+                aria-label={lang === 'zh' ? '清除' : 'Clear'}
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -1581,8 +1635,12 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                 return (
                   <div
                     key={i}
-                    onClick={() => { setSelectedCityIdx(i); setViewMode('city'); }}
-                    className="group p-4 rounded-2xl bg-card shadow-sm border border-border/30 hover:shadow-md cursor-pointer transition-all life-map-card-enter"
+                    onClick={() => { setSelectedCityIdx(i); setViewMode('city'); setActiveCategory('all'); setPlaceQuery(''); }}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedCityIdx(i); setViewMode('city'); setActiveCategory('all'); setPlaceQuery(''); } }}
+                    aria-label={`${city.cityName || `Area ${i + 1}`} — ${city.places.length} ${lang === 'zh' ? '个地点' : 'places'}, ${city.totalVisits} ${lang === 'zh' ? '次访问' : 'visits'}`}
+                    className="group p-4 rounded-2xl bg-card shadow-sm border border-border/30 hover:shadow-md hover:border-border/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 cursor-pointer transition-all life-map-card-enter"
                     style={{ animationDelay: `${i * 60}ms` }}
                   >
                     <div className="flex items-center gap-3">
@@ -1619,6 +1677,10 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                       >
                         {city.totalVisits}
                       </span>
+                      <ChevronRight
+                        size={18}
+                        className="text-muted-foreground/30 flex-shrink-0 transition-transform group-hover:translate-x-0.5 group-hover:text-muted-foreground/55"
+                      />
                     </div>
                   </div>
                 );
@@ -1663,29 +1725,37 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
               <div className="w-14 h-14 mx-auto rounded-2xl bg-secondary/60 flex items-center justify-center mb-3">
                 <MapPin size={22} className="text-muted-foreground/40" />
               </div>
-              <p className="text-muted-foreground/60 text-sm">{t('map.noPlaces')}</p>
+              <p className="text-muted-foreground/60 text-sm">
+                {placeQuery.trim()
+                  ? (lang === 'zh' ? '没有匹配的地点' : 'No matching places')
+                  : t('map.noPlaces')}
+              </p>
             </div>
           ) : (
             <div className="space-y-2 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0">
               {filteredPlaces.map((place, i) => {
-                const Icon = getCategoryIcon(place.category);
-                const color = categoryColors[place.category] || categoryColors.other;
+                const resolvedCat = resolveCategory(place);
+                const Icon = getCategoryIcon(resolvedCat);
+                const color = categoryColors[resolvedCat] || categoryColors.other;
                 const isActive = selectedPlace === place.name;
                 const coverPhoto = getPlaceCoverPhoto(place);
+                const openThis = () => {
+                  setSelectedPlace(place.name);
+                  if (mapRef.current) {
+                    mapRef.current.setView([place.lat, place.lng], 16, { animate: true });
+                  }
+                  openPlaceDetail(place);
+                };
                 return (
                   <div
                     key={place.name}
-                    onClick={() => {
-                      setSelectedPlace(place.name);
-                      // Always zoom main map to place
-                      if (mapRef.current) {
-                        mapRef.current.setView([place.lat, place.lng], 16, { animate: true });
-                      }
-                      // Always open detail view
-                      openPlaceDetail(place);
-                    }}
+                    onClick={openThis}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openThis(); } }}
+                    aria-label={`${place.name} — ${place.visits} ${place.visits === 1 ? t('map.visit') : t('map.visits')}`}
                     className={cn(
-                      "p-3.5 rounded-2xl bg-card flex items-center gap-3 transition-all cursor-pointer",
+                      "group p-3.5 rounded-2xl bg-card flex items-center gap-3 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
                       isActive
                         ? "shadow-md ring-1 ring-primary/20"
                         : "shadow-sm hover:shadow-md border border-border/30 hover:border-border/50"
@@ -1712,6 +1782,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                       </p>
                     </div>
                     <span className="text-lg font-semibold tabular-nums" style={{ color }}>{place.visits}</span>
+                    <ChevronRight size={16} className="text-muted-foreground/25 flex-shrink-0 transition-transform group-hover:translate-x-0.5 group-hover:text-muted-foreground/50" />
                   </div>
                 );
               })}
