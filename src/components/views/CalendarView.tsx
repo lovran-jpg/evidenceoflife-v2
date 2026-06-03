@@ -546,14 +546,15 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
           </div>
 
           {/* Month grid */}
-          <div className="grid grid-cols-7 px-3 pb-24 flex-1 auto-rows-fr">
+          <div className="grid grid-cols-7 px-3 pb-24 flex-1 auto-rows-fr gap-x-1">
             {days.map(day => {
               const dateStr = format(day, 'yyyy-MM-dd');
               const isCurrentMonth = isSameMonth(day, currentDate);
               const dayIsToday = isToday(day);
               const events = dayEvents.get(dateStr) || [];
               const hasRecord = isCurrentMonth && events.length > 0;
-              const dots = events.slice(0, 3);
+              const chips = events.slice(0, 2);
+              const overflow = events.length - chips.length;
 
               return (
                 <button
@@ -566,13 +567,13 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
                   }}
                   disabled={!isCurrentMonth}
                   className={cn(
-                    'group flex flex-col items-center pt-2 gap-1.5 transition-opacity',
+                    'group flex flex-col items-stretch pt-1.5 gap-1 transition-opacity min-w-0',
                     !isCurrentMonth && 'opacity-0 pointer-events-none',
                   )}
                 >
                   {/* Date number */}
                   <span className={cn(
-                    'text-[15px] w-8 h-8 flex items-center justify-center rounded-full transition-colors',
+                    'text-[15px] w-7 h-7 mx-auto flex items-center justify-center rounded-full transition-colors flex-shrink-0',
                     dayIsToday && 'bg-primary text-primary-foreground font-semibold',
                     !dayIsToday && 'text-foreground/90 group-hover:bg-secondary/60',
                     !dayIsToday && day.getDay() === 0 && isCurrentMonth && 'text-destructive/80',
@@ -580,15 +581,29 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
                     {format(day, 'd')}
                   </span>
 
-                  {/* Event dots */}
-                  <div className="flex items-center gap-1 h-1.5">
-                    {hasRecord && dots.map((ev, i) => (
+                  {/* Event chips — brief labels per day */}
+                  <div className="flex flex-col gap-0.5 min-w-0 w-full px-0.5">
+                    {hasRecord && chips.map((ev, i) => (
                       <span
                         key={i}
-                        className="w-1.5 h-1.5 rounded-full"
-                        style={{ backgroundColor: ev.color }}
-                      />
+                        className="flex items-center gap-1 min-w-0 rounded-[5px] px-1 py-0.5 text-[9px] leading-tight font-medium text-left"
+                        style={{
+                          backgroundColor: `color-mix(in srgb, ${ev.color} 16%, transparent)`,
+                          color: ev.color,
+                        }}
+                      >
+                        <span
+                          className="w-1 h-1 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: ev.color }}
+                        />
+                        <span className="truncate">{ev.label}</span>
+                      </span>
                     ))}
+                    {hasRecord && overflow > 0 && (
+                      <span className="text-[9px] leading-tight text-muted-foreground/60 text-left px-1">
+                        +{overflow}
+                      </span>
+                    )}
                   </div>
                 </button>
               );
