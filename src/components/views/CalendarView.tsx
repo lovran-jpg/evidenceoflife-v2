@@ -38,7 +38,7 @@ import { useLanguage } from '@/hooks/useLanguage';
 import { DayView } from '@/components/Calendar/DayView';
 import { WeekView } from '@/components/Calendar/WeekView';
 import { useIsDarkMode } from '@/hooks/useIsDarkMode';
-import { getActivityAccentColor, getActivityTextColor, getCalendarMonthBarStyle } from '@/lib/activityColors';
+import { getActivityAccentColor } from '@/lib/activityColors';
 import { useWorkTypes } from '@/hooks/useWorkTypes';
 import { WORK_TYPE_META } from '@/lib/workType';
 
@@ -345,7 +345,7 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
             <button onClick={navigateBack} aria-label="Previous" className="p-2 hover:bg-secondary rounded-full transition-colors">
               <ChevronLeft size={20} />
             </button>
-            <h1 className="text-[26px] sm:text-[30px] font-bold font-display tracking-tight min-w-0 text-center whitespace-nowrap leading-none">
+            <h1 className="text-[22px] sm:text-[24px] font-semibold font-display tracking-tight min-w-0 text-center whitespace-nowrap leading-none">
               {getHeaderTitle()}
             </h1>
             <button onClick={navigateForward} aria-label="Next" className="p-2 hover:bg-secondary rounded-full transition-colors">
@@ -537,27 +537,23 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
       {viewMode === 'month' && (
         <>
           {/* Week day headers */}
-          <div className="grid grid-cols-7 px-2 mb-1">
+          <div className="grid grid-cols-7 px-3 mb-1">
             {(lang === 'zh' ? WEEKDAYS_CN : weekDays).map((day, i) => (
-              <div key={i} className="text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/70 py-1">
+              <div key={i} className="text-center text-[11px] font-medium text-muted-foreground/50 py-2">
                 {day}
               </div>
             ))}
           </div>
 
           {/* Month grid */}
-          <div className="grid grid-cols-7 gap-1 px-2 pb-2 flex-1 auto-rows-fr">
+          <div className="grid grid-cols-7 px-3 pb-24 flex-1 auto-rows-fr">
             {days.map(day => {
               const dateStr = format(day, 'yyyy-MM-dd');
               const isCurrentMonth = isSameMonth(day, currentDate);
               const dayIsToday = isToday(day);
               const events = dayEvents.get(dateStr) || [];
               const hasRecord = isCurrentMonth && events.length > 0;
-              const dominantColor = events[0]?.color || 'hsl(var(--primary))';
-              const badgeBg = dominantColor.startsWith('#') ? `${dominantColor}1F` : 'hsl(var(--secondary))';
-              const maxBars = 3;
-              const visibleEvents = events.slice(0, maxBars);
-              const overflow = events.length - maxBars;
+              const dots = events.slice(0, 3);
 
               return (
                 <button
@@ -570,65 +566,29 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
                   }}
                   disabled={!isCurrentMonth}
                   className={cn(
-                    'group relative flex flex-col items-stretch p-1.5 min-h-[72px] sm:min-h-[92px] rounded-2xl border transition-all overflow-hidden text-left',
-                    !isCurrentMonth && 'opacity-25 cursor-default border-transparent',
-                    isCurrentMonth && !hasRecord && 'border-border/30 hover:border-border/60 hover:bg-secondary/20',
-                    isCurrentMonth && hasRecord && 'border-transparent hover:-translate-y-0.5 hover:shadow-[0_8px_20px_hsl(var(--foreground)/0.10)]',
-                    dayIsToday && 'ring-2 ring-primary/70 ring-offset-1 ring-offset-background',
+                    'group flex flex-col items-center pt-2 gap-1.5 transition-opacity',
+                    !isCurrentMonth && 'opacity-0 pointer-events-none',
                   )}
                 >
-                  {/* Recorded-day color wash */}
-                  {hasRecord && (
-                    <>
-                      <span
-                        aria-hidden
-                        className="pointer-events-none absolute inset-0 rounded-2xl opacity-[0.13] transition-opacity group-hover:opacity-20"
-                        style={{ background: `linear-gradient(155deg, ${dominantColor}, transparent 78%)` }}
-                      />
-                      <span
-                        aria-hidden
-                        className="pointer-events-none absolute left-0 top-2 bottom-2 w-[3px] rounded-full"
-                        style={{ backgroundColor: dominantColor }}
-                      />
-                    </>
-                  )}
-
                   {/* Date number */}
-                  <div className="relative flex items-center justify-between mb-1">
-                    <span className={cn(
-                      'text-[13px] w-6 h-6 flex items-center justify-center rounded-full font-medium',
-                      dayIsToday && 'bg-primary text-primary-foreground font-bold',
-                      !dayIsToday && hasRecord && 'font-bold text-foreground',
-                      !dayIsToday && !hasRecord && day.getDay() === 0 && isCurrentMonth && 'text-destructive',
-                    )}>
-                      {format(day, 'd')}
-                    </span>
-                    {hasRecord && (
+                  <span className={cn(
+                    'text-[15px] w-8 h-8 flex items-center justify-center rounded-full transition-colors',
+                    dayIsToday && 'bg-primary text-primary-foreground font-semibold',
+                    !dayIsToday && 'text-foreground/90 group-hover:bg-secondary/60',
+                    !dayIsToday && day.getDay() === 0 && isCurrentMonth && 'text-destructive/80',
+                  )}>
+                    {format(day, 'd')}
+                  </span>
+
+                  {/* Event dots */}
+                  <div className="flex items-center gap-1 h-1.5">
+                    {hasRecord && dots.map((ev, i) => (
                       <span
-                        className="text-[10px] font-semibold tabular-nums px-1.5 rounded-full"
-                        style={{ color: dominantColor, backgroundColor: badgeBg }}
-                      >
-                        {events.length}
-                      </span>
-                    )}
-                  </div>
-                  
-                  {/* Event bars */}
-                  <div className="relative flex flex-col gap-[3px] flex-1">
-                    {visibleEvents.map((ev, i) => (
-                      <div
                         key={i}
-                        className="h-[15px] rounded-md px-1.5 flex items-center overflow-hidden"
-                        style={getCalendarMonthBarStyle(ev.color, isDarkMode)}
-                      >
-                        <span className="text-[9px] font-medium truncate leading-none" style={{ color: getActivityTextColor(ev.color, isDarkMode, 'strong') }}>
-                          {ev.label}
-                        </span>
-                      </div>
+                        className="w-1.5 h-1.5 rounded-full"
+                        style={{ backgroundColor: ev.color }}
+                      />
                     ))}
-                    {overflow > 0 && (
-                      <span className="text-[9px] font-medium text-muted-foreground/80 pl-0.5">+{overflow} more</span>
-                    )}
                   </div>
                 </button>
               );
@@ -640,8 +600,7 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
       {viewMode === 'year' && (
         <>
           {/* Year grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 px-4 overflow-y-auto flex-1 pb-6 pt-1">
-            {months.map(month => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-7 px-5 overflow-y-auto flex-1 pb-24 pt-2">            {months.map(month => (
               <YearMiniMonth
                 key={format(month, 'yyyy-MM')}
                 month={month}
@@ -700,98 +659,66 @@ function YearMiniMonth({ month, recordedDates, dayEvents, lang, onMonthClick, on
     return eachDayOfInterval({ start, end });
   }, [month]);
 
-  // How many days in THIS month actually have something recorded — drives the
-  // header badge and the "is this a lively month" emphasis.
-  const recordedCount = useMemo(() => {
-    let count = 0;
-    days.forEach(day => {
-      if (!isSameMonth(day, month)) return;
-      const dateStr = format(day, 'yyyy-MM-dd');
-      if ((dayEvents.get(dateStr) || []).length > 0) count += 1;
-    });
-    return count;
-  }, [days, month, dayEvents]);
-
   const isCurrentMonthCard = isSameMonth(month, new Date());
-  const accent = 'hsl(var(--primary))';
 
   return (
-    <button
-      onClick={onMonthClick}
-      className={cn(
-        'group relative flex flex-col rounded-2xl border p-2.5 text-left transition-all hover:-translate-y-0.5 hover:shadow-[0_10px_24px_hsl(var(--foreground)/0.10)]',
-        isCurrentMonthCard
-          ? 'border-primary/40 bg-primary/[0.04]'
-          : 'border-border/30 hover:border-border/60',
-      )}
-    >
-      {/* Month header + recorded-day count */}
-      <div className="flex items-baseline justify-between mb-1.5">
-        <span className={cn(
-          'text-[13px] font-bold tracking-tight transition-colors',
-          isCurrentMonthCard ? 'text-primary' : 'text-foreground group-hover:text-primary',
-        )}>
-          {format(month, 'MMMM')}
-        </span>
-        {recordedCount > 0 && (
-          <span
-            className="text-[9px] font-semibold tabular-nums px-1.5 py-px rounded-full"
-            style={{ color: accent, backgroundColor: 'hsl(var(--primary) / 0.12)' }}
-          >
-            {recordedCount}
-          </span>
+    <div className="flex flex-col">
+      <button
+        onClick={onMonthClick}
+        className={cn(
+          'self-start text-[15px] font-semibold tracking-tight mb-2 transition-colors hover:opacity-60',
+          isCurrentMonthCard ? 'text-primary' : 'text-foreground',
         )}
-      </div>
+      >
+        {format(month, 'MMMM')}
+      </button>
 
-      <div className="grid grid-cols-7 gap-y-0.5 mb-1">
+      <div className="grid grid-cols-7 mb-1">
         {(lang === 'zh' ? WEEKDAYS_CN : ['S','M','T','W','T','F','S']).map((day, i) => (
-          <div key={`${day}-${i}`} className="text-center text-[8px] font-medium text-muted-foreground/50">
+          <div key={`${day}-${i}`} className="text-center text-[9px] font-medium text-muted-foreground/40">
             {day}
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-7 gap-y-0.5">
+      <div className="grid grid-cols-7 gap-y-1">
         {days.map((day, i) => {
           const isCurrentMonth = isSameMonth(day, month);
           const dateStr = format(day, 'yyyy-MM-dd');
           const dayEventItems = dayEvents.get(dateStr) || [];
           const hasEvents = dayEventItems.length > 0;
-          const dotColor = dayEventItems[0]?.color || accent;
-          // Heatmap intensity: more activity = stronger fill.
-          const intensity = Math.min(dayEventItems.length, 4) / 4;
+          const dotColor = dayEventItems[0]?.color || 'hsl(var(--primary))';
           const isTodayDate = isToday(day);
 
           return (
-            <div key={i} className="flex items-center justify-center">
-              <button
-                onClick={(e) => { if (isCurrentMonth) { e.stopPropagation(); onDayClick(day); } }}
-                disabled={!isCurrentMonth}
-                className={cn(
-                  'relative w-[18px] h-[18px] flex items-center justify-center text-[9px] rounded-md transition-all',
-                  !isCurrentMonth && 'text-muted-foreground/15',
-                  isCurrentMonth && !hasEvents && day.getDay() === 0 && 'text-destructive',
-                  isCurrentMonth && !hasEvents && 'hover:bg-secondary/50',
-                  isCurrentMonth && hasEvents && !isTodayDate && 'font-semibold hover:scale-110',
-                  isTodayDate && 'bg-primary text-primary-foreground font-bold',
-                )}
-                style={
-                  isCurrentMonth && hasEvents && !isTodayDate
-                    ? {
-                        backgroundColor: dotColor.startsWith('#')
-                          ? `${dotColor}${Math.round(40 + intensity * 90).toString(16).padStart(2, '0')}`
-                          : dotColor,
-                        color: intensity > 0.5 ? '#fff' : undefined,
-                      }
-                    : undefined
-                }
-              >
+            <button
+              key={i}
+              onClick={() => isCurrentMonth && onDayClick(day)}
+              disabled={!isCurrentMonth}
+              className={cn(
+                'relative h-5 flex items-center justify-center text-[10px] transition-colors',
+                !isCurrentMonth && 'opacity-0 pointer-events-none',
+                isCurrentMonth && !hasEvents && day.getDay() === 0 && 'text-destructive/70',
+                isCurrentMonth && !hasEvents && 'text-foreground/80',
+                isCurrentMonth && hasEvents && !isTodayDate && 'font-semibold text-foreground',
+              )}
+            >
+              <span className={cn(
+                'flex items-center justify-center',
+                isTodayDate && 'w-[18px] h-[18px] rounded-full bg-primary text-primary-foreground font-semibold',
+              )}>
                 {format(day, 'd')}
-              </button>
-            </div>
+              </span>
+              {hasEvents && isCurrentMonth && !isTodayDate && (
+                <span
+                  className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
+                  style={{ backgroundColor: dotColor }}
+                />
+              )}
+            </button>
           );
         })}
       </div>
-    </button>
+    </div>
   );
 }
