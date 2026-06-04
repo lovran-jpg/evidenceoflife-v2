@@ -2254,8 +2254,12 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
                 onMouseDown={e => e.stopPropagation()}
               >
                 <div
-                  className="flex flex-col gap-1 rounded-[12px] border border-border bg-card px-3 py-2.5 shadow-[0_10px_30px_hsl(var(--foreground)/0.16)] ring-1 ring-primary/25"
-                  style={{ borderLeft: `3px solid ${borderColor}`, minHeight: rangeHeight }}
+                  className="flex flex-col gap-1 rounded-[12px] border border-border px-3 py-2.5 shadow-[0_10px_30px_hsl(var(--foreground)/0.16)] ring-1 ring-primary/20 overflow-hidden"
+                  style={{
+                    borderLeft: `3px solid ${borderColor}`,
+                    minHeight: rangeHeight,
+                    background: `linear-gradient(180deg, color-mix(in srgb, hsl(var(--card)) 88%, ${borderColor} 12%) 0%, hsl(var(--card)) 60%)`,
+                  }}
                 >
                   <div className="flex items-center gap-2 pr-5">
                     {isPastRange && (
@@ -2302,7 +2306,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
                       autoFocus
                     />
                   </div>
-                  <div className="flex items-center gap-0.5 font-mono tabular-nums text-muted-foreground/40" style={{ fontSize: '10px' }}>
+                  <div className="mt-auto flex items-center gap-0.5 font-mono tabular-nums text-muted-foreground/40" style={{ fontSize: '10px' }}>
                     <input
                       className="w-[40px] bg-transparent text-center focus:outline-none focus:bg-secondary/50 rounded hover:bg-secondary/30 transition-colors"
                       defaultValue={`${String(startH).padStart(2, '0')}:${String(startM).padStart(2, '0')}`}
