@@ -880,8 +880,9 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
       return `hsl(var(${cssVar}) / ${alpha})`;
     };
     const activeColorWithAlpha = (alpha: number) => colorWithAlpha(alpha);
-    /** Keep accents visible but low-noise on tinted fills. */
-    const edgeAlpha = (a: number) => (isDarkMode ? a * 0.66 : a * 1.08);
+    /** Surface is near-neutral graphite in dark, so the left bar carries the
+     * colour identity — keep it bright rather than dimming it. */
+    const edgeAlpha = (a: number) => (isDarkMode ? Math.min(1, a * 1.15) : a * 1.08);
     const tintedCard = (strength: number) =>
       /^#[0-9A-Fa-f]{6}$/.test(accentPaint)
         ? `color-mix(in srgb, ${blockFillBase} ${100 - Math.round(strength * 100)}%, ${accentPaint} ${Math.round(strength * 100)}%)`
