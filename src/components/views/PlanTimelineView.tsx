@@ -2255,7 +2255,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
               >
                 <div
                   className="flex flex-col gap-1 rounded-[12px] border border-border bg-card px-3 py-2.5 shadow-[0_10px_30px_hsl(var(--foreground)/0.16)] ring-1 ring-primary/25"
-                  style={{ borderLeft: `3px solid ${borderColor}` }}
+                  style={{ borderLeft: `3px solid ${borderColor}`, minHeight: rangeHeight }}
                 >
                   <div className="flex items-center gap-2 pr-5">
                     {isPastRange && (
