@@ -276,6 +276,20 @@ export function adjustTagForDarkMode(color: string | undefined): string | undefi
   return hslToHex(hsl.h, newS, newL);
 }
 
+// Dark blocks read "muddy" because the accent reaching the fill has already been
+// desaturated to a pale pastel (adjustTagForDarkMode caps S≈42, L≥56). Mixing
+// that into near-black at 10–27% yields grey-brown sludge. For the FILL/BORDER
+// we re-introduce clean chroma and drop lightness to a mid tone, so the colour
+// mix lands as a legible coloured card with real hue identity — not flat black.
+export function vividDarkAccent(color: string | undefined): string {
+  if (!color) return color ?? '#888888';
+  const hsl = hexToHSL(color);
+  if (!hsl) return color; // CSS-var hsl() colours adapt via the theme already
+  const newS = Math.min(82, Math.max(hsl.s, 54));
+  const newL = Math.min(62, Math.max(46, hsl.l - 2));
+  return hslToHex(hsl.h, newS, newL);
+}
+
 export function timelineFillGradient(
   isDarkMode: boolean,
   canvasCss: string,
@@ -292,7 +306,10 @@ export function timelineFillGradient(
 
   // Keep a visible colored body. The accent is already mixed into the canvas,
   // so this should read as a filled time block, not just a faint outline.
-  return solidFillGradient(canvasCss, accentCss, topMix, midMix, botMix, variant);
+  // On dark, re-chroma the (pre-desaturated) accent so the fill reads as a clean
+  // coloured card instead of muddy near-black.
+  const fillAccent = isDarkMode ? vividDarkAccent(accentCss) : accentCss;
+  return solidFillGradient(canvasCss, fillAccent, topMix, midMix, botMix, variant);
 }
 
 export function timelineBlockShell(
@@ -312,7 +329,8 @@ export function timelineBlockShell(
     ? intensity === 'active' ? 0.4 : intensity === 'plan' ? 0.22 : intensity === 'actual' ? 0.34 : 0.24
     : intensity === 'active' ? 0.3 : intensity === 'plan' ? 0.24 : 0.26;
   const background = timelineFillGradient(isDarkMode, canvasCss, accentCss, mixes[0], mixes[1], mixes[2], isDarkMode ? 'darkTint' : 'default');
-  const border = `color-mix(in srgb, ${canvasCss} ${100 - Math.round(borderMix * 100)}%, ${accentCss} ${Math.round(borderMix * 100)}%)`;
+  const borderAccent = isDarkMode ? vividDarkAccent(accentCss) : accentCss;
+  const border = `color-mix(in srgb, ${canvasCss} ${100 - Math.round(borderMix * 100)}%, ${borderAccent} ${Math.round(borderMix * 100)}%)`;
   const shadow = isDarkMode
     ? `inset 0 0 0 1px ${border}, 0 8px 18px rgba(0,0,0,0.12)`
     : `inset 0 0 0 1px ${border}, 0 8px 20px rgba(24, 24, 27, 0.03)`;

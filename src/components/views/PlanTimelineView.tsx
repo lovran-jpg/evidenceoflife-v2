@@ -870,7 +870,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
     /** Solid paint for fills — grid lines stay under blocks */
     const canvasBg = timelineCanvasBg;
     /** Dark: cooler elevated graphite base; warm card tokens made orange tasks turn muddy. */
-    const blockFillBase = isDarkMode ? 'hsl(240 5% 13%)' : canvasBg;
+    const blockFillBase = isDarkMode ? 'hsl(240 5% 15%)' : canvasBg;
     const fillGradVariant = isDarkMode ? ('darkTint' as const) : ('default' as const);
     const shellFor = (intensity: 'plan' | 'actual' | 'active' | 'done' | 'ghost') =>
       timelineBlockShell(isDarkMode, blockFillBase, accentPaint, intensity);
