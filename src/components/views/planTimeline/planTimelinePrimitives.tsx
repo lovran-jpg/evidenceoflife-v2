@@ -326,23 +326,20 @@ export function timelineBlockShell(
   intensity: 'plan' | 'actual' | 'active' | 'done' | 'ghost',
 ): { background: string; border: string; shadow: string } {
   const mixes = {
-    plan: isDarkMode ? [0.04, 0.04, 0.04] : [0.27, 0.205, 0.16],
-    actual: isDarkMode ? [0.06, 0.06, 0.06] : [0.3, 0.225, 0.17],
-    active: isDarkMode ? [0.08, 0.08, 0.08] : [0.34, 0.255, 0.19],
-    done: isDarkMode ? [0.035, 0.035, 0.035] : [0.19, 0.145, 0.11],
-    ghost: isDarkMode ? [0.02, 0.02, 0.02] : [0.12, 0.09, 0.07],
+    plan: isDarkMode ? [0.12, 0.12, 0.12] : [0.27, 0.205, 0.16],
+    actual: isDarkMode ? [0.15, 0.15, 0.15] : [0.3, 0.225, 0.17],
+    active: isDarkMode ? [0.18, 0.18, 0.18] : [0.34, 0.255, 0.19],
+    done: isDarkMode ? [0.09, 0.09, 0.09] : [0.19, 0.145, 0.11],
+    ghost: isDarkMode ? [0.06, 0.06, 0.06] : [0.12, 0.09, 0.07],
   }[intensity];
   const borderMix = isDarkMode
-    ? intensity === 'active' ? 0.34 : intensity === 'plan' ? 0.18 : intensity === 'actual' ? 0.26 : 0.16
+    ? intensity === 'active' ? 0.55 : intensity === 'plan' ? 0.42 : intensity === 'actual' ? 0.5 : 0.38
     : intensity === 'active' ? 0.3 : intensity === 'plan' ? 0.24 : 0.26;
   const background = timelineFillGradient(isDarkMode, canvasCss, accentCss, mixes[0], mixes[1], mixes[2], isDarkMode ? 'darkTint' : 'default');
   const borderAccent = isDarkMode ? vividDarkAccent(accentCss) : accentCss;
-  // Dark: a clean light-neutral hairline (like an elevated card edge) reads far
-  // crisper than a muddy coloured border; we fold in just a touch of accent so
-  // the hue identity survives without the block looking like grey sludge.
-  const border = isDarkMode
-    ? `color-mix(in srgb, hsl(0 0% 100% / 0.14) ${100 - Math.round(borderMix * 100)}%, ${borderAccent} ${Math.round(borderMix * 100)}%)`
-    : `color-mix(in srgb, ${canvasCss} ${100 - Math.round(borderMix * 100)}%, ${borderAccent} ${Math.round(borderMix * 100)}%)`;
+  // Match the timer-pill look the user likes: a clear coloured ring (≈45% accent)
+  // rather than a muddy near-invisible edge. The hue does the talking.
+  const border = `color-mix(in srgb, ${canvasCss} ${100 - Math.round(borderMix * 100)}%, ${borderAccent} ${Math.round(borderMix * 100)}%)`;
   const shadow = isDarkMode
     ? `inset 0 0 0 1px ${border}, 0 8px 18px rgba(0,0,0,0.12)`
     : `inset 0 0 0 1px ${border}, 0 8px 20px rgba(24, 24, 27, 0.03)`;

@@ -1161,7 +1161,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
                 ) : (
                   <span
                     className="min-w-0 flex-1 truncate leading-none"
-                    style={{ fontSize: '12px', fontWeight: 500, color: 'hsl(var(--foreground))' }}
+                    style={{ fontSize: '12px', fontWeight: 500, color: isDarkMode ? tintedText(0.62) : 'hsl(var(--foreground))' }}
                   >
                     {block.title}
                   </span>
@@ -1185,7 +1185,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
                   />
                 )}
                 {(block.emoji || tagIcon) && <span className="flex-shrink-0" style={{ fontSize: '15px' }}>{block.emoji || tagIcon}</span>}
-                {!hideTitleTooNarrow && <span className="truncate" style={{ fontSize: '15px', fontWeight: 600, color: 'hsl(var(--foreground))' }}>{block.title}</span>}
+                {!hideTitleTooNarrow && <span className="truncate" style={{ fontSize: '15px', fontWeight: 600, color: isDarkMode ? tintedText(0.62) : 'hsl(var(--foreground))' }}>{block.title}</span>}
               </div>
               {height > 34 && (
                 <div className="flex items-center gap-1 mt-0.5">
