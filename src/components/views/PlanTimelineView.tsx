@@ -2221,7 +2221,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
             const isPastRange = isViewingToday && selectedRange.endMin <= nowMin;
             const creationTagColor = slotAddTitle.trim() ? getThemedTagColor(undefined, slotAddTitle.trim()) : undefined;
             const pastAccent = '#4B9478';
-            const borderColor = creationTagColor || (isPastRange ? pastAccent : 'hsl(var(--muted-foreground) / 0.3)');
+            const borderColor = creationTagColor || (isPastRange ? pastAccent : 'hsl(var(--primary) / 0.7)');
             const startH = Math.floor(selectedRange.startMin / 60);
             const startM = selectedRange.startMin % 60;
             const endH = Math.floor(selectedRange.endMin / 60);
@@ -2254,7 +2254,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
                 onMouseDown={e => e.stopPropagation()}
               >
                 <div
-                  className="flex flex-col gap-1 rounded-[12px] border border-border/50 bg-background px-3 py-2.5 shadow-[0_6px_20px_hsl(var(--foreground)/0.08)]"
+                  className="flex flex-col gap-1 rounded-[12px] border border-border bg-card px-3 py-2.5 shadow-[0_10px_30px_hsl(var(--foreground)/0.16)] ring-1 ring-primary/25"
                   style={{ borderLeft: `3px solid ${borderColor}` }}
                 >
                   <div className="flex items-center gap-2 pr-5">
