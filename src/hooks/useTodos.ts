@@ -107,6 +107,18 @@ export function useTodos(date?: string) {
     if (!user || isDemo) return;
     if (!isSameDay(new Date(`${targetDate}T00:00:00`), new Date())) return;
 
+    // Run the carry-over at most once per day per user. fetchTodos re-runs on
+    // every tab switch / window focus / visibility change / minute sync, and
+    // without this guard each of those re-issued the DB "move yesterday→today"
+    // mutation — thrashing the data and making refreshes feel unstable. The
+    // localStorage flag makes repeat fetches read-only.
+    const rollKey = `todos-rollover-done:${user.id}:${targetDate}`;
+    try {
+      if (localStorage.getItem(rollKey)) return;
+    } catch {
+      /* localStorage unavailable — fall through and just run it */
+    }
+
     const previousDate = format(subDays(new Date(`${targetDate}T00:00:00`), 1), 'yyyy-MM-dd');
     const { data: existingToday } = await supabase
       .from('todos')
@@ -126,7 +138,11 @@ export function useTodos(date?: string) {
       .is('habit_category', null)
       .order('sort_order', { ascending: true });
 
-    if (error || !carryovers?.length) return;
+    if (error) return;
+    // Mark done even when there was nothing to carry over, so we don't re-query
+    // on every refresh for the rest of the day.
+    try { localStorage.setItem(rollKey, '1'); } catch { /* ignore */ }
+    if (!carryovers?.length) return;
 
     await Promise.all(
       (carryovers as any[]).map((todo, index) =>
