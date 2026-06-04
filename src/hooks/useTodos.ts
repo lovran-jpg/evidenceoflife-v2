@@ -144,8 +144,17 @@ export function useTodos(date?: string) {
     try { localStorage.setItem(rollKey, '1'); } catch { /* ignore */ }
     if (!carryovers?.length) return;
 
+    // Only carry a task forward the day AFTER it was created. Once a task has
+    // been rolled, its created_at no longer equals yesterday, so it won't be
+    // rolled again — it stays put on its date instead of chasing "today"
+    // forever. This stops weeks-old unfinished tasks from piling onto today.
+    const freshlyDue = (carryovers as any[]).filter(
+      (todo) => todo.created_at && format(new Date(todo.created_at), 'yyyy-MM-dd') === previousDate
+    );
+    if (!freshlyDue.length) return;
+
     await Promise.all(
-      (carryovers as any[]).map((todo, index) =>
+      freshlyDue.map((todo, index) =>
         supabase
           .from('todos')
           .update({
