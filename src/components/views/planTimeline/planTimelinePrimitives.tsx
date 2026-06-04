@@ -326,11 +326,11 @@ export function timelineBlockShell(
   intensity: 'plan' | 'actual' | 'active' | 'done' | 'ghost',
 ): { background: string; border: string; shadow: string } {
   const mixes = {
-    plan: isDarkMode ? [0.12, 0.12, 0.12] : [0.27, 0.205, 0.16],
-    actual: isDarkMode ? [0.15, 0.15, 0.15] : [0.3, 0.225, 0.17],
-    active: isDarkMode ? [0.18, 0.18, 0.18] : [0.34, 0.255, 0.19],
-    done: isDarkMode ? [0.09, 0.09, 0.09] : [0.19, 0.145, 0.11],
-    ghost: isDarkMode ? [0.06, 0.06, 0.06] : [0.12, 0.09, 0.07],
+    plan: isDarkMode ? [0.035, 0.035, 0.035] : [0.27, 0.205, 0.16],
+    actual: isDarkMode ? [0.05, 0.05, 0.05] : [0.3, 0.225, 0.17],
+    active: isDarkMode ? [0.07, 0.07, 0.07] : [0.34, 0.255, 0.19],
+    done: isDarkMode ? [0.03, 0.03, 0.03] : [0.19, 0.145, 0.11],
+    ghost: isDarkMode ? [0.02, 0.02, 0.02] : [0.12, 0.09, 0.07],
   }[intensity];
   const borderMix = isDarkMode
     ? intensity === 'active' ? 0.55 : intensity === 'plan' ? 0.42 : intensity === 'actual' ? 0.5 : 0.38

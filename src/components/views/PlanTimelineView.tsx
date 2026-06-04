@@ -1472,7 +1472,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
             >
               <div
                 className={cn(
-                  'rounded-full opacity-25 group-hover/block:opacity-70 transition-opacity',
+                  'rounded-full opacity-0 group-hover/block:opacity-70 transition-opacity',
                   ultraSlimHandles ? 'w-8 h-[2px]' : slimResize ? 'w-6 h-[2px]' : 'w-8 h-[3px]',
                 )}
                 style={{ backgroundColor: colorWithAlpha(edgeAlpha(isPlanOnly ? 0.34 : 0.28)) }}
@@ -1487,7 +1487,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
             >
               <div
                 className={cn(
-                  'rounded-full opacity-25 group-hover/block:opacity-70 transition-opacity',
+                  'rounded-full opacity-0 group-hover/block:opacity-70 transition-opacity',
                   ultraSlimHandles ? 'w-8 h-[2px]' : slimResize ? 'w-6 h-[2px]' : 'w-8 h-[3px]',
                 )}
                 style={{ backgroundColor: colorWithAlpha(edgeAlpha(isPlanOnly ? 0.34 : 0.28)) }}
