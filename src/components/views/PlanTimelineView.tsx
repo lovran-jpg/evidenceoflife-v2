@@ -1161,7 +1161,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
                 ) : (
                   <span
                     className="min-w-0 flex-1 truncate leading-none"
-                    style={{ fontSize: '12px', fontWeight: 500, color: isDarkMode ? tintedText(0.62) : 'hsl(var(--foreground))' }}
+                    style={{ fontSize: '12px', fontWeight: 500, color: isDarkMode ? 'hsl(0 0% 100% / 0.95)' : 'hsl(var(--foreground))' }}
                   >
                     {block.title}
                   </span>
@@ -1185,7 +1185,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
                   />
                 )}
                 {(block.emoji || tagIcon) && <span className="flex-shrink-0" style={{ fontSize: '15px' }}>{block.emoji || tagIcon}</span>}
-                {!hideTitleTooNarrow && <span className="truncate" style={{ fontSize: '15px', fontWeight: 600, color: isDarkMode ? tintedText(0.62) : 'hsl(var(--foreground))' }}>{block.title}</span>}
+                {!hideTitleTooNarrow && <span className="truncate" style={{ fontSize: '15px', fontWeight: 600, color: isDarkMode ? 'hsl(0 0% 100% / 0.95)' : 'hsl(var(--foreground))' }}>{block.title}</span>}
               </div>
               {height > 34 && (
                 <div className="flex items-center gap-1 mt-0.5">
@@ -1382,7 +1382,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
               }}
             >
               {/* Actual fill overlay */}
-              {actualFillPct > 0 && (
+              {actualFillPct > 0 && !block.isCompleted && (
                 <div
                   className="absolute top-0 left-0 right-0 pointer-events-none transition-all duration-1000"
                   style={{
@@ -1806,7 +1806,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
                         WebkitLineClamp: allowWrappedTitle ? 2 : 'unset',
                         WebkitBoxOrient: allowWrappedTitle ? 'vertical' : 'unset',
                         whiteSpace: allowWrappedTitle ? 'normal' : 'nowrap',
-                        color: block.isCompleted ? tintedText(0.12) : isPlanOnly ? tintedText(isDarkMode ? 0.58 : 0.48) : 'hsl(var(--foreground))',
+                        color: block.isCompleted ? tintedText(0.12) : isPlanOnly ? (isDarkMode ? 'hsl(0 0% 100% / 0.9)' : tintedText(0.48)) : 'hsl(var(--foreground))',
                       }}>{hideTitleTooNarrow ? '' : block.title}</span>
                     </div>
                     {editingTimeBlockId === block.id && (

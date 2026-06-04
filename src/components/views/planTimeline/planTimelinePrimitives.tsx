@@ -297,6 +297,35 @@ export function vividDarkAccent(color: string | undefined): string {
   return hslToHex(hsl.h, newS, newL);
 }
 
+// Google-Calendar-style solid event color: a saturated mid-dark tone the white
+// title can sit on. Used as a FLAT fill (no canvas mixing) so dark blocks read
+// as real coloured cards instead of frosted near-black panels.
+export function solidEventColor(color: string | undefined): string | null {
+  if (!color) return null;
+  const hsl = hexToHSL(color);
+  if (!hsl) return null; // CSS-var colours handled by caller fallback
+  const newS = Math.min(70, Math.max(hsl.s, 48));
+  const newL = Math.min(50, Math.max(42, hsl.l > 60 ? hsl.l - 18 : hsl.l));
+  return hslToHex(hsl.h, newS, newL);
+}
+
+// Resolve a CSS-var accent (hsl(var(--primary)) / hsl(var(--accent))) to the
+// concrete dark-theme hex so it can take the solid-event-colour path too.
+function resolveAccentToHex(accent: string): string {
+  if (/^#[0-9A-Fa-f]{6}$/.test(accent)) return accent;
+  // Dark-theme CSS-var accents used as activity fallbacks → concrete hex so they
+  // can take the solid-event-colour path instead of falling to the grey mix.
+  if (accent.includes('--primary')) return hslToHex(18, 45, 57);
+  if (accent.includes('--accent')) return hslToHex(120, 22, 50);
+  if (accent.includes('--chip-foreground')) return hslToHex(216, 38, 72);
+  if (accent.includes('--destructive')) return hslToHex(10, 52, 53);
+  if (accent.includes('--foreground')) return hslToHex(0, 0, 70);
+  // hsl(h s% l%) / hsl(h, s%, l%) literal → hex so it can take the solid path.
+  const m = accent.match(/hsl\(\s*([\d.]+)[\s,]+([\d.]+)%[\s,]+([\d.]+)%/i);
+  if (m) return hslToHex(Number(m[1]), Number(m[2]), Number(m[3]));
+  return accent;
+}
+
 export function timelineFillGradient(
   isDarkMode: boolean,
   canvasCss: string,
@@ -335,6 +364,23 @@ export function timelineBlockShell(
   const borderMix = isDarkMode
     ? intensity === 'active' ? 0.55 : intensity === 'plan' ? 0.45 : intensity === 'actual' ? 0.5 : 0.38
     : intensity === 'active' ? 0.3 : intensity === 'plan' ? 0.24 : 0.26;
+  // Google-Calendar style in dark: a FLAT saturated solid colour the white title
+  // sits on — not a frosted accent-into-black wash.
+  const solidSource = resolveAccentToHex(accentCss);
+  const solid = isDarkMode ? solidEventColor(solidSource) : null;
+  if (solid) {
+    // Slightly dim 'plan'/'done'/'ghost' so future/finished blocks read quieter.
+    const dim = { plan: 0.96, actual: 1, active: 1.06, done: 0.92, ghost: 0.8 }[intensity];
+    const solidHsl = hexToHSL(solid)!;
+    const fillL = Math.max(20, Math.min(52, solidHsl.l * dim));
+    const fill = hslToHex(solidHsl.h, solidHsl.s, fillL);
+    const borderCol = hslToHex(solidHsl.h, Math.min(80, solidHsl.s + 8), Math.min(64, fillL + 14));
+    return {
+      background: `linear-gradient(180deg, ${fill} 0%, ${fill} 100%)`,
+      border: borderCol,
+      shadow: `inset 0 0 0 1px ${borderCol}, 0 8px 18px rgba(0,0,0,0.18)`,
+    };
+  }
   const background = timelineFillGradient(isDarkMode, canvasCss, accentCss, mixes[0], mixes[1], mixes[2], isDarkMode ? 'darkTint' : 'default');
   const borderAccent = isDarkMode ? vividDarkAccent(accentCss) : accentCss;
   // Match the timer-pill look the user likes: a clear coloured ring (≈45% accent)
