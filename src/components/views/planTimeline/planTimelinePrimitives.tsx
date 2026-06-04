@@ -49,6 +49,13 @@ function solidFillGradient(
 ): string {
   const quietTop = Math.max(top, mid, bot);
   const quietBottom = Math.min(top, mid, bot);
+  /** Dark: a vertical wash reads as "frosted glass / semi-transparent" on big
+   * blocks — which looks cheap on near-black. Use a single FLAT solid tint so
+   * the block reads as a clean elevated dark card (like the timer pill). */
+  if (variant === 'darkTint') {
+    const flat = opaqueMix(canvasCss, accentCss, quietTop);
+    return `linear-gradient(180deg, ${flat} 0%, ${flat} 100%)`;
+  }
   /** Calm paper wash. The previous bell gradient created muddy/fluorescent bands,
    * especially in short blocks. A single directional wash keeps category color
    * visible without making blocks look like highlighter tape. */
