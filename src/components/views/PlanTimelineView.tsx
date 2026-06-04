@@ -865,7 +865,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
         });
     const tagColor = getThemedTagColor(block.tags, block.title);
     const workTypeColor = workType ? WORK_TYPE_META[workType]?.color : undefined;
-    const accentPaint = tagColor || workTypeColor || (isImported ? 'hsl(var(--accent))' : 'hsl(var(--primary))');
+    const accentPaint = tagColor || workTypeColor || (isImported ? '#5b8cd6' : 'hsl(var(--primary))');
     const blockColor = accentPaint;
     /** Solid paint for fills — grid lines stay under blocks */
     const canvasBg = timelineCanvasBg;
