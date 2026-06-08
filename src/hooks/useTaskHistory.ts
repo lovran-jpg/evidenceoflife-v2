@@ -9,6 +9,8 @@ export interface TaskHistoryEntry {
   count: number;
   /** ISO timestamp of the most recent use. */
   lastUsed: string;
+  /** Accumulated tracked time across all occurrences of this title, in seconds. */
+  totalSeconds: number;
 }
 
 function normalize(title: string): string {
@@ -34,23 +36,25 @@ export function useTaskHistory() {
     (async () => {
       const { data, error } = await supabase
         .from('todos')
-        .select('title, created_at')
+        .select('title, created_at, timer_seconds')
         .order('created_at', { ascending: false })
         .limit(400);
 
       if (cancelled || error || !data) return;
 
       const byKey = new Map<string, TaskHistoryEntry>();
-      for (const row of data as { title: string; created_at: string }[]) {
+      for (const row of data as { title: string; created_at: string; timer_seconds: number | null }[]) {
         const title = (row.title || '').trim();
         if (!title) continue;
         const key = normalize(title);
+        const secs = Math.max(0, row.timer_seconds || 0);
         const existing = byKey.get(key);
         if (existing) {
           existing.count += 1;
+          existing.totalSeconds += secs;
           // rows arrive newest-first, so keep the first-seen title/lastUsed
         } else {
-          byKey.set(key, { title, count: 1, lastUsed: row.created_at });
+          byKey.set(key, { title, count: 1, lastUsed: row.created_at, totalSeconds: secs });
         }
       }
 

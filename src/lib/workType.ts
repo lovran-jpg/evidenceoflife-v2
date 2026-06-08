@@ -10,32 +10,32 @@ export const WORK_TYPE_META: Record<WorkType, { label: string; shortLabel: strin
   deep: {
     label: 'Deep',
     shortLabel: 'Deep',
-    color: '#5B63C9',
-    bg: '#F0F1FF',
+    color: '#5C66BE',
+    bg: '#EFF0FB',
   },
   shallow: {
     label: 'Shallow',
     shortLabel: 'Shallow',
-    color: '#4E77B8',
-    bg: '#EEF5FF',
+    color: '#7C828B',
+    bg: '#F1F2F4',
   },
   admin: {
     label: 'Admin',
     shortLabel: 'Admin',
-    color: '#5E6884',
-    bg: '#F1F2F6',
+    color: '#98678F',
+    bg: '#F6EEF4',
   },
   errand: {
     label: 'Errand',
     shortLabel: 'Errand',
-    color: '#B86558',
-    bg: '#FFF1EF',
+    color: '#C06B52',
+    bg: '#FBEFEB',
   },
   recovery: {
     label: 'Recovery',
     shortLabel: 'Recovery',
-    color: '#4B9478',
-    bg: '#EEF9F4',
+    color: '#5C9B7E',
+    bg: '#EDF6F1',
   },
 };
 

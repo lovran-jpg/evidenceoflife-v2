@@ -293,7 +293,7 @@ export function FocusTimerOverlay({
   // Death screen
   if (showDeath) {
     return (
-      <div className="fixed inset-0 z-[80] bg-[hsl(var(--surface-contrast))] flex flex-col items-center justify-center gap-6 animate-fade-in">
+      <div className="fixed inset-0 z-[80] bg-[hsl(var(--surface-contrast))]/92 backdrop-blur-md flex flex-col items-center justify-center gap-6 animate-fade-in">
         <div className="text-7xl opacity-60">{DEAD_TREE}</div>
         <p className="text-sm text-muted-foreground/60">
           {lang === 'zh' ? '专注被中断了...' : 'Session interrupted...'}
@@ -319,7 +319,7 @@ export function FocusTimerOverlay({
   if (isPaused && !previewMode) {
     return (
       <div
-        className="fixed inset-0 z-[80] cursor-pointer overflow-hidden animate-fade-in"
+        className="fixed inset-0 z-[80] cursor-pointer overflow-hidden animate-fade-in backdrop-blur-md"
         style={{ backgroundColor: 'hsl(var(--overlay-backdrop))' }}
         onClick={() => onMinimize()}
       >
@@ -422,7 +422,7 @@ export function FocusTimerOverlay({
 
   return (
     <div
-      className="fixed inset-0 z-[80] cursor-pointer overflow-hidden animate-fade-in"
+      className="fixed inset-0 z-[80] cursor-pointer overflow-hidden animate-fade-in backdrop-blur-md"
       style={{ backgroundColor: 'hsl(var(--overlay-backdrop))' }}
       onClick={() => onMinimize()}
     >
@@ -658,6 +658,7 @@ export function FocusTimerOverlay({
                     onValueChange={([v]) => { setCompletionProgress(v); setProgressTouched(true); }}
                     max={100}
                     step={5}
+                    style={{ ['--slider-range' as string]: treeColor }}
                     className={cn('mt-2 w-full transition-opacity', progressTouched ? 'opacity-100' : 'opacity-45')}
                   />
                 </div>
@@ -757,7 +758,7 @@ export function FloatingTimer({ todo, isPaused, pauseState, onClick, accentColor
       onPointerDown={e => { e.stopPropagation(); }}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
       className={cn(
-        "flex h-9 w-max max-w-[260px] items-center gap-2 pl-2 pr-2 rounded-2xl border shadow-[0_6px_18px_hsl(var(--foreground)/0.1)] transition-colors text-left cursor-pointer select-none overflow-hidden",
+        "flex h-9 w-max max-w-[300px] items-center gap-1.5 pl-2 pr-2 rounded-2xl border shadow-[0_6px_18px_hsl(var(--foreground)/0.1)] transition-colors text-left cursor-pointer select-none overflow-hidden animate-in slide-in-from-bottom-2 fade-in-0 duration-300",
         isPaused && "bg-[hsl(var(--surface-soft))] border-border text-muted-foreground"
       )}
       style={!isPaused ? {
@@ -775,7 +776,7 @@ export function FloatingTimer({ todo, isPaused, pauseState, onClick, accentColor
         aria-hidden
       />
       <span className="text-base leading-none flex-shrink-0">{treeEmoji}</span>
-      <span className="min-w-0 max-w-[120px] flex-shrink truncate text-[11px] font-medium leading-none">{todo.title}</span>
+      <span className="min-w-0 max-w-[170px] flex-shrink truncate text-[11px] font-medium leading-none">{todo.title}</span>
       <span
         className="flex-shrink-0 rounded-md px-1.5 py-1 text-[12px] font-mono font-semibold tabular-nums leading-none"
         style={!isPaused ? { backgroundColor: colorWithAlpha(treeColor, 0.16) } : undefined}

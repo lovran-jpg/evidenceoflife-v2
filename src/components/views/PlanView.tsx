@@ -184,19 +184,19 @@ function FocusingOverlay({ taskTitle, elapsed, isPaused, onTogglePause, onStop, 
   const pad = (n: number) => String(n).padStart(2, '0');
 
   return (
-    <div className="fixed inset-0 z-50 bg-background flex flex-col items-center justify-center gap-10 animate-fade-in cursor-pointer" onClick={onMinimize}>
+    <div className="fixed inset-0 z-50 bg-background/92 backdrop-blur-md flex flex-col items-center justify-center gap-10 animate-fade-in cursor-pointer" onClick={onMinimize}>
       <p className="text-xs text-muted-foreground/60 tracking-[0.3em] uppercase">{isPaused ? 'Paused' : 'Focusing'}</p>
       <p className="text-base font-medium text-foreground/80">{taskTitle}</p>
       <div className="relative w-56 h-56 flex items-center justify-center">
         <SecondTick elapsed={isPaused ? 0 : elapsed} size={224} />
-        <span className="text-5xl font-mono font-extralight text-foreground/30 tabular-nums">{pad(hrs)}:{pad(mins)}</span>
+        <span className="text-4xl font-mono font-extralight text-foreground/35 tabular-nums">{pad(hrs)}:{pad(mins)}</span>
       </div>
-      <div className="flex items-center gap-6" onClick={e => e.stopPropagation()}>
-        <button onClick={onTogglePause} className="w-12 h-12 rounded-full border border-border/50 flex items-center justify-center text-foreground/60 hover:text-foreground transition-colors">
+      <div className="flex items-center gap-8" onClick={e => e.stopPropagation()}>
+        <button onClick={onTogglePause} aria-label={isPaused ? 'Resume timer' : 'Pause timer'} className="w-12 h-12 rounded-full border border-border/50 flex items-center justify-center text-foreground/60 hover:text-foreground transition-colors">
           {isPaused ? <Play size={20} /> : <Pause size={20} />}
         </button>
-        <button onClick={onStop} className="w-10 h-10 rounded-full border border-border/30 flex items-center justify-center text-primary/60 hover:text-primary transition-colors" title="Finish"><Square size={14} /></button>
-        <button onClick={onCancel} className="w-10 h-10 rounded-full border border-border/30 flex items-center justify-center text-destructive/50 hover:text-destructive transition-colors" title="Cancel"><X size={14} /></button>
+        <button onClick={onStop} aria-label="Finish timer" className="w-10 h-10 rounded-full border border-border/30 flex items-center justify-center text-primary/60 hover:text-primary transition-colors" title="Finish"><Square size={14} /></button>
+        <button onClick={onCancel} aria-label="Cancel timer" className="w-10 h-10 rounded-full border border-border/30 flex items-center justify-center text-destructive/50 hover:text-destructive transition-colors" title="Cancel"><X size={14} /></button>
       </div>
       <p className="text-xs text-muted-foreground/30 mt-4">tap anywhere to minimize</p>
     </div>
@@ -261,8 +261,8 @@ function TimerCompletionOverlay({ taskTitle, elapsed, startedAt, onConfirm, onCa
           <Slider value={[progress]} onValueChange={([v]) => setProgress(v)} max={100} step={5} className="w-full" />
         </div>
         <div className="flex items-center gap-3 justify-center pt-1">
-          <button onClick={onCancel} className="w-12 h-12 rounded-full border border-border/50 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors" title="Discard"><X size={20} /></button>
-          <button onClick={handleConfirm} className="w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:opacity-90 transition-opacity" title="Save"><Check size={20} /></button>
+          <button onClick={onCancel} aria-label="Discard" className="w-12 h-12 rounded-full border border-border/50 flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors" title="Discard"><X size={20} /></button>
+          <button onClick={handleConfirm} aria-label="Save" className="w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:opacity-90 transition-opacity" title="Save"><Check size={20} /></button>
         </div>
       </div>
     </div>
@@ -619,16 +619,17 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
             <input type="time" value={editStart} onChange={e => setEditStart(e.target.value)} className="bg-secondary rounded px-1 py-0.5 text-xs font-mono w-[70px] focus:outline-none focus:ring-1 focus:ring-primary" />
             <span className="text-muted-foreground text-xs">→</span>
             <input type="time" value={editEnd} onChange={e => setEditEnd(e.target.value)} className="bg-secondary rounded px-1 py-0.5 text-xs font-mono w-[70px] focus:outline-none focus:ring-1 focus:ring-primary" />
-            <button onClick={handleSaveTime} className="text-primary hover:text-primary/80"><Check size={12} /></button>
-            <button onClick={() => setIsEditingTime(false)} className="text-muted-foreground hover:text-destructive"><X size={12} /></button>
+            <button onClick={handleSaveTime} aria-label="Save time" className="text-primary hover:text-primary/80"><Check size={12} /></button>
+            <button onClick={() => setIsEditingTime(false)} aria-label="Cancel editing time" className="text-muted-foreground hover:text-destructive"><X size={12} /></button>
           </div>
         ) : null}
       </div>
       <div className="flex items-center gap-1.5 flex-shrink-0">
         <button
           onClick={onDelete}
-          className="hidden group-hover:flex h-[34px] w-[34px] rounded-full items-center justify-center border border-transparent text-muted-foreground/55 transition-colors hover:border-destructive/25 hover:bg-destructive/[0.08] hover:text-destructive"
+          className="flex h-[34px] w-[34px] rounded-full items-center justify-center border border-transparent text-muted-foreground/55 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity transition-colors hover:border-destructive/25 hover:bg-destructive/[0.08] hover:text-destructive"
           title={lang === 'zh' ? '删除' : 'Delete'}
+          aria-label={lang === 'zh' ? '删除' : 'Delete'}
         >
           <Trash2 size={14} />
         </button>
@@ -1036,16 +1037,27 @@ export function PlanView({
     });
   }, []);
 
+  // The floating timer lives WITHIN the timeline column, not the whole viewport
+  // (the logged-in layout has a chat panel on the right). Bound dragging/snapping
+  // to the timeline frame so "靠边" means the timeline's visible edges, never
+  // stranded mid-screen or hidden behind the chat panel.
+  const getTimelineBounds = useCallback(() => {
+    const r = timelineFrameRef.current?.getBoundingClientRect();
+    if (r && r.width > 0) return { left: r.left, right: r.right, top: r.top, bottom: r.bottom };
+    return { left: 0, right: window.innerWidth, top: 0, bottom: window.innerHeight };
+  }, []);
+
   const clampTimerDock = useCallback((x: number, y: number) => {
     const rect = timerDockRef.current?.getBoundingClientRect();
     const width = rect?.width || 220;
     const height = rect?.height || 72;
     const margin = 10;
+    const b = getTimelineBounds();
     return {
-      x: Math.min(Math.max(margin, x), Math.max(margin, window.innerWidth - width - margin)),
-      y: Math.min(Math.max(margin, y), Math.max(margin, window.innerHeight - height - margin)),
+      x: Math.min(Math.max(b.left + margin, x), Math.max(b.left + margin, b.right - width - margin)),
+      y: Math.min(Math.max(b.top + margin, y), Math.max(b.top + margin, b.bottom - height - margin)),
     };
-  }, []);
+  }, [getTimelineBounds]);
 
   const handleTimerDockPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
@@ -1093,14 +1105,26 @@ export function PlanView({
     if (committed) {
       suppressTimerClickRef.current = true;
       setTimerDockPos((current) => {
-        if (current) localStorage.setItem('plan-floating-timer-pos', JSON.stringify(current));
-        return current;
+        if (!current) return current;
+        // iOS-PiP-style: snap to the nearest horizontal edge so the pill never
+        // strands awkwardly floating in the middle of the screen.
+        const rect = timerDockRef.current?.getBoundingClientRect();
+        const width = rect?.width || 220;
+        const margin = 10;
+        const b = getTimelineBounds();
+        const centerX = current.x + width / 2;
+        const snappedX = centerX < (b.left + b.right) / 2
+          ? b.left + margin
+          : Math.max(b.left + margin, b.right - width - margin);
+        const snapped = clampTimerDock(snappedX, current.y);
+        localStorage.setItem('plan-floating-timer-pos', JSON.stringify(snapped));
+        return snapped;
       });
       window.setTimeout(() => {
         suppressTimerClickRef.current = false;
       }, 0);
     }
-  }, []);
+  }, [clampTimerDock, getTimelineBounds]);
 
   const handleTimerDockPointerCancel = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const drag = timerDockDragRef.current;
@@ -1112,6 +1136,45 @@ export function PlanView({
       /* noop */
     }
   }, []);
+
+  // After mount/reload, re-snap any saved dock position INTO the timeline's
+  // bounds and onto its nearest edge. We retry on a few frames because the
+  // timeline frame may not be measured yet on the first frame — without this
+  // the bounds fall back to the full viewport and the pill wrongly snaps to the
+  // far-left task panel.
+  const didSnapOnMountRef = useRef(false);
+  useEffect(() => {
+    if (didSnapOnMountRef.current) return;
+    if (!timerDockPos) return;
+
+    let raf = 0;
+    let attempts = 0;
+    const trySnap = () => {
+      const frame = timelineFrameRef.current?.getBoundingClientRect();
+      // Wait until the timeline frame is actually laid out.
+      if (!frame || frame.width < 50) {
+        if (attempts++ < 30) { raf = requestAnimationFrame(trySnap); }
+        return;
+      }
+      didSnapOnMountRef.current = true;
+      setTimerDockPos((current) => {
+        if (!current) return current;
+        const dockRect = timerDockRef.current?.getBoundingClientRect();
+        const width = dockRect?.width || 220;
+        const margin = 10;
+        const centerX = current.x + width / 2;
+        const snappedX = centerX < (frame.left + frame.right) / 2
+          ? frame.left + margin
+          : Math.max(frame.left + margin, frame.right - width - margin);
+        const snapped = clampTimerDock(snappedX, current.y);
+        if (snapped.x === current.x && snapped.y === current.y) return current;
+        localStorage.setItem('plan-floating-timer-pos', JSON.stringify(snapped));
+        return snapped;
+      });
+    };
+    raf = requestAnimationFrame(trySnap);
+    return () => cancelAnimationFrame(raf);
+  }, [timerDockPos, clampTimerDock]);
 
   // Re-clamp a saved dock position back into view on window resize. Without
   // this, a position saved while the window was wider can leave the pills (and
@@ -1128,7 +1191,18 @@ export function PlanView({
     };
     reclamp();
     window.addEventListener('resize', reclamp);
-    return () => window.removeEventListener('resize', reclamp);
+    // Also re-clamp when the dock's own size changes (e.g. a longer task title
+    // makes the pill wider), so growth never pushes it off the right edge.
+    const dockEl = timerDockRef.current;
+    let ro: ResizeObserver | undefined;
+    if (dockEl && typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => reclamp());
+      ro.observe(dockEl);
+    }
+    return () => {
+      window.removeEventListener('resize', reclamp);
+      ro?.disconnect();
+    };
   }, [timerDockPos, clampTimerDock]);
 
   const withFreshTimerStart = useCallback((todo: Todo) => {
@@ -2112,10 +2186,11 @@ export function PlanView({
                   {onOpenVoiceSheet && (
                     <button onClick={onOpenVoiceSheet}
                       className="w-8 h-8 rounded-full transition-colors flex-shrink-0 hover:bg-[hsl(var(--surface-soft-hover))] text-muted-foreground hover:text-foreground flex items-center justify-center"
-                      title="Voice input"><Mic size={15} /></button>
+                      title={lang === 'zh' ? '语音输入' : 'Voice input'}
+                      aria-label={lang === 'zh' ? '语音输入' : 'Voice input'}><Mic size={15} /></button>
                   )}
-                  <Button onClick={() => handleAdd(true)} size="icon" variant="outline" className="h-8 w-8 rounded-full flex-shrink-0 border-border text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-soft-hover))]" title={tLang('plan.addAndStart') || 'Add & start timer'} disabled={isAddingQuick || !newTitle.trim()}><Timer size={15} /></Button>
-                  <Button onClick={() => handleAdd()} size="icon" className="h-8 w-8 rounded-full flex-shrink-0 bg-primary/12 text-primary hover:bg-primary/18" disabled={isAddingQuick || !newTitle.trim()}><ArrowUp size={15} /></Button>
+                  <Button onClick={() => handleAdd(true)} size="icon" variant="outline" className="h-8 w-8 rounded-full flex-shrink-0 border-border text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-soft-hover))]" title={tLang('plan.addAndStart') || (lang === 'zh' ? '添加并开始计时' : 'Add & start timer')} aria-label={tLang('plan.addAndStart') || (lang === 'zh' ? '添加并开始计时' : 'Add & start timer')} disabled={isAddingQuick || !newTitle.trim()}><Timer size={15} /></Button>
+                  <Button onClick={() => handleAdd()} size="icon" className="h-8 w-8 rounded-full flex-shrink-0 bg-primary/12 text-primary hover:bg-primary/18" disabled={isAddingQuick || !newTitle.trim()} title={lang === 'zh' ? '添加任务' : 'Add task'} aria-label={lang === 'zh' ? '添加任务' : 'Add task'}><ArrowUp size={15} /></Button>
                 </div>
               </div>
               </div>
@@ -2255,7 +2330,8 @@ export function PlanView({
                   type="button"
                   onClick={() => captureFileInputRef.current?.click()}
                   className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-soft-hover))] transition-colors"
-                  title="Add photo"
+                  title={lang === 'zh' ? '添加照片' : 'Add photo'}
+                  aria-label={lang === 'zh' ? '添加照片' : 'Add photo'}
                 >
                   <Camera size={15} />
                 </button>
@@ -2263,6 +2339,7 @@ export function PlanView({
                   <button
                     type="button"
                     onClick={() => setShowCaptureLocationPopover(v => !v)}
+                    aria-label={lang === 'zh' ? '选择地点' : 'Choose location'}
                     className={cn(
                       "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition-colors",
                       captureLocation
@@ -2271,7 +2348,7 @@ export function PlanView({
                     )}
                   >
                     <MapPin size={11} />
-                    {captureLocation ? captureLocation.name : 'Location'}
+                    {captureLocation ? captureLocation.name : (lang === 'zh' ? '地点' : 'Location')}
                   </button>
                   {showCaptureLocationPopover && (
                     <LocationPopover
@@ -2284,6 +2361,7 @@ export function PlanView({
                   <button
                     type="button"
                     onClick={() => setCaptureLocation(null)}
+                    aria-label={lang === 'zh' ? '清除地点' : 'Clear location'}
                     className="text-muted-foreground/50 hover:text-destructive transition-colors"
                   >
                     <X size={11} />
@@ -2293,6 +2371,8 @@ export function PlanView({
                   onClick={handleSaveCapture}
                   disabled={!captureDraft.trim() || isSavingCapture}
                   size="icon"
+                  title={lang === 'zh' ? '保存 moment' : 'Save moment'}
+                  aria-label={lang === 'zh' ? '保存 moment' : 'Save moment'}
                   className="ml-auto h-8 w-8 rounded-full"
                 >
                   {isSavingCapture ? <Loader2 size={13} className="animate-spin" /> : <ArrowUp size={15} />}

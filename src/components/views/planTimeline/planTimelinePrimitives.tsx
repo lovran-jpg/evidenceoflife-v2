@@ -304,7 +304,7 @@ export function solidEventColor(color: string | undefined): string | null {
   if (!color) return null;
   const hsl = hexToHSL(color);
   if (!hsl) return null; // CSS-var colours handled by caller fallback
-  const newS = Math.min(46, Math.max(hsl.s, 30));
+  const newS = Math.min(46, Math.max(hsl.s, 16));
   const newL = Math.min(50, Math.max(42, hsl.l > 60 ? hsl.l - 18 : hsl.l));
   return hslToHex(hsl.h, newS, newL);
 }
