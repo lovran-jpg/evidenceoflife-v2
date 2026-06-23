@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { parseISO } from 'date-fns';
-import { Plus, Calendar, Trash2, CalendarPlus, Check, Repeat, Pencil, X, Link, Target, Camera, Bell, BellOff, Mail, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Calendar, Trash2, CalendarPlus, Check, Pencil, X, Link, Target, Camera, Bell, BellOff, Mail, ChevronDown } from 'lucide-react';
 import { cn, isImeComposing } from '@/lib/utils';
 import {
   normalizeUrl,
@@ -14,8 +14,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useDateLocale } from '@/hooks/useDateLocale';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { LinkPreviewCard } from '@/components/LinkPreviewCard';
-import { hasRichPreview, LightweightLinkItem } from '@/components/views/dues/DueLinkItems';
+import { hasRichPreview } from '@/components/views/dues/DueLinkItems';
 import { getTimeLeft, formatDuration, HabitPunchCard } from '@/components/views/dues/DueCards';
 import { toast } from 'sonner';
 
@@ -52,18 +51,11 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
   const [showAddStep, setShowAddStep] = useState(false);
   const [isEditingCount, setIsEditingCount] = useState(false);
   const [countDraft, setCountDraft] = useState(String(due.totalCount || 0));
-  const [editingLinkCountIndex, setEditingLinkCountIndex] = useState<number | null>(null);
-  const [linkCountDraft, setLinkCountDraft] = useState('');
   const [optimisticHabitCount, setOptimisticHabitCount] = useState<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [linksCollapsed, setLinksCollapsed] = useState(true);
   const editDateInputRef = useRef<HTMLInputElement>(null);
   const [addingLink, setAddingLink] = useState(false);
-  const updateLinkLabel = (index: number, nextLabel: string) => {
-    onUpdate(due.id, {
-      links: (due.links || []).map((link, i) => i === index ? { ...link, label: nextLabel } : link),
-    });
-  };
 
   const REMINDER_PRESETS = [
     { label: '1h before', minutes: 60 },
