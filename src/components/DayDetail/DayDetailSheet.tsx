@@ -167,12 +167,15 @@ export function DayDetailSheet({ open, onOpenChange, date, moments, importedEven
                   {selectedPhotos.map((photo, i) => (
                     <div key={i} className="relative flex-shrink-0">
                       <img src={photo} alt="" className="w-14 h-14 object-cover rounded-lg" />
-                      <button 
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
                         onClick={() => removePhoto(i)}
-                        className="absolute -top-1 -right-1 w-5 h-5 bg-foreground text-background rounded-full flex items-center justify-center"
+                        className="absolute -top-1 -right-1 h-5 w-5 bg-foreground text-background hover:bg-foreground/90 hover:text-background rounded-full [&_svg]:size-3"
                       >
                         <X size={12} />
-                      </button>
+                      </Button>
                     </div>
                   ))}
                 </div>
@@ -184,9 +187,15 @@ export function DayDetailSheet({ open, onOpenChange, date, moments, importedEven
                   <div className="flex items-center gap-1.5 px-2.5 py-1 bg-primary/10 rounded-full text-sm animate-fade-in">
                     <MapPin size={12} className="text-primary" />
                     <span className="truncate max-w-[150px]">{selectedLocation.name}</span>
-                    <button onClick={() => setSelectedLocation(null)} className="text-muted-foreground hover:text-foreground">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setSelectedLocation(null)}
+                      className="h-auto w-auto p-0 text-muted-foreground hover:bg-transparent hover:text-foreground [&_svg]:size-3"
+                    >
                       <X size={12} />
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
@@ -195,12 +204,14 @@ export function DayDetailSheet({ open, onOpenChange, date, moments, importedEven
               <div className="flex items-center gap-3 px-4 py-3">
                 <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
                   <PopoverTrigger asChild>
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="icon"
                       className={cn(
-                        'w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors',
+                        'h-9 w-9 rounded-full flex-shrink-0',
                         selectedEmoji
-                          ? 'bg-primary/10'
+                          ? 'bg-primary/10 hover:bg-primary/15'
                           : 'bg-secondary/50 hover:bg-secondary'
                       )}
                     >
@@ -209,7 +220,7 @@ export function DayDetailSheet({ open, onOpenChange, date, moments, importedEven
                       ) : (
                         <Smile size={18} className="text-muted-foreground" />
                       )}
-                    </button>
+                    </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-2 bg-popover z-50" align="start">
                     <EmojiGrid
@@ -255,21 +266,29 @@ export function DayDetailSheet({ open, onOpenChange, date, moments, importedEven
 
               <div className="flex items-center justify-between px-3 py-2 border-t border-border/50">
                 <div className="flex items-center gap-0.5">
-                  <button 
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
                     onClick={handlePhotoClick}
-                    className="p-2 rounded-full hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
+                    className="h-auto w-auto p-2 rounded-full hover:bg-secondary text-muted-foreground hover:text-foreground"
                   >
                     <Image size={16} />
-                  </button>
+                  </Button>
 
                   <Popover open={locationOpen} onOpenChange={setLocationOpen}>
                     <PopoverTrigger asChild>
-                      <button className={cn(
-                        "p-2 rounded-full transition-colors",
-                        selectedLocation ? "bg-primary/10 text-primary" : "hover:bg-secondary text-muted-foreground hover:text-foreground"
-                      )}>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                          "h-auto w-auto p-2 rounded-full",
+                          selectedLocation ? "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary" : "hover:bg-secondary text-muted-foreground hover:text-foreground"
+                        )}
+                      >
                         <MapPin size={16} />
-                      </button>
+                      </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-72 p-3 bg-popover z-50" align="start">
                       <LocationPopover 
@@ -279,12 +298,15 @@ export function DayDetailSheet({ open, onOpenChange, date, moments, importedEven
                     </PopoverContent>
                   </Popover>
 
-                  <button 
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
                     onClick={resetAndClose}
-                    className="p-2 rounded-full hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground ml-1"
+                    className="h-auto w-auto p-2 rounded-full hover:bg-secondary text-muted-foreground hover:text-foreground ml-1"
                   >
                     <X size={16} />
-                  </button>
+                  </Button>
                 </div>
 
                 <Button

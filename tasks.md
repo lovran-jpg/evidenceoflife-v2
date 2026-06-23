@@ -34,12 +34,21 @@
     - `npm run build`：✓ built in 7.64s（vite 5.4.21，无报错）
   - **实现备注**：6 处替换全部用 `variant="ghost"`。其中 5 处用 `size="icon"`（详情头部返回 / city 头部返回 / 关闭搜索 / 搜索触发器 / 地点详情返回），并在 className 里给出 `h-7..h-8 w-7..w-8 rounded-xl/rounded-full` 等精确尺寸覆盖原本的 `p-1`/`p-1.5` 内边距方案，hover 走 ghost 自带的 `accent` 高亮。第 6 处（category chip pill）保留全部自定义 pill 样式，靠 `variant="ghost"` + `h-auto` + twMerge 让 cva base 的 `gap-2`/`rounded-md`/`h-10` 被 className 里的 `gap-1.5`/`rounded-full`/`h-auto` 覆盖，原 `aria-pressed` / inline style 全部保留。
 
-- [ ] [P1][todo] **ui-styling: DayDetailSheet.tsx 的 6 个 `<button>` 迁到 shadcn Button**
+- [x] [P1][done] **ui-styling: DayDetailSheet.tsx 的 6 个 `<button>` 迁到 shadcn Button**
   - 同上规则，文件换成 `src/components/DayDetail/DayDetailSheet.tsx`
   - 验收：
     - `grep -c "<button" src/components/DayDetail/DayDetailSheet.tsx` == 0
     - lint 错误数 ≤ baseline
     - vitest 仍 pass
+  - **验收输出**：
+    - `grep -c "<button" src/components/DayDetail/DayDetailSheet.tsx`：**0**（== 0 ✓）
+    - `npm run lint`：**215 errors / 67 warnings**（与 baseline 持平 ✓；本文件未触碰预存 any/empty 等问题）
+    - `npx vitest run`：**9 files / 51 tests passed**（3.09s）
+    - `npm run build`：✓ built in 9.27s（vite 5.4.21，无报错）
+  - **实现备注**：6 处全部 `variant="ghost"` + `size="icon"`。3 类尺寸覆盖手法：
+    1. photo-preview 删除按钮（绝对定位 5×5px、bg-foreground/text-background）：用 `h-5 w-5` + `[&_svg]:size-3` 把 cva 的 `h-10 w-10` 与默认 `[&_svg]:size-4` 同时盖掉，并写 `hover:bg-foreground/90 hover:text-background` 保留原本"非 hover 配色"语义（ghost 默认 hover 翻成 accent 色会破坏 fg/bg 反色）。
+    2. 内联文本链按钮（location 清除）：`h-auto w-auto p-0` + `hover:bg-transparent`，让按钮完全贴合 lucide 12px 图标自身尺寸不撑大父级 chip。
+    3. 4 个 p-2 圆形 toggle/trigger（emoji popover trigger / 图片上传 / 位置 popover trigger / 关闭表单）：`h-auto w-auto p-2 rounded-full` 走 cva ghost 的 hover-accent，但 emoji & location 两处保留 `selectedEmoji` / `selectedLocation` 的高亮态（自己提供 bg-primary/10 + hover:bg-primary/15，避免被 ghost 默认 hover 覆盖）。两个 PopoverTrigger asChild 都保留——shadcn Button 内部就是 forwardRef，Slot 透传 OK。
 
 - [ ] [P2][todo] **ui-ux-pro-max: DueCard.tsx 视觉层级复审**
   - 动作：调用 `Skill(ui-ux-pro-max)` 对 `src/components/views/dues/DueCard.tsx` 做层级 / 间距 / 对比度审计；输出 diff 落到代码
