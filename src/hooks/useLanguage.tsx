@@ -4,7 +4,7 @@ import { useProfile } from '@/hooks/useProfile';
 type Lang = 'zh' | 'en';
 
 const translations: Record<string, Record<Lang, string>> = {
-  // TopNav
+  // Primary nav
   'nav.today': { zh: '今日', en: 'Today' },
   'nav.calendar': { zh: '日历', en: 'Calendar' },
   'nav.recap': { zh: '回顾', en: 'Recap' },

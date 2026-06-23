@@ -14,6 +14,7 @@ import { PlanView } from '@/components/views/PlanView';
 import { CalendarView } from '@/components/views/CalendarView';
 import { MapView } from '@/components/views/MapView';
 import { DuesView } from '@/components/views/DuesView';
+import { HabitsView } from '@/components/views/HabitsView';
 import { ProfileView } from '@/components/views/ProfileView';
 import { StickyNotesView } from '@/components/views/StickyNotesView';
 import { LinksView } from '@/components/views/LinksView';
@@ -73,6 +74,32 @@ class AppSectionErrorBoundary extends Component<
 
     return this.props.children;
   }
+}
+
+function AppSideSheet({
+  open,
+  onOpenChange,
+  maxWidthClass,
+  children,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  maxWidthClass: string;
+  children: ReactNode;
+}) {
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="right"
+        className={cn(
+          'w-full p-0 border-border/60 bg-background/95 shadow-[0_24px_70px_hsl(var(--foreground)/0.14)] backdrop-blur-xl',
+          maxWidthClass,
+        )}
+      >
+        {children}
+      </SheetContent>
+    </Sheet>
+  );
 }
 
 const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
@@ -686,45 +713,27 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
         </AppSectionErrorBoundary>
       )}
 
-      {/* Notes sheet */}
-      <Sheet open={activeSheet === 'notes'} onOpenChange={(open) => setActiveSheet(open ? 'notes' : null)}>
-        <SheetContent side="right" className="w-full p-0 sm:max-w-[720px] border-border/60 bg-background/95 shadow-[0_24px_70px_hsl(var(--foreground)/0.14)] backdrop-blur-xl">
-          <StickyNotesView />
-        </SheetContent>
-      </Sheet>
+      <AppSideSheet open={activeSheet === 'notes'} onOpenChange={(open) => setActiveSheet(open ? 'notes' : null)} maxWidthClass="sm:max-w-[720px]">
+        <StickyNotesView />
+      </AppSideSheet>
 
-      {/* Dues sheet */}
-      <Sheet open={activeSheet === 'dues'} onOpenChange={(open) => setActiveSheet(open ? 'dues' : null)}>
-        <SheetContent side="right" className="w-full p-0 sm:max-w-[780px] border-border/60 bg-background/95 shadow-[0_24px_70px_hsl(var(--foreground)/0.14)] backdrop-blur-xl">
-          <DuesView
-            onBack={() => setActiveSheet(null)}
-            onOpenVoiceSheet={() => setVoiceSheetOpen(true)}
-            voiceSheetOpen={voiceSheetOpen}
-            initialMode="deadline"
-            lockedMode
-          />
-        </SheetContent>
-      </Sheet>
+      <AppSideSheet open={activeSheet === 'dues'} onOpenChange={(open) => setActiveSheet(open ? 'dues' : null)} maxWidthClass="sm:max-w-[780px]">
+        <DuesView
+          onBack={() => setActiveSheet(null)}
+          onOpenVoiceSheet={() => setVoiceSheetOpen(true)}
+          voiceSheetOpen={voiceSheetOpen}
+          initialMode="deadline"
+          lockedMode
+        />
+      </AppSideSheet>
 
-      {/* Habits sheet */}
-      <Sheet open={activeSheet === 'habits'} onOpenChange={(open) => setActiveSheet(open ? 'habits' : null)}>
-        <SheetContent side="right" className="w-full p-0 sm:max-w-[680px] border-border/60 bg-background/95 shadow-[0_24px_70px_hsl(var(--foreground)/0.14)] backdrop-blur-xl">
-          <DuesView
-            onBack={() => setActiveSheet(null)}
-            onOpenVoiceSheet={() => setVoiceSheetOpen(true)}
-            voiceSheetOpen={voiceSheetOpen}
-            initialMode="habit"
-            lockedMode
-          />
-        </SheetContent>
-      </Sheet>
+      <AppSideSheet open={activeSheet === 'habits'} onOpenChange={(open) => setActiveSheet(open ? 'habits' : null)} maxWidthClass="sm:max-w-[520px]">
+        <HabitsView />
+      </AppSideSheet>
 
-      {/* Links sheet */}
-      <Sheet open={activeSheet === 'links'} onOpenChange={(open) => setActiveSheet(open ? 'links' : null)}>
-        <SheetContent side="right" className="w-full p-0 sm:max-w-[680px] border-border/60 bg-background shadow-[0_24px_70px_hsl(var(--foreground)/0.14)]">
-          <LinksView />
-        </SheetContent>
-      </Sheet>
+      <AppSideSheet open={activeSheet === 'links'} onOpenChange={(open) => setActiveSheet(open ? 'links' : null)} maxWidthClass="sm:max-w-[680px]">
+        <LinksView />
+      </AppSideSheet>
 
       <AppSectionErrorBoundary label="VoiceInputSheet">
         <VoiceInputSheet

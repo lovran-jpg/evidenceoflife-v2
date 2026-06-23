@@ -10,6 +10,7 @@ import { MomentLinkPreview } from '@/types';
 import { validatePhotoFile } from '@/lib/photoValidation';
 import { useProfile } from '@/hooks/useProfile';
 import { showUndoToast } from '@/lib/undoToast';
+import { SheetHeader, SheetEmptyState } from '@/components/sheet/SheetShell';
 
 // Warm, brand-aligned pastel palettes so sticky notes read as part of the
 // same cream/terracotta/sage world as the rest of the app — not bolted-on
@@ -596,109 +597,111 @@ export function StickyNotesView() {
 
   return (
     <div className="flex h-full flex-col bg-[hsl(var(--surface-soft))]">
-      {/* Header */}
-      <div className="bg-background/95 px-5 pb-3 pt-4 border-b border-border/55 backdrop-blur-xl">
-        <div className="mb-3">
-          <h2 className="text-[19px] font-semibold tracking-[-0.03em] text-foreground">{t('notes.header')}</h2>
-          <p className="mt-1 text-[12px] font-medium text-muted-foreground/55">Small lists, images, and things to remember.</p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {tabs.map(tab => {
-            const pal = COLOR_PALETTES[tab.colorIndex % COLOR_PALETTES.length];
-            const count = notes.filter(n => n.category === tab.id).reduce((s, n) => s + n.items.filter(it => !it.done).length, 0);
-            const isActive = activeTabId === tab.id;
-            return (
-              <div
-                key={tab.id}
-                draggable
-                onDragStart={() => setDraggedTabId(tab.id)}
-                onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
-                onDrop={e => {
-                  e.preventDefault();
-                  if (!draggedTabId || draggedTabId === tab.id) return;
-                  setTabs(prev => {
-                    const from = prev.findIndex(t => t.id === draggedTabId);
-                    const to = prev.findIndex(t => t.id === tab.id);
-                    if (from < 0 || to < 0) return prev;
-                    const next = [...prev];
-                    const [moved] = next.splice(from, 1);
-                    next.splice(to, 0, moved);
-                    return next;
-                  });
-                  setDraggedTabId(null);
-                }}
-                onDragEnd={() => setDraggedTabId(null)}
-                className={cn(
-                  'group/tab flex items-center gap-1 rounded-full border transition-all cursor-grab active:cursor-grabbing',
-                  isActive ? cn(pal.bg, pal.border, pal.text, 'shadow-sm px-2 py-1') : 'text-muted-foreground border-border bg-card hover:text-foreground px-2.5 py-1',
-                  draggedTabId === tab.id && 'opacity-50'
-                )}
-              >
-                {/* Color dot — click to cycle color */}
-                <button
-                  onClick={() => handleCycleColor(tab.id)}
-                  className={cn('w-2 h-2 rounded-full flex-shrink-0', pal.header)}
-                  title="Click to change color"
-                />
-                {/* Tab name — click to activate, double-click to rename */}
-                {editingTabId === tab.id ? (
-                  <input
-                    autoFocus
-                    value={tabDraft}
-                    onChange={e => setTabDraft(e.target.value)}
-                    onBlur={() => handleRenameTab(tab.id)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') handleRenameTab(tab.id);
-                      if (e.key === 'Escape') setEditingTabId(null);
-                    }}
-                    className={cn('text-xs font-medium bg-transparent focus:outline-none w-20 border-b border-current/30', pal.text)}
-                    onClick={e => e.stopPropagation()}
+      <SheetHeader
+        title={t('notes.header')}
+        subtitle={lang === 'zh' ? '小清单、图片和需要记住的事。' : 'Small lists, images, and things to remember.'}
+        secondaryRow={
+          <div className="flex flex-wrap items-center gap-2">
+            {tabs.map(tab => {
+              const pal = COLOR_PALETTES[tab.colorIndex % COLOR_PALETTES.length];
+              const count = notes.filter(n => n.category === tab.id).reduce((s, n) => s + n.items.filter(it => !it.done).length, 0);
+              const isActive = activeTabId === tab.id;
+              return (
+                <div
+                  key={tab.id}
+                  draggable
+                  onDragStart={() => setDraggedTabId(tab.id)}
+                  onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+                  onDrop={e => {
+                    e.preventDefault();
+                    if (!draggedTabId || draggedTabId === tab.id) return;
+                    setTabs(prev => {
+                      const from = prev.findIndex(t => t.id === draggedTabId);
+                      const to = prev.findIndex(t => t.id === tab.id);
+                      if (from < 0 || to < 0) return prev;
+                      const next = [...prev];
+                      const [moved] = next.splice(from, 1);
+                      next.splice(to, 0, moved);
+                      return next;
+                    });
+                    setDraggedTabId(null);
+                  }}
+                  onDragEnd={() => setDraggedTabId(null)}
+                  className={cn(
+                    'group/tab flex items-center gap-1 rounded-full border transition-all cursor-grab active:cursor-grabbing',
+                    isActive ? cn(pal.bg, pal.border, pal.text, 'shadow-sm px-2 py-1') : 'text-muted-foreground border-border bg-card hover:text-foreground px-2.5 py-1',
+                    draggedTabId === tab.id && 'opacity-50'
+                  )}
+                >
+                  {/* Color dot — click to cycle color */}
+                  <button
+                    onClick={() => handleCycleColor(tab.id)}
+                    className={cn('w-2 h-2 rounded-full flex-shrink-0', pal.header)}
+                    title={lang === 'zh' ? '点击切换颜色' : 'Click to change color'}
                   />
-                ) : (
-                  <button
-                    onClick={() => setActiveTabId(tab.id)}
-                    onDoubleClick={() => { setEditingTabId(tab.id); setTabDraft(tab.name); }}
-                    className={cn('text-xs font-medium', isActive ? pal.text : '')}
-                  >
-                    {tab.name}
-                  </button>
-                )}
-                {count > 0 && (
-                  <span className={cn('text-[10px] font-semibold min-w-[14px] text-center', isActive ? '' : 'text-muted-foreground')}>
-                    {count}
-                  </span>
-                )}
-                {/* Delete tab — show on hover */}
-                {tabs.length > 1 && (
-                  <button
-                    onClick={e => { e.stopPropagation(); handleDeleteTab(tab.id); }}
-                    className={cn('opacity-0 group-hover/tab:opacity-40 hover:!opacity-80 transition-opacity flex-shrink-0', isActive ? pal.text : 'text-muted-foreground')}
-                    title="Delete tab"
-                  >
-                    <X size={10} />
-                  </button>
-                )}
-              </div>
-            );
-          })}
-          {/* Add tab */}
-          <button
-            onClick={handleAddTab}
-            className="flex items-center gap-1 px-2 py-1 rounded-full border border-dashed border-border text-[11px] text-muted-foreground/50 hover:text-muted-foreground hover:border-border/80 transition-colors"
-          >
-            <Plus size={11} />
-          </button>
-        </div>
-      </div>
+                  {/* Tab name — click to activate, double-click to rename */}
+                  {editingTabId === tab.id ? (
+                    <input
+                      autoFocus
+                      value={tabDraft}
+                      onChange={e => setTabDraft(e.target.value)}
+                      onBlur={() => handleRenameTab(tab.id)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') handleRenameTab(tab.id);
+                        if (e.key === 'Escape') setEditingTabId(null);
+                      }}
+                      className={cn('text-xs font-medium bg-transparent focus:outline-none w-20 border-b border-current/30', pal.text)}
+                      onClick={e => e.stopPropagation()}
+                    />
+                  ) : (
+                    <button
+                      onClick={() => setActiveTabId(tab.id)}
+                      onDoubleClick={() => { setEditingTabId(tab.id); setTabDraft(tab.name); }}
+                      className={cn('text-xs font-medium', isActive ? pal.text : '')}
+                    >
+                      {tab.name}
+                    </button>
+                  )}
+                  {count > 0 && (
+                    <span className={cn('text-[10px] font-semibold min-w-[14px] text-center', isActive ? '' : 'text-muted-foreground')}>
+                      {count}
+                    </span>
+                  )}
+                  {/* Delete tab — show on hover */}
+                  {tabs.length > 1 && (
+                    <button
+                      onClick={e => { e.stopPropagation(); handleDeleteTab(tab.id); }}
+                      className={cn('opacity-0 group-hover/tab:opacity-40 hover:!opacity-80 transition-opacity flex-shrink-0', isActive ? pal.text : 'text-muted-foreground')}
+                      title={lang === 'zh' ? '删除标签' : 'Delete tab'}
+                      aria-label={lang === 'zh' ? '删除标签' : 'Delete tab'}
+                    >
+                      <X size={10} />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+            {/* Add tab */}
+            <button
+              onClick={handleAddTab}
+              className="flex items-center gap-1 px-2 py-1 rounded-full border border-dashed border-border text-[11px] text-muted-foreground/50 hover:text-muted-foreground hover:border-border/80 transition-colors"
+              aria-label={lang === 'zh' ? '新建标签' : 'New tab'}
+            >
+              <Plus size={11} />
+            </button>
+          </div>
+        }
+      />
 
       {/* Board */}
       <div className="flex-1 overflow-y-auto px-5 pt-4 pb-4">
         {/* Cards — masonry columns, each card sizes to its own content */}
         {filtered.length === 0 ? (
-          <div className="mt-12 text-center">
-            <p className="text-3xl mb-2">📝</p>
-            <p className="text-sm text-muted-foreground">{t('notes.empty')}</p>
-          </div>
+          <SheetEmptyState
+            icon={<Plus size={20} />}
+            title={t('notes.empty')}
+            hint={lang === 'zh' ? '在下方输入便签名,按 Enter 创建。' : 'Type a note name below and press Enter to create one.'}
+          />
         ) : (
           <div
             className="[column-gap:1.25rem] [column-width:230px]"
@@ -743,7 +746,7 @@ export function StickyNotesView() {
       </div>
 
       <div className="flex-shrink-0 bg-gradient-to-t from-[hsl(var(--surface-soft))] via-[hsl(var(--surface-soft)/0.96)] to-[hsl(var(--surface-soft)/0)] px-5 pb-4 pt-3">
-        <div className="rounded-[22px] bg-background/70 p-1 backdrop-blur-xl shadow-[0_18px_44px_hsl(var(--foreground)/0.1)]">
+        <div className="rounded-2xl bg-background/70 p-1 backdrop-blur-xl shadow-[0_18px_44px_hsl(var(--foreground)/0.1)]">
           <div className="flex min-h-[44px] items-center gap-2 rounded-[18px] border border-border bg-card px-3 py-2 transition-colors focus-within:border-foreground/20">
             <span className={cn('flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full', palette.header, palette.text)}>
               <Plus size={14} />

@@ -29,7 +29,7 @@ Requires Node.js 18+ and npm.
 
 ```sh
 # 1. Install dependencies
-npm install
+ 
 
 # 2. Configure environment
 cp .env.example .env   # then fill in your Supabase project values

@@ -3,11 +3,14 @@ import { ChevronDown, ExternalLink, Link2, Loader2, Plus, X, Camera, Pencil, Gri
 import { useLinks, LinkGroup, LinkSection, LinkItem } from '@/hooks/useLinks';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useLanguage } from '@/hooks/useLanguage';
 import { toast } from 'sonner';
 import { cn, isEnterSubmit } from '@/lib/utils';
 import { normalizeUrl, isUrlLike as isUrl, getDomain, getFaviconUrl } from '@/lib/linkUtils';
 import { showUndoToast } from '@/lib/undoToast';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { SheetHeader, SheetEmptyState } from '@/components/sheet/SheetShell';
+import { SheetComposer } from '@/components/sheet/SheetComposer';
 
 /**
  * Each card cycles through one of these accent palettes for visual
@@ -146,10 +149,11 @@ function LinkRow({ link, onRemove, onRename, onDragStart, onDragEnd }: {
       </span>
       <div className="flex flex-shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover/lk:opacity-100">
         <a href={link.url} target="_blank" rel="noopener noreferrer"
+          aria-label="Open link in new tab"
           className="rounded p-1 text-muted-foreground/40 transition-colors hover:text-foreground" onClick={e => e.stopPropagation()}>
           <ExternalLink size={10} />
         </a>
-        <button onClick={onRemove} className="rounded p-1 text-muted-foreground/30 transition-colors hover:text-destructive/70">
+        <button onClick={onRemove} aria-label="Remove link" className="rounded p-1 text-muted-foreground/30 transition-colors hover:text-destructive/70">
           <X size={10} />
         </button>
       </div>
@@ -228,7 +232,7 @@ function SectionCard({
       {/* Section header — only when multiple sections */}
       {!isSoleSection && (
         <div className="flex items-center gap-1 px-2 py-1">
-          <button onClick={onToggle} className="flex h-4 w-4 flex-shrink-0 items-center justify-center text-muted-foreground/35 hover:text-foreground transition-colors">
+          <button onClick={onToggle} aria-label={section.collapsed ? 'Expand section' : 'Collapse section'} className="flex h-4 w-4 flex-shrink-0 items-center justify-center text-muted-foreground/35 hover:text-foreground transition-colors">
             <ChevronDown size={11} className={cn("transition-transform", section.collapsed && "-rotate-90")} />
           </button>
           <InlineEditableText
@@ -239,6 +243,7 @@ function SectionCard({
           />
           <button
             onClick={() => { if (confirmDelete) onDelete(); else { setConfirmDelete(true); setTimeout(() => setConfirmDelete(false), 2500); } }}
+            aria-label={confirmDelete ? 'Confirm delete section' : 'Delete section'}
             className={cn('text-[9px] transition-colors', confirmDelete ? 'text-destructive font-semibold' : 'text-muted-foreground/20 hover:text-muted-foreground/55')}
           >
             {confirmDelete ? 'Delete?' : <X size={10} />}
@@ -270,7 +275,7 @@ function SectionCard({
                   <button type="button" onClick={() => setPreviewPhoto(photo)} className="h-full w-full">
                     <img src={photo} alt="" className="h-full w-full object-cover" />
                   </button>
-                  <button onClick={() => onRemovePhoto(photo)}
+                  <button onClick={() => onRemovePhoto(photo)} aria-label="Remove photo"
                     className="absolute inset-0 flex items-center justify-center bg-black/50 text-white opacity-0 transition-opacity group-hover/ph:opacity-100">
                     <X size={8} />
                   </button>
@@ -360,7 +365,7 @@ function GroupCard({
       onDragOver={e => { if (draggingLink) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
       onDrop={e => { if (draggingLink) return; e.preventDefault(); onGroupDrop(); }}
       className={cn(
-        'group/card overflow-hidden rounded-[16px] border shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-all',
+        'group/card overflow-hidden rounded-2xl border shadow-[0_8px_24px_-18px_rgba(80,68,58,0.18)] transition-all',
         accent.shell,
         isGroupDropTarget ? 'ring-2 ring-primary/25' : ''
       )}
@@ -403,6 +408,7 @@ function GroupCard({
         {/* Delete */}
         <button
           onClick={e => { e.stopPropagation(); onDelete(); }}
+          aria-label="Delete collection"
           className={cn('flex-shrink-0 text-[10px] transition-all opacity-0 group-hover/card:opacity-100', 'text-muted-foreground/35 hover:text-muted-foreground/70')}
         >
           <X size={12} />
@@ -465,6 +471,7 @@ export function LinksView() {
     addLink, renameLink, removeLink, moveLink, addPhoto, removePhoto,
   } = useLinks();
   const { user } = useAuth();
+  const { lang } = useLanguage();
 
   const handleDeleteGroup = useCallback((id: string) => {
     const index = groups.findIndex(g => g.id === id);
@@ -509,21 +516,19 @@ export function LinksView() {
 
   return (
     <div className="flex h-full flex-col bg-background">
-      {/* Header */}
-      <div className="flex-shrink-0 px-4 py-3">
-        <div className="flex items-center gap-2">
-          <Link2 size={15} className="text-muted-foreground/60" />
-          <h2 className="text-[18px] font-semibold tracking-[-0.03em] text-foreground">Links</h2>
-        </div>
-      </div>
+      <SheetHeader
+        title={lang === 'zh' ? '链接' : 'Links'}
+        subtitle={lang === 'zh' ? '保存网址,自动归类成卡片。' : 'Save URLs and group them into collections.'}
+      />
 
       {/* Groups grid */}
-      <div className="flex-1 overflow-y-auto px-3 pt-1 pb-4">
+      <div className="flex-1 overflow-y-auto px-3 pt-3 pb-4">
         {groups.length === 0 ? (
-          <div className="mt-16 text-center">
-            <p className="mb-2 text-2xl">🔗</p>
-            <p className="text-sm text-muted-foreground/55">Paste a URL or type a name to start</p>
-          </div>
+          <SheetEmptyState
+            icon={<Link2 size={20} />}
+            title={lang === 'zh' ? '还没有链接' : 'No links yet'}
+            hint={lang === 'zh' ? '在下方粘贴网址,或输入一个集合名。' : 'Paste a URL below, or type a collection name to start.'}
+          />
         ) : (
           <div className="grid grid-cols-2 gap-1.5 items-start">
             {groups.map((group, groupIndex) => (
@@ -556,30 +561,22 @@ export function LinksView() {
 
       {/* Bottom input */}
       <div className="flex-shrink-0 bg-gradient-to-t from-background via-background/95 to-background/0 px-4 pb-4 pt-3">
-        <div className="rounded-[20px] bg-background/70 p-1 backdrop-blur-xl shadow-[0_12px_32px_rgba(80,68,58,0.10)]">
-          <div className="overflow-hidden rounded-[16px] border border-border/60 bg-card/94">
-            <div className="flex min-h-[42px] items-center gap-2 px-3 py-2">
-              <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-[hsl(var(--surface-soft))] text-muted-foreground">
-                <Link2 size={13} />
-              </span>
-              <input
-                value={draft} onChange={e => setDraft(e.target.value)}
-                onKeyDown={e => { if (isEnterSubmit(e) && (draft.trim() || !fetching)) handleAdd(); }}
-                onPaste={handlePaste}
-                placeholder="Add a link or collection…"
-                className="min-w-0 flex-1 bg-transparent text-[13px] font-medium text-foreground focus:outline-none placeholder:text-muted-foreground/45"
-              />
-              {fetching ? (
-                <Loader2 size={14} className="flex-shrink-0 animate-spin text-muted-foreground/50" />
-              ) : (
-                <button onClick={handleAdd} disabled={!draft.trim()}
-                  className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-[#dfb9a8] text-white transition-colors hover:bg-[#d6aa96] disabled:opacity-35">
-                  <Plus size={14} />
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
+        <SheetComposer
+          value={draft}
+          onChange={setDraft}
+          onSubmit={() => { if (draft.trim() && !fetching) handleAdd(); }}
+          onPaste={handlePaste}
+          placeholder="Add a link or collection…"
+          loading={fetching}
+          leading={
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[hsl(var(--surface-soft))] text-muted-foreground">
+              <Link2 size={15} />
+            </span>
+          }
+          trailing={
+            fetching ? <Loader2 size={14} className="animate-spin text-muted-foreground/50" /> : null
+          }
+        />
       </div>
 
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={() => { if (fileInputRef.current) fileInputRef.current.value = ''; }} />

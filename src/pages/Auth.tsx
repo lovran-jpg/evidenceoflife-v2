@@ -205,22 +205,18 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(212,135,95,0.08),_transparent_34%),hsl(var(--background))] flex items-center justify-center px-4 py-10">
-      <div className="w-full max-w-[430px] rounded-[32px] border border-border/60 bg-[hsl(var(--card))/0.78] px-7 py-8 shadow-[0_24px_80px_hsl(var(--foreground)/0.10)] backdrop-blur-xl">
+    <div className="min-h-screen bg-background flex items-center justify-center px-4 py-10">
+      <div className="w-full max-w-[400px] rounded-2xl border border-border bg-card px-7 py-8 shadow-soft">
         <div className="flex flex-col items-center gap-2 text-center">
-          <BrandLogo alt="Logo" className="w-20 h-20" />
-          <h1
-            className="font-brand text-[38px] text-foreground"
-          >
-            Evidence of life
-          </h1>
-          <p className="text-[15px] text-muted-foreground/85">Record your daily moments</p>
+          <BrandLogo alt="Logo" className="w-16 h-16" />
+          <h1 className="font-brand text-[34px] text-foreground">Evidence of life</h1>
+          <p className="text-sm text-muted-foreground">Record your daily moments</p>
         </div>
 
-        <div className="mt-8 space-y-3">
+        <div className="mt-7">
           <Button
             variant="outline"
-            className="w-full h-12 rounded-2xl border-border/70 bg-[hsl(var(--background))/0.32] text-base gap-3 hover:bg-[hsl(var(--background))/0.48]"
+            className="w-full h-11 rounded-xl text-base gap-3"
             onClick={handleGoogleSignIn}
             disabled={googleLoading || loading}
             type="button"
@@ -247,16 +243,7 @@ export default function Auth() {
           </Button>
         </div>
 
-        <div className="relative my-6">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-border/70" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-[hsl(var(--card))] px-3 text-muted-foreground/70">or</span>
-          </div>
-        </div>
-
-        <form onSubmit={handleEmailAuth} className="space-y-4">
+        <form onSubmit={handleEmailAuth} className="mt-6 space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
@@ -266,7 +253,7 @@ export default function Auth() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
               required
-              className="h-12 rounded-2xl border-border/70 bg-[hsl(var(--background))/0.34] px-4 text-base"
+              className="h-11 rounded-xl text-base"
             />
           </div>
 
@@ -280,14 +267,14 @@ export default function Auth() {
               placeholder="••••••••"
               required
               minLength={6}
-              className="h-12 rounded-2xl border-border/70 bg-[hsl(var(--background))/0.34] px-4 text-base"
+              className="h-11 rounded-xl text-base"
             />
           </div>
 
           <Button
             type="submit"
             disabled={loading || googleLoading}
-            className="mt-2 w-full h-12 rounded-2xl text-base"
+            className="mt-2 w-full h-11 rounded-xl text-base"
           >
             {loading ? '...' : isLogin ? 'Sign in' : 'Create account'}
           </Button>
@@ -295,7 +282,7 @@ export default function Auth() {
           {errorMsg && <p className="text-sm text-destructive text-center">{errorMsg}</p>}
         </form>
 
-        <p className="mt-7 text-center text-sm text-muted-foreground">
+        <p className="mt-6 text-center text-sm text-muted-foreground">
           {isLogin ? "Don't have an account?" : 'Already have an account?'}{' '}
           <button
             type="button"

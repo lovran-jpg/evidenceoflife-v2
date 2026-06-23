@@ -1,14 +1,18 @@
-import { useMemo, useState } from 'react';
-import { CheckCircle2, Timer, Camera, MapPin, Link2, Sparkles } from 'lucide-react';
-import type { Moment } from '@/types';
+import { useMemo, useState, useCallback } from 'react';
+import { CheckCircle2, Timer, Camera, MapPin, Link2, Sparkles, Loader2, X } from 'lucide-react';
+import type { Moment, MomentLinkPreview } from '@/types';
 import { useLanguage } from '@/hooks/useLanguage';
+import { LinkPreviewCard } from '@/components/LinkPreviewCard';
+import { extractFirstUrl, normalizeUrl } from '@/lib/linkUtils';
+import { isStandaloneUrl } from './todayHelpers';
+import { supabase } from '@/integrations/supabase/client';
 interface EvidenceReviewCardProps {
   moments: Moment[];
   todosDone?: number;
   todosTotal?: number;
   // Existing reflection moment for the day, if the user already answered.
   reflection?: Moment | null;
-  onSaveReflection: (text: string) => void;
+  onSaveReflection: (text: string, attachments?: { photos?: string[]; links?: MomentLinkPreview[] }) => void;
 }
 
 // "End-of-day Evidence Review" — the payoff surface of the daily loop. It
@@ -18,6 +22,9 @@ export function EvidenceReviewCard({ moments, todosDone, todosTotal, reflection,
   const { t } = useLanguage();
   const [draft, setDraft] = useState('');
   const [celebrating, setCelebrating] = useState(false);
+  const [draftPhotos, setDraftPhotos] = useState<string[]>([]);
+  const [draftLinks, setDraftLinks] = useState<MomentLinkPreview[]>([]);
+  const [isResolvingLink, setIsResolvingLink] = useState(false);
 
   const stats = useMemo(() => {
     let focusSeconds = 0;
@@ -57,12 +64,74 @@ export function EvidenceReviewCard({ moments, todosDone, todosTotal, reflection,
 
   const handleSave = () => {
     const text = draft.trim();
-    if (!text) return;
-    onSaveReflection(text);
+    if (!text && draftPhotos.length === 0 && draftLinks.length === 0) return;
+    onSaveReflection(text, {
+      photos: draftPhotos.length > 0 ? draftPhotos : undefined,
+      links: draftLinks.length > 0 ? draftLinks : undefined,
+    });
     setDraft('');
+    setDraftPhotos([]);
+    setDraftLinks([]);
     // Gentle celebration — wiring the habit with a calm moment of payoff.
     setCelebrating(true);
     window.setTimeout(() => setCelebrating(false), 1400);
+  };
+
+  const addDraftLink = useCallback(async (rawUrl: string) => {
+    const url = normalizeUrl(rawUrl);
+    if (!url) return;
+    const siteFallback = (() => {
+      try { return new URL(url).hostname.replace(/^www\./, ''); }
+      catch { return url; }
+    })();
+    let shouldFetch = false;
+    setDraftLinks(prev => {
+      if (prev.some(l => l.url === url)) return prev;
+      shouldFetch = true;
+      return [...prev, { url, siteName: siteFallback, title: siteFallback }];
+    });
+    if (!shouldFetch) return;
+    setIsResolvingLink(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('link-preview', { body: { url } });
+      if (error) return;
+      const preview: MomentLinkPreview = {
+        url,
+        title: typeof data?.title === 'string' ? data.title : siteFallback,
+        description: typeof data?.description === 'string' ? data.description : undefined,
+        image: typeof data?.image === 'string' ? data.image : undefined,
+        siteName: typeof data?.siteName === 'string' ? data.siteName : siteFallback,
+      };
+      setDraftLinks(prev => prev.map(l => l.url === url ? { ...l, ...preview } : l));
+    } catch { /* silent */ }
+    finally { setIsResolvingLink(false); }
+  }, []);
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    let handledImage = false;
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        handledImage = true;
+        const file = item.getAsFile();
+        if (!file) continue;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const dataUrl = ev.target?.result as string;
+          if (dataUrl) setDraftPhotos(prev => [...prev, dataUrl]);
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+    if (handledImage) return;
+    const pastedText = e.clipboardData.getData('text/plain');
+    const pastedUrl = extractFirstUrl(pastedText);
+    if (pastedUrl && isStandaloneUrl(pastedUrl)) {
+      e.preventDefault();
+      void addDraftLink(pastedUrl);
+    }
   };
 
   return (
@@ -110,9 +179,45 @@ export function EvidenceReviewCard({ moments, todosDone, todosTotal, reflection,
         </div>
       ) : (
         <div className="mt-2">
+          {(draftPhotos.length > 0 || draftLinks.length > 0 || isResolvingLink) && (
+            <div className="mb-2 space-y-2">
+              {draftPhotos.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {draftPhotos.map((src, i) => (
+                    <div key={i} className="relative h-14 w-14 overflow-hidden rounded-lg border border-[#e7d9cc]/70 dark:border-foreground/[0.12]">
+                      <img src={src} alt="" className="h-full w-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setDraftPhotos(prev => prev.filter((_, idx) => idx !== i))}
+                        className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-foreground text-background"
+                        aria-label="Remove"
+                      >
+                        <X size={9} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {draftLinks.map((link, index) => (
+                <LinkPreviewCard
+                  key={`${link.url}-${index}`}
+                  preview={link}
+                  compact
+                  onRemove={() => setDraftLinks(prev => prev.filter((_, i) => i !== index))}
+                />
+              ))}
+              {isResolvingLink && (
+                <div className="flex items-center gap-2 rounded-xl bg-[hsl(var(--surface-soft))] px-3 py-2 text-[12px] text-muted-foreground">
+                  <Loader2 size={13} className="animate-spin" />
+                  <span>{t('plan.loadingLink') || 'Loading link preview…'}</span>
+                </div>
+              )}
+            </div>
+          )}
           <textarea
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
+            onPaste={handlePaste}
             placeholder={t('review.placeholder')}
             rows={2}
             className="w-full resize-none rounded-xl border border-[#e7d9cc]/80 bg-white/70 px-3 py-2.5 text-[13px] leading-6 text-[#5d493d] outline-none transition-colors placeholder:text-[#bcaa9a] focus:border-[#c9ad9a] dark:border-foreground/[0.12] dark:bg-foreground/[0.04] dark:text-foreground/90"
@@ -121,7 +226,7 @@ export function EvidenceReviewCard({ moments, todosDone, todosTotal, reflection,
             <button
               type="button"
               onClick={handleSave}
-              disabled={!draft.trim()}
+              disabled={!draft.trim() && draftPhotos.length === 0 && draftLinks.length === 0}
               className="inline-flex items-center gap-1.5 rounded-full bg-[#c98b63] px-4 py-1.5 text-[12px] font-semibold text-white transition-opacity hover:bg-[#bd7e57] disabled:opacity-40"
             >
               <span>💛</span>

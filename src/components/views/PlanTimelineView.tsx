@@ -38,6 +38,9 @@ import {
   MAX_TIMELINE_TITLE_FONT_PX,
   formatGapMinutesLabel,
   TimelineIntervalPill,
+  TimelineSpine,
+  TimelineSpineBranch,
+  SPINE_X_PX,
   hourLabel,
   fmtTime,
   localMinuteToISOString,
@@ -1080,8 +1083,11 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
     if (block.isCompleted) {
       actualFillPct = 100;
     } else if (isTimerActive && hasActual) {
-      // Use seconds so active blocks still show progress when the rounded minute boundary matches the live end.
-      const elapsedInBlock = Math.max(0, (nowMin + nowSec / 60) - actualStart);
+      // Use the pause-aware elapsed seconds from PlanView (getCurrentSessionElapsed),
+      // not wall-clock minutes, so the fill freezes during rest and resumes after.
+      // Falls back to wall-clock if no getTimerElapsed was supplied (shouldn't happen for active timers).
+      const elapsedSec = getTimerElapsed ? getTimerElapsed(block.id) : Math.max(0, ((nowMin + nowSec / 60) - actualStart) * 60);
+      const elapsedInBlock = Math.max(0, elapsedSec / 60);
       const blockDuration = actualEnd - actualStart;
       actualFillPct = blockDuration > 0 ? Math.min(100, (elapsedInBlock / blockDuration) * 100) : 0;
     }
@@ -2139,6 +2145,34 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
             />
           )}
 
+          {/* Quiet vertical "spine" running the full day — a single visual thread
+              the eye follows from wake to bed. Branches from each leftmost block
+              hook back onto it so the day reads as continuous, even when
+              individual blocks have gaps between them. */}
+          <TimelineSpine isDarkMode={isDarkMode} totalHeight={totalHeight} />
+          {positioned.map(({ block, col }) => {
+            if (col !== 0) return null;
+            const startMinForBranch = block.actualStartMin ?? block.startMin;
+            const blockTop = minToY(Math.max(WAKE_TOTAL_MIN, Math.min(BED_TOTAL_MIN, startMinForBranch)));
+            const tagColor = getThemedTagColor(block.tags, block.title);
+            const accentColor =
+              tagColor
+              || (block.source === 'imported' ? '#8B91A8' : isDarkMode ? 'hsl(18, 45%, 57%)' : 'hsl(18, 45%, 55%)');
+            // Block's left edge in px = content-column-left (0) + leftPct% of column width.
+            // Because col 0 always means leftPct === 0, the block starts at x = gap/2 (≈3px).
+            // We render the branch out to ~that x.
+            const blockLeftPx = 3;
+            return (
+              <TimelineSpineBranch
+                key={`spine-branch-${block.id}`}
+                top={blockTop}
+                blockLeftPx={Math.max(SPINE_X_PX + 8, blockLeftPx + 28)}
+                accentColor={accentColor}
+                isDarkMode={isDarkMode}
+              />
+            );
+          })}
+
           {/* Half-hour slot grid: solid hour lines + dashed mid-hour lines */}
           {allSlots.map(slot => {
             const top = minToY(slot.startMin);
@@ -2428,7 +2462,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
               className="absolute left-0 right-0 z-[3] pointer-events-none flex items-center justify-center"
               style={{ top: minToY(Math.max(WAKE_TOTAL_MIN + 90, Math.min(nowMin, BED_TOTAL_MIN - 120))) }}
             >
-              <div className="w-[min(360px,calc(100%-32px))] rounded-[22px] border border-dashed border-border/45 bg-[hsl(var(--surface-contrast)/0.8)] px-4 py-4 text-center shadow-[0_12px_30px_hsl(var(--foreground)/0.04)] backdrop-blur-sm">
+              <div className="w-[min(360px,calc(100%-32px))] rounded-2xl border border-dashed border-border/45 bg-[hsl(var(--surface-contrast)/0.8)] px-4 py-4 text-center shadow-[0_12px_30px_hsl(var(--foreground)/0.04)] backdrop-blur-sm">
                 <p className="text-[13px] font-medium text-foreground/85">
                   {tOr('plan.dragHere', 'Drag a task here to schedule it')}
                 </p>

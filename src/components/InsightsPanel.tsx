@@ -630,7 +630,7 @@ export function InsightsPanel({ moments, allMoments }: { moments: Moment[]; allM
                     <div key={i} className="flex flex-1 flex-col items-center gap-2">
                       <div className="flex w-full flex-1 items-end">
                         <div
-                          className="w-full rounded-t-[18px] bg-gradient-to-t from-primary to-primary/55 px-2 pb-2 pt-4 shadow-[0_20px_36px_-24px_rgba(190,120,82,0.5)] transition-all"
+                          className="w-full rounded-t-[12px] bg-primary px-2 pb-2 pt-4 transition-all"
                           style={{ height: `${Math.max(12, (d.min / maxWeekMin) * 100)}%` }}
                         >
                           <div className="text-center text-[11px] font-semibold text-primary-foreground/90">

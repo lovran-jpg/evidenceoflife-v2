@@ -47,7 +47,7 @@ export function FocusRecapPrompt({ title, workingSec, completed, onSave, onSkip 
   return (
     <div className="fixed inset-0 z-[90] flex items-end justify-center sm:items-center">
       <div
-        className="absolute inset-0 bg-black/40 animate-fade-in"
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fade-in"
         onClick={onSkip}
       />
       <div className="relative z-10 w-full max-w-md rounded-t-3xl bg-[hsl(var(--background))] p-6 shadow-2xl animate-slide-up sm:rounded-3xl sm:m-4">

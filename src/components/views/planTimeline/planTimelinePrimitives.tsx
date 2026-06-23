@@ -13,7 +13,11 @@ export const SHOW_FREE_TIME_LABELS = true;
 export const TIME_RAIL_WIDTH_PX = 56;
 /** Calm planner canvas (light only — cool neutral, avoid heavy gray cast) */
 export const TIMELINE_CANVAS_LIGHT = '#f9fafc';
-/** Rounded “card” silhouette for timed blocks */
+/** X-offset of the spine inside the timeline content column, in px.
+ *  Sits just inside the content column's left edge so blocks (which start
+ *  at left: calc(0% + gap/2)) still have room to read. */
+export const SPINE_X_PX = 14;
+/** Rounded "card" silhouette for timed blocks */
 export const BLOCK_CORNER_PX = 14;
 /** In Both mode short blocks: plan dashed top+bottom seams crush title — soften chrome */
 export const SLIM_BOTH_OUTER_PX = 34;
@@ -113,6 +117,90 @@ export function TimelineIntervalPill({
     >
       {children}
     </div>
+  );
+}
+
+/**
+ * Quiet vertical "spine" running the full height of the timeline canvas.
+ * Acts as a visual thread the eye follows through the day. Soft-faded at
+ * top and bottom so it doesn't terminate harshly.
+ */
+export function TimelineSpine({
+  isDarkMode,
+  totalHeight,
+}: {
+  isDarkMode: boolean;
+  totalHeight: number;
+}) {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute top-0 z-0"
+      style={{
+        left: SPINE_X_PX,
+        width: 1,
+        height: totalHeight,
+        background: isDarkMode ? 'hsl(0 0% 100% / 0.10)' : 'hsl(220 10% 70% / 0.42)',
+        WebkitMaskImage: 'linear-gradient(to bottom, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%)',
+        maskImage: 'linear-gradient(to bottom, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%)',
+      }}
+    />
+  );
+}
+
+/**
+ * Tiny horizontal branch from the spine to a block's left edge, with a colored
+ * node dot anchored on the spine at the block's start time. Renders once per
+ * block (caller filters to col === 0 to avoid tangled crossings).
+ */
+export function TimelineSpineBranch({
+  top,
+  blockLeftPx,
+  accentColor,
+  isDarkMode,
+}: {
+  top: number;
+  /** Distance from the content column's left edge to the block's left edge, in px. */
+  blockLeftPx: number;
+  /** Accent color (already mixed). Used for the node dot only — the line stays neutral. */
+  accentColor: string;
+  isDarkMode: boolean;
+}) {
+  const lineColor = isDarkMode ? 'hsl(0 0% 100% / 0.10)' : 'hsl(220 10% 70% / 0.42)';
+  // Center the dot on the spine; nudge the branch line down to align with the
+  // block's first line of text (≈10px below the block's top in compact layout).
+  const branchY = top + 10;
+  const branchStart = SPINE_X_PX + 1; // start just to the right of the spine
+  const branchWidth = Math.max(0, blockLeftPx - branchStart - 4); // stop 4px before the block
+  return (
+    <>
+      <div
+        aria-hidden
+        className="pointer-events-none absolute z-[1]"
+        style={{
+          left: branchStart,
+          top: branchY,
+          width: branchWidth,
+          height: 1,
+          background: lineColor,
+        }}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute z-[2] rounded-full"
+        style={{
+          left: SPINE_X_PX - 3,
+          top: branchY - 3,
+          width: 7,
+          height: 7,
+          backgroundColor: accentColor,
+          opacity: 0.78,
+          boxShadow: isDarkMode
+            ? '0 0 0 1.5px hsl(240 5% 6%)'
+            : '0 0 0 1.5px #f9fafc',
+        }}
+      />
+    </>
   );
 }
 

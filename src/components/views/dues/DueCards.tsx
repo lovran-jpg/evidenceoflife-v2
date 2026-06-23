@@ -1,10 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { format, differenceInMinutes, parseISO, subDays, startOfDay, isSameDay } from 'date-fns';
-import { ChevronDown, Pencil } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-import type { DueWithStats, DueLink } from '@/hooks/useDues';
-import { CompactHabitLinkThumb } from '@/components/views/dues/DueLinkItems';
+import type { DueWithStats } from '@/hooks/useDues';
 
 export function getTimeLeft(due: string, t: (key: string) => string, isCompleted?: boolean) {
   const dueDate = parseISO(due);
@@ -44,7 +43,10 @@ export function formatDuration(totalSeconds: number): string {
   return `${mins}m`;
 }
 
-/* ── Habit Punch Card ── */
+/**
+ * 28-day grid used inside the full DueCard. Each cell is a tiny dot showing
+ * whether that day's habit count was met. Today gets a ring; past days fill in.
+ */
 export function HabitPunchCard({ dueId, totalCount }: { dueId: string; totalCount: number }) {
   const [completedDates, setCompletedDates] = useState<string[]>([]);
   useEffect(() => {
@@ -77,30 +79,142 @@ export function HabitPunchCard({ dueId, totalCount }: { dueId: string; totalCoun
   );
 }
 
+/**
+ * Compact streak strip — 14 days, current day on the right.
+ * Lives inline on CompactHabitCard so the user sees momentum at a glance.
+ */
+function CompactStreakStrip({ dueId, refreshKey }: { dueId: string; refreshKey: number }) {
+  const [completedDates, setCompletedDates] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    let cancelled = false;
+    supabase.from('todos').select('date').eq('parent_due_id', dueId).eq('is_completed', true)
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        setCompletedDates(new Set(data.map(d => d.date)));
+      });
+    return () => { cancelled = true; };
+  }, [dueId, refreshKey]);
+
+  const days = useMemo(() => {
+    const today = startOfDay(new Date());
+    return Array.from({ length: 14 }, (_, i) => {
+      const d = subDays(today, 13 - i);
+      const isToday = isSameDay(d, new Date());
+      return {
+        key: format(d, 'yyyy-MM-dd'),
+        done: completedDates.has(format(d, 'yyyy-MM-dd')),
+        isToday,
+      };
+    });
+  }, [completedDates]);
+
+  return (
+    <div className="flex items-center gap-[3px]">
+      {days.map(d => (
+        <span
+          key={d.key}
+          title={d.key}
+          aria-hidden
+          className={cn(
+            'h-2.5 w-[5px] rounded-[2px] transition-colors',
+            d.done
+              ? 'bg-[hsl(var(--habit))]'
+              : d.isToday
+                ? 'border border-[hsl(var(--habit)/0.45)] bg-[hsl(var(--habit)/0.08)]'
+                : 'bg-[hsl(var(--surface-soft-hover))]',
+          )}
+        />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Circular check-in button with progress ring.
+ * Tap to increment toward target. Fills as you progress; flips to a checkmark when met.
+ */
+function CheckinRing({
+  count,
+  target,
+  onIncrement,
+  size = 44,
+  ariaLabel,
+}: {
+  count: number;
+  target: number;
+  onIncrement: () => void;
+  size?: number;
+  ariaLabel?: string;
+}) {
+  const stroke = 3;
+  const radius = (size - stroke) / 2;
+  const circ = 2 * Math.PI * radius;
+  const ratio = Math.min(1, count / Math.max(1, target));
+  const met = count >= target;
+
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); onIncrement(); }}
+      aria-label={ariaLabel || `Check in (${count} of ${target})`}
+      className={cn(
+        'group/checkin relative flex flex-shrink-0 items-center justify-center rounded-full transition-transform',
+        'hover:scale-[1.05] active:scale-[0.96]',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--habit)/0.55)] focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+      )}
+      style={{ width: size, height: size }}
+    >
+      <svg width={size} height={size} className="-rotate-90">
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          strokeWidth={stroke}
+          stroke="hsl(var(--surface-soft-hover))"
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          strokeWidth={stroke}
+          stroke="hsl(var(--habit))"
+          strokeLinecap="round"
+          strokeDasharray={circ}
+          strokeDashoffset={circ * (1 - ratio)}
+          className="transition-[stroke-dashoffset] duration-300 ease-out"
+        />
+      </svg>
+      <span
+        className={cn(
+          'absolute inset-0 flex items-center justify-center text-[12px] font-semibold tabular-nums leading-none transition-colors',
+          met ? 'text-[hsl(var(--habit))]' : 'text-foreground/80',
+        )}
+      >
+        {met ? <Check size={16} strokeWidth={2.6} /> : `${count}/${target}`}
+      </span>
+    </button>
+  );
+}
+
 export function CompactHabitCard({
   due,
   onIncrement,
-  onManage,
   onToggleExpand,
-  onUpdateLinks,
   expanded,
 }: {
   due: DueWithStats;
   onIncrement: () => void;
-  onManage: () => void;
   onToggleExpand: () => void;
-  onUpdateLinks: (links: DueLink[]) => void;
   expanded: boolean;
 }) {
   const todayKey = format(new Date(), 'yyyy-MM-dd');
   const todayCount = due.dailyCounts?.[todayKey] || 0;
   const targetCount = Math.max(1, due.targetCount || 1);
-  const accentColor = '#2dd4bf';
   const links = due.links || [];
-
-  const incrementLinkCount = (index: number) => {
-    onUpdateLinks(links.map((l, i) => i === index ? { ...l, count: (l.count || 0) + 1 } : l));
-  };
+  const hasLinks = links.length > 0;
 
   return (
     <div
@@ -115,67 +229,37 @@ export function CompactHabitCard({
         }
       }}
       className={cn(
-        "rounded-[16px] border border-border/70 bg-card px-3 py-2.5 shadow-[0_4px_10px_hsl(var(--foreground)/0.03)] transition-colors",
-        expanded ? "border-[#2dd4bf]/45 bg-[rgba(45,212,191,0.05)]" : "hover:bg-[hsl(var(--surface-soft-hover))]"
+        'rounded-2xl border bg-card px-3.5 py-3 shadow-[0_4px_10px_hsl(var(--foreground)/0.03)] transition-colors',
+        expanded
+          ? 'border-[hsl(var(--habit)/0.45)] bg-[hsl(var(--habit)/0.05)]'
+          : 'border-border/70 hover:bg-[hsl(var(--surface-soft-hover))]',
       )}
     >
-      <div className="flex items-start gap-2">
-        <div className="mt-1 h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: accentColor }} />
+      <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="truncate text-[14px] font-semibold leading-tight text-foreground">{due.title}</p>
-              <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground/75">
-                <span>{todayCount}/{targetCount} Today</span>
-              </div>
-            </div>
-            <ChevronDown
-              size={14}
-              className={cn("flex-shrink-0 mt-0.5 text-muted-foreground/40 transition-transform duration-200", expanded && "rotate-180")}
-            />
+          <div className="flex items-center gap-2">
+            <p className="truncate text-[14px] font-semibold leading-tight text-foreground">{due.title}</p>
+            {hasLinks && (
+              <span
+                aria-label={`${links.length} linked actions`}
+                title={`${links.length} linked actions`}
+                className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[hsl(var(--habit)/0.14)] px-1 text-[10px] font-semibold leading-none text-[hsl(var(--habit))]"
+              >
+                {links.length}
+              </span>
+            )}
           </div>
-
-          {/* Links as primary content — shown directly on compact card */}
-          {links.length > 0 ? (
-            <div className="mt-2 space-y-1.5" onClick={e => e.stopPropagation()}>
-              {links.map((link, i) => (
-                <div key={`${link.url}-${i}`} className="flex items-center gap-2 rounded-xl border border-border/60 bg-secondary/40 px-2.5 py-1.5">
-                  <a
-                    href={link.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    onClick={e => e.stopPropagation()}
-                    className="flex-1 min-w-0 flex items-center gap-1.5"
-                  >
-                    <CompactHabitLinkThumb link={link} />
-                    <span className="truncate text-[12px] font-medium text-foreground">{link.label || link.title || link.url}</span>
-                  </a>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); incrementLinkCount(i); }}
-                    className="flex-shrink-0 h-6 px-2 rounded-lg border border-[rgba(45,212,191,0.28)] bg-[rgba(45,212,191,0.08)] text-[11px] font-semibold text-[#149d8d] hover:bg-[rgba(45,212,191,0.16)] transition-colors whitespace-nowrap"
-                  >
-                    +1 · {link.count || 0}×
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="mt-2 flex items-center justify-between gap-2">
-              <button
-                onClick={(e) => { e.stopPropagation(); onIncrement(); }}
-                className="inline-flex items-center rounded-full border border-[rgba(45,212,191,0.28)] bg-[rgba(45,212,191,0.08)] px-2.5 py-1.25 text-[11px] font-semibold leading-none text-[#149d8d] transition-colors hover:bg-[rgba(45,212,191,0.14)]"
-              >
-                + Check in
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); onManage(); }}
-                className="inline-flex items-center gap-1 rounded-full px-2 py-1.25 text-[11px] font-medium leading-none text-[hsl(var(--text-soft))] transition-colors hover:bg-secondary hover:text-foreground"
-              >
-                <Pencil size={10} />Edit
-              </button>
-            </div>
-          )}
+          <div className="mt-2">
+            <CompactStreakStrip dueId={due.id} refreshKey={todayCount} />
+          </div>
         </div>
+
+        <CheckinRing
+          count={todayCount}
+          target={targetCount}
+          onIncrement={onIncrement}
+          ariaLabel={`Check in: ${due.title}`}
+        />
       </div>
     </div>
   );

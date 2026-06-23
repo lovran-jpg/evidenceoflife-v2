@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { format, differenceInDays, parseISO } from 'date-fns';
-import { Plus, Calendar, Clock, Repeat, X, Link, Target, Camera, ArrowUp, ChevronDown, ChevronUp, Mic } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Plus, Calendar, Clock, Repeat, X, Link, Target, Camera, ChevronDown, ChevronUp, Mic } from 'lucide-react';
 import { cn, isImeComposing } from '@/lib/utils';
 import {
   normalizeUrl,
@@ -25,6 +24,8 @@ import {
   CompactHabitCard,
 } from '@/components/views/dues/DueCards';
 import { DueCard } from '@/components/views/dues/DueCard';
+import { SheetHeader, SheetEmptyState } from '@/components/sheet/SheetShell';
+import { SheetComposer } from '@/components/sheet/SheetComposer';
 import { toast } from 'sonner';
 
 type DuesViewMode = 'deadline' | 'habit';
@@ -42,7 +43,7 @@ export function DuesView({
   initialMode?: DuesViewMode;
   lockedMode?: boolean;
 }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const { dues, addDue, addToToday, deleteDue, updateDue, addStep, toggleStep, deleteStep, reorderDues, incrementHabitCount, setHabitCount, refetch } = useDues();
   const { getRemindersForDue, upsertReminder, removeReminder } = useDueReminders();
   const [title, setTitle] = useState('');
@@ -68,7 +69,6 @@ export function DuesView({
   const [focusedDueId, setFocusedDueId] = useState<string | null>(null);
   const [draggedHabitId, setDraggedHabitId] = useState<string | null>(null);
   const [habitDropTargetId, setHabitDropTargetId] = useState<string | null>(null);
-  const [showHabitDetails, setShowHabitDetails] = useState(false);
   const [expandedHabitId, setExpandedHabitId] = useState<string | null>(null);
 
   const isDeadlineMode = inputMode === 'deadline';
@@ -463,11 +463,37 @@ export function DuesView({
   }, [activeHabits, reorderDues]);
 
   return (
-    <div className="flex h-full w-full max-w-[1040px] mx-auto flex-col overflow-y-auto px-5 pb-4 pt-3">
+    <div className="flex h-full w-full flex-col overflow-hidden">
+      {lockedMode && (
+        <SheetHeader
+          title={
+            isDeadlineMode
+              ? (lang === 'zh' ? '截止任务' : 'Deadlines')
+              : (lang === 'zh' ? '习惯' : 'Habits')
+          }
+          subtitle={
+            isDeadlineMode
+              ? (lang === 'zh' ? '保留有期限的任务,按期推进。' : 'Time-bound tasks. Pull the next one into Today.')
+              : (lang === 'zh' ? '可重复的小事,逐日累计。' : 'Repeatable practices that build up over time.')
+          }
+          secondaryRow={
+            <div className={cn(
+              'inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold',
+              isDeadlineMode
+                ? 'bg-[hsl(var(--deadline)/0.10)] text-[hsl(var(--deadline))]'
+                : 'bg-[hsl(var(--habit)/0.10)] text-[hsl(var(--habit))]',
+            )}>
+              {visibleActiveCount} {lang === 'zh' ? '进行中' : 'active'}
+            </div>
+          }
+        />
+      )}
+
+      <div className="flex w-full max-w-[1040px] mx-auto flex-1 flex-col overflow-y-auto px-5 pb-4 pt-3">
 
       {!hasFutureCommitments && !lockedMode && (
         <div className="mb-5">
-          <div className="rounded-[30px] border border-border/70 bg-[hsl(var(--surface-soft))] px-5 py-4 shadow-[0_10px_28px_hsl(var(--foreground)/0.05)]">
+          <div className="rounded-3xl border border-border/70 bg-[hsl(var(--surface-soft))] px-5 py-4 shadow-[0_10px_28px_hsl(var(--foreground)/0.05)]">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="max-w-2xl">
                 <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground/55">
@@ -482,15 +508,15 @@ export function DuesView({
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <div className="min-w-[132px] rounded-[20px] border border-[rgba(232,130,90,0.16)] bg-[rgba(232,130,90,0.07)] px-3 py-2.5">
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-[#e8825a]/78">Deadlines</p>
+                <div className="min-w-[132px] rounded-2xl border border-[hsl(var(--deadline)/0.18)] bg-[hsl(var(--deadline)/0.07)] px-3 py-2.5">
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--deadline)/0.78)]">Deadlines</p>
                   <div className="mt-1 flex items-end gap-2">
                     <p className="text-[20px] font-semibold leading-none text-foreground">{activeDeadlines.length}</p>
                     <p className="text-[11px] text-muted-foreground">{todayUrgent.length} urgent</p>
                   </div>
                 </div>
-                <div className="min-w-[132px] rounded-[20px] border border-[rgba(45,212,191,0.18)] bg-[rgba(45,212,191,0.07)] px-3 py-2.5">
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-[#2dd4bf]/78">Habits</p>
+                <div className="min-w-[132px] rounded-2xl border border-[hsl(var(--habit)/0.18)] bg-[hsl(var(--habit)/0.07)] px-3 py-2.5">
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-[hsl(var(--habit)/0.78)]">Habits</p>
                   <div className="mt-1 flex items-end gap-2">
                     <p className="text-[20px] font-semibold leading-none text-foreground">{activeHabits.length}</p>
                     <p className="text-[11px] text-muted-foreground">repeatable</p>
@@ -501,7 +527,7 @@ export function DuesView({
 
             <div className="mt-4 flex flex-wrap items-center gap-2">
               {noDateDeadlines.length > 0 ? (
-                <div className="rounded-full bg-[rgba(232,130,90,0.08)] px-3 py-1.5 text-[12px] text-[#b96644] shadow-[inset_0_0_0_1px_rgba(232,130,90,0.18)]">
+                <div className="rounded-full bg-[hsl(var(--deadline)/0.10)] px-3 py-1.5 text-[12px] text-[hsl(var(--deadline))] shadow-[inset_0_0_0_1px_hsl(var(--deadline)/0.20)]">
                   {noDateDeadlines.length} deadline{noDateDeadlines.length > 1 ? 's' : ''} without a date
                 </div>
               ) : (
@@ -515,22 +541,23 @@ export function DuesView({
       )}
 
       {!hasFutureCommitments && lockedMode && (
-        <div className="mb-3 flex items-end justify-between gap-3 pr-24">
-          <div className="min-w-0">
-            <h2 className="text-[19px] font-semibold tracking-[-0.03em] text-foreground">{viewTitle}</h2>
-          </div>
-          <div className={cn(
-            'rounded-full px-2.5 py-1 text-[11px] font-semibold',
+        <SheetEmptyState
+          className="mt-8"
+          icon={isDeadlineMode ? <Clock size={20} /> : <Repeat size={20} />}
+          title={
             isDeadlineMode
-              ? 'bg-[rgba(232,130,90,0.08)] text-[#c86e4a]'
-              : 'bg-[rgba(45,212,191,0.1)] text-[#1f9f91]'
-          )}>
-            0 active
-          </div>
-        </div>
+              ? (lang === 'zh' ? '还没有截止任务' : 'No deadlines yet')
+              : (lang === 'zh' ? '还没有习惯' : 'No habits yet')
+          }
+          hint={
+            isDeadlineMode
+              ? (lang === 'zh' ? '在下方输入任务名,可选添加日期。' : 'Type a task below. Add a date if it matters.')
+              : (lang === 'zh' ? '在下方输入想坚持的小事,比如「跑步」。' : 'Type something repeatable below, like “run”.')
+          }
+        />
       )}
 
-      {hasFutureCommitments && (
+      {hasFutureCommitments && !lockedMode && (
         <div className="mb-3">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div className="min-w-0">
@@ -543,7 +570,7 @@ export function DuesView({
               className={cn(
                 'flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-all',
                 isDeadlineMode
-                  ? 'border-[rgba(232,130,90,0.32)] bg-[rgba(232,130,90,0.11)] text-[#d97750] shadow-sm'
+                  ? 'border-[hsl(var(--deadline)/0.32)] bg-[hsl(var(--deadline)/0.11)] text-[hsl(var(--deadline))] shadow-sm'
                   : 'border-border bg-card text-muted-foreground hover:text-foreground'
               )}
             >
@@ -551,7 +578,7 @@ export function DuesView({
               <span>{t('dues.deadline')}</span>
               <span className={cn(
                 'flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold',
-                isDeadlineMode ? 'bg-white/80 text-[#d97750]' : 'bg-muted text-muted-foreground'
+                isDeadlineMode ? 'bg-background/85 text-[hsl(var(--deadline))]' : 'bg-muted text-muted-foreground'
               )}>
                 {activeDeadlines.length}
               </span>
@@ -561,7 +588,7 @@ export function DuesView({
               className={cn(
                 'flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-all',
                 !isDeadlineMode
-                  ? 'border-[rgba(45,212,191,0.32)] bg-[rgba(45,212,191,0.11)] text-[#1fae9e] shadow-sm'
+                  ? 'border-[hsl(var(--habit)/0.32)] bg-[hsl(var(--habit)/0.11)] text-[hsl(var(--habit))] shadow-sm'
                   : 'border-border bg-card text-muted-foreground hover:text-foreground'
               )}
             >
@@ -569,7 +596,7 @@ export function DuesView({
               <span>{t('dues.habit')}</span>
               <span className={cn(
                 'flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold',
-                !isDeadlineMode ? 'bg-white/80 text-[#1fae9e]' : 'bg-muted text-muted-foreground'
+                !isDeadlineMode ? 'bg-background/85 text-[hsl(var(--habit))]' : 'bg-muted text-muted-foreground'
               )}>
                 {activeHabits.length}
               </span>
@@ -582,11 +609,76 @@ export function DuesView({
 
       {/* Bottom composer — shared by Deadlines and Habits */}
       <input ref={photoInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoUploadForNew} />
-      {!voiceSheetOpen && <div className="order-last sticky bottom-2 z-40 mx-auto mt-4 mb-1 w-full max-w-[720px] rounded-[22px] bg-background/76 p-1 backdrop-blur-xl shadow-[0_14px_34px_rgba(80,68,58,0.11)]">
-        <div className="bg-card/95 border border-border/70 rounded-[18px] overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.025)]">
-          {/* Pending attachments preview */}
-          {(pendingLinks.length > 0 || pendingPhotos.length > 0) && (
-            <div className="px-4 pt-3 flex flex-wrap gap-2">
+      {!voiceSheetOpen && (
+        <SheetComposer
+          value={title}
+          onChange={handleTitleInputChange}
+          onSubmit={handleAdd}
+          placeholder={isDeadlineMode ? t('dues.deadlinePlaceholder') : t('dues.habitPlaceholder')}
+          onPaste={(e) => {
+            const imageItem = Array.from(e.clipboardData.items).find(item => item.type.startsWith('image/'));
+            if (imageItem) {
+              e.preventDefault();
+              const file = imageItem.getAsFile();
+              if (file) void uploadPhotoFile(file).then(url => { if (url) setPendingPhotos(prev => [...prev, url]); });
+              return;
+            }
+            const pastedText = e.clipboardData.getData('text/plain');
+            const pastedUrl = extractFirstUrl(pastedText);
+            if (pastedUrl && isStandaloneUrl(pastedUrl)) {
+              e.preventDefault();
+              void handleAddPendingLink(pastedUrl);
+            }
+          }}
+          className="order-last mb-1 mt-4"
+          leading={
+            <Popover open={showPlusMenu} onOpenChange={setShowPlusMenu}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Attach"
+                  className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-[hsl(var(--surface-soft-hover))] hover:text-foreground"
+                >
+                  <Plus size={16} />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-52 p-2 space-y-1.5" align="start" side="top">
+                <button onClick={() => { photoInputRef.current?.click(); setShowPlusMenu(false); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] hover:bg-secondary transition-colors">
+                  <Camera size={14} className="text-muted-foreground" />{t('dues.photo')}
+                </button>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2 px-3 py-1">
+                    <Link size={14} className="text-muted-foreground flex-shrink-0" />
+                    <span className="text-[12px] text-muted-foreground">{t('dues.link')}</span>
+                  </div>
+                  <input value={newLinkUrl} onChange={e => setNewLinkUrl(e.target.value)} placeholder="https://..."
+                    className="w-full bg-secondary rounded-lg px-2.5 py-1.5 text-[13px] focus:outline-none focus:ring-1 focus:ring-primary"
+                    onKeyDown={e => { const ne = e.nativeEvent as KeyboardEvent; if (e.key === 'Enter' && !ne.isComposing) void handleAddPendingLink(); }} />
+                  <input value={newLinkLabel} onChange={e => setNewLinkLabel(e.target.value)} placeholder={t('dues.labelOptional')}
+                    className="w-full bg-secondary rounded-lg px-2.5 py-1.5 text-[13px] focus:outline-none focus:ring-1 focus:ring-primary"
+                    onKeyDown={e => { const ne = e.nativeEvent as KeyboardEvent; if (e.key === 'Enter' && !ne.isComposing) void handleAddPendingLink(); }} />
+                  {newLinkUrl.trim() && (
+                    <button onClick={() => void handleAddPendingLink()} className="text-[12px] text-primary hover:underline w-full text-left px-1" disabled={addingPendingLink}>{t('dues.addBtn')}</button>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+          }
+          trailing={
+            onOpenVoiceSheet ? (
+              <button
+                type="button"
+                onClick={onOpenVoiceSheet}
+                aria-label="Voice input"
+                className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-background/80 hover:text-foreground"
+              >
+                <Mic size={14} />
+              </button>
+            ) : null
+          }
+          attachments={(pendingLinks.length > 0 || pendingPhotos.length > 0) ? (
+            <div className="flex flex-wrap gap-2 pb-2">
               {pendingLinks.map((link, i) => (
                 isDeadlineMode ? (
                   <LightweightLinkItem
@@ -615,142 +707,70 @@ export function DuesView({
               {pendingPhotos.map((photo, i) => (
                 <div key={i} className="relative w-8 h-8 rounded-lg overflow-hidden">
                   <img src={photo} alt="" className="w-full h-full object-cover" />
-                  <button onClick={() => setPendingPhotos(prev => prev.filter((_, idx) => idx !== i))}
+                  <button onClick={() => setPendingPhotos(prev => prev.filter((_, idx) => idx !== i))} aria-label="Remove photo"
                     className="absolute top-0 right-0 bg-black/50 text-white p-0.5 rounded-bl"><X size={8} /></button>
                 </div>
               ))}
             </div>
-          )}
-          <div className="px-2 py-2">
-            <div className="flex items-center gap-2.5 min-h-[38px] rounded-[15px] bg-[hsl(var(--surface-soft))] px-3 py-1">
-            {/* Plus menu */}
-            <Popover open={showPlusMenu} onOpenChange={setShowPlusMenu}>
-              <PopoverTrigger asChild>
-                <button className="h-7 w-7 rounded-full bg-background/75 hover:bg-background flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors flex-shrink-0 shadow-[inset_0_0_0_1px_hsl(var(--border)/0.55)]">
-                  <Plus size={14} />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-52 p-2 space-y-1.5" align="start" side="top">
-                <button onClick={() => { photoInputRef.current?.click(); setShowPlusMenu(false); }}
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] hover:bg-secondary transition-colors">
-                  <Camera size={14} className="text-muted-foreground" />{t('dues.photo')}
-                </button>
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-2 px-3 py-1">
-                    <Link size={14} className="text-muted-foreground flex-shrink-0" />
-                    <span className="text-[12px] text-muted-foreground">{t('dues.link')}</span>
-                  </div>
-                  <input value={newLinkUrl} onChange={e => setNewLinkUrl(e.target.value)} placeholder="https://..."
-                    className="w-full bg-secondary rounded-lg px-2.5 py-1.5 text-[13px] focus:outline-none focus:ring-1 focus:ring-primary"
-                    onKeyDown={e => { const ne = e.nativeEvent as KeyboardEvent; if (e.key === 'Enter' && !ne.isComposing) void handleAddPendingLink(); }} />
-                  <input value={newLinkLabel} onChange={e => setNewLinkLabel(e.target.value)} placeholder={t('dues.labelOptional')}
-                    className="w-full bg-secondary rounded-lg px-2.5 py-1.5 text-[13px] focus:outline-none focus:ring-1 focus:ring-primary"
-                    onKeyDown={e => { const ne = e.nativeEvent as KeyboardEvent; if (e.key === 'Enter' && !ne.isComposing) void handleAddPendingLink(); }} />
-                  {newLinkUrl.trim() && (
-                    <button onClick={() => void handleAddPendingLink()} className="text-[12px] text-primary hover:underline w-full text-left px-1" disabled={addingPendingLink}>{t('dues.addBtn')}</button>
-                  )}
-                </div>
-              </PopoverContent>
-            </Popover>
-            <input value={title} onChange={e => handleTitleInputChange(e.target.value)}
-              onPaste={(e) => {
-                const imageItem = Array.from(e.clipboardData.items).find(item => item.type.startsWith('image/'));
-                if (imageItem) {
-                  e.preventDefault();
-                  const file = imageItem.getAsFile();
-                  if (file) void uploadPhotoFile(file).then(url => { if (url) setPendingPhotos(prev => [...prev, url]); });
-                  return;
-                }
-                const pastedText = e.clipboardData.getData('text/plain');
-                const pastedUrl = extractFirstUrl(pastedText);
-                if (pastedUrl && isStandaloneUrl(pastedUrl)) {
-                  e.preventDefault();
-                  void handleAddPendingLink(pastedUrl);
-                }
-              }}
-              placeholder={isDeadlineMode ? t('dues.deadlinePlaceholder') : t('dues.habitPlaceholder')}
-              onKeyDown={e => {
-                const native = e.nativeEvent as KeyboardEvent;
-                if (e.key === 'Enter') {
-                  if (isImeComposing(native)) return;
-                  handleAdd();
-                }
-              }}
-              className="flex-1 bg-transparent focus:outline-none text-[14px] font-medium text-foreground placeholder:text-muted-foreground/58" />
-            {onOpenVoiceSheet && (
-              <button
-                onClick={onOpenVoiceSheet}
-                className="h-7 w-7 rounded-full flex items-center justify-center flex-shrink-0 transition-all text-muted-foreground hover:text-foreground hover:bg-background/80"
-              >
-                <Mic size={14} />
-              </button>
-            )}
-            <Button onClick={handleAdd} disabled={!title.trim()} size="icon" className="h-7 w-7 rounded-full bg-[#dfb9a8] hover:bg-[#d6aa96] text-white shadow-none disabled:opacity-35">
-              <ArrowUp size={14} />
-            </Button>
-            </div>
-          </div>
-          {isDeadlineMode && (
-            <div className="px-2 pb-2">
-              {(() => {
-                const parts = getNativeDueParts();
-                return (
-              <div className="flex items-center gap-2 rounded-[16px] border border-border/45 bg-[hsl(var(--surface-soft))] px-2.5 py-2 text-muted-foreground/80">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const input = dueDateInputRef.current;
-                    input?.focus();
-                    input?.showPicker?.();
-                  }}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground/72 transition-colors hover:bg-background/85 hover:text-foreground"
-                  aria-label="Choose due date"
-                >
-                  <Calendar size={15} />
-                </button>
-                <label className="min-w-0 flex-1">
-                  <span className="mb-0.5 block text-[9px] font-medium uppercase tracking-[0.12em] text-muted-foreground/45">Due date</span>
-                  <input
-                    ref={dueDateInputRef}
-                    type="date"
-                    value={parts.date}
-                    onChange={(e) => applyNativeDueDate(e.target.value, parts.time)}
-                    className="datetime-input-iconless w-full min-w-0 bg-transparent text-[13px] font-medium text-foreground/82 focus:outline-none"
-                  />
-                </label>
-                <label className="w-[82px] shrink-0">
-                  <span className="mb-0.5 block text-[9px] font-medium uppercase tracking-[0.12em] text-muted-foreground/45">Time</span>
-                  <input
-                    ref={dueTimeInputRef}
-                    type="time"
-                    value={parts.time}
-                    onChange={(e) => applyNativeDueDate(parts.date || format(new Date(), 'yyyy-MM-dd'), e.target.value)}
-                    className="datetime-input-iconless w-full bg-transparent text-[13px] font-medium text-foreground/82 focus:outline-none"
-                  />
-                </label>
-                {dueDate && (
+          ) : null}
+          expand={isDeadlineMode ? (
+            (() => {
+              const parts = getNativeDueParts();
+              return (
+                <div className="flex items-center gap-2 rounded-full bg-[hsl(var(--surface-soft))] px-2.5 py-1.5 text-muted-foreground/80">
                   <button
                     type="button"
-                    onClick={() => applyNativeDueDate('', '23:59')}
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground/45 transition-colors hover:bg-background/85 hover:text-destructive"
-                    aria-label="Clear due date"
+                    onClick={() => {
+                      const input = dueDateInputRef.current;
+                      input?.focus();
+                      input?.showPicker?.();
+                    }}
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground/72 transition-colors hover:bg-background/85 hover:text-foreground"
+                    aria-label="Choose due date"
                   >
-                    <X size={13} />
+                    <Calendar size={14} />
                   </button>
-                )}
-              </div>
-                );
-              })()}
-            </div>
-          )}
-          {!isDeadlineMode && (
-            <div className="flex items-center gap-2 px-3 py-2 border-t border-border/45">
+                  <label className="min-w-0 flex-1">
+                    <span className="sr-only">Due date</span>
+                    <input
+                      ref={dueDateInputRef}
+                      type="date"
+                      value={parts.date}
+                      onChange={(e) => applyNativeDueDate(e.target.value, parts.time)}
+                      className="datetime-input-iconless w-full min-w-0 bg-transparent text-[13px] font-medium text-foreground/82 focus:outline-none"
+                    />
+                  </label>
+                  <label className="w-[72px] shrink-0">
+                    <span className="sr-only">Time</span>
+                    <input
+                      ref={dueTimeInputRef}
+                      type="time"
+                      value={parts.time}
+                      onChange={(e) => applyNativeDueDate(parts.date || format(new Date(), 'yyyy-MM-dd'), e.target.value)}
+                      className="datetime-input-iconless w-full bg-transparent text-[13px] font-medium text-foreground/82 focus:outline-none"
+                    />
+                  </label>
+                  {dueDate && (
+                    <button
+                      type="button"
+                      onClick={() => applyNativeDueDate('', '23:59')}
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground/45 transition-colors hover:bg-background/85 hover:text-destructive"
+                      aria-label="Clear due date"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
+              );
+            })()
+          ) : (
+            <div className="flex items-center gap-2 px-1 py-0.5">
               <span className="text-[11px] text-muted-foreground/65">Category</span>
               <div className="flex gap-1.5 flex-1 flex-wrap">
                 {PRESET_CATEGORIES.map(cat => (
                   <button key={cat} onClick={() => setHabitCategory(habitCategory === cat ? '' : cat)}
                     className={cn("px-2 py-0.5 rounded-full text-[11px] font-medium transition-colors",
-                      habitCategory === cat ? "bg-[#2dd4bf]/15 text-[#2dd4bf]" : "bg-secondary text-muted-foreground hover:text-foreground"
+                      habitCategory === cat ? "bg-primary/12 text-primary" : "bg-secondary text-muted-foreground hover:text-foreground"
                     )}>{cat}</button>
                 ))}
                 <input value={habitCategory && !PRESET_CATEGORIES.includes(habitCategory) ? habitCategory : ''}
@@ -768,8 +788,8 @@ export function DuesView({
               </div>
             </div>
           )}
-        </div>
-      </div>}
+        />
+      )}
 
       <div className="mb-8">
         {isDeadlineMode ? (
@@ -844,27 +864,11 @@ export function DuesView({
           )}
           </div>
         ) : activeHabits.length > 0 ? (
-          <div className="rounded-[22px] border border-border/45 bg-background/35 px-3 py-3">
-            <div className="mb-3 flex items-center justify-between gap-3 px-0.5">
-              <h2 className="text-[12px] text-muted-foreground/65 uppercase tracking-[0.16em] flex items-center gap-2" >
-                <Repeat size={14} className="text-[#2dd4bf]" />
-                Habits ({activeHabits.length})
-              </h2>
-              <button
-                onClick={() => {
-                  setShowHabitDetails(prev => !prev);
-                  setExpandedHabitId(null);
-                }}
-                className="rounded-full bg-background px-2.5 py-1 text-[11px] font-medium text-[hsl(var(--text-soft))] transition-colors hover:text-foreground"
-              >
-                {showHabitDetails ? 'Close' : 'Manage'}
-              </button>
-            </div>
-            <div
-              className="grid gap-2.5"
-              style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}
-            >
-              {activeHabits.map(due => showHabitDetails ? (
+          <div
+            className="grid gap-2.5"
+            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}
+          >
+            {activeHabits.map(due => expandedHabitId === due.id ? (
                 <div
                   key={due.id}
                   draggable
@@ -890,21 +894,14 @@ export function DuesView({
                     }
                   }}
                   className={cn(
-                    "rounded-[22px] transition-all",
-                    draggedHabitId === due.id && "opacity-60 scale-[0.985]",
-                    habitDropTargetId === due.id && draggedHabitId !== due.id && "ring-2 ring-[#2dd4bf]/35 ring-offset-2 ring-offset-background"
+                    'rounded-2xl border border-[hsl(var(--habit)/0.32)] bg-[hsl(var(--habit)/0.04)] transition-all',
+                    draggedHabitId === due.id && 'opacity-60 scale-[0.985]',
+                    habitDropTargetId === due.id && draggedHabitId !== due.id && 'ring-2 ring-[hsl(var(--habit)/0.35)] ring-offset-2 ring-offset-background',
                   )}
                 >
-                  <DueCard due={due} onUpdate={updateDue} onDelete={deleteDue}
-                    onAddToToday={handleAddToToday} justAdded={justAdded === due.id}
-                    dueReminders={getRemindersForDueTree(due)} onUpsertReminder={upsertReminder} onRemoveReminder={removeReminder}
-                    onAddStep={addStep} onToggleStep={toggleStep} onDeleteStep={deleteStep}
-                    onIncrementHabitCount={incrementHabitCount} onSetHabitCount={setHabitCount} />
-                </div>
-              ) : expandedHabitId === due.id ? (
-                <div key={due.id} className="rounded-[22px] border border-[#2dd4bf]/22 bg-[rgba(45,212,191,0.03)]">
                   <button
                     onClick={() => setExpandedHabitId(null)}
+                    aria-label="Collapse"
                     className="w-full flex items-center justify-center py-1.5 text-muted-foreground/35 hover:text-muted-foreground transition-colors"
                   >
                     <ChevronUp size={14} />
@@ -921,25 +918,20 @@ export function DuesView({
                 <CompactHabitCard
                   key={due.id}
                   due={due}
-                  expanded={expandedHabitId === due.id}
-                  onToggleExpand={() => setExpandedHabitId(current => current === due.id ? null : due.id)}
+                  expanded={false}
+                  onToggleExpand={() => setExpandedHabitId(due.id)}
                   onIncrement={() => incrementHabitCount(due.id)}
-                  onManage={() => setExpandedHabitId(due.id)}
-                  onUpdateLinks={(links) => updateDue(due.id, { links })}
                 />
               ))}
-            </div>
           </div>
         ) : null}
       </div>
 
       {/* Empty */}
-      {visibleActiveCount === 0 && (
+      {visibleActiveCount === 0 && !lockedMode && (
         <div>
           <p className="text-[13px] text-muted-foreground/65 text-center py-10">
-            {lockedMode
-              ? (isDeadlineMode ? 'No deadlines' : 'No habits')
-              : t('dues.empty')}
+            {t('dues.empty')}
           </p>
         </div>
       )}
@@ -966,6 +958,7 @@ export function DuesView({
         </div>
       )}
 
+      </div>
     </div>
   );
 }

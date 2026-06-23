@@ -306,14 +306,14 @@ export function autoClassifyTag(title: string): Category | undefined {
 
 export const TAG_CATEGORY_COLORS: Record<string, string> = {
   study: '#6F7EF7',
-  work: '#7468E8',
+  work: '#8B5FB8',
   admin: '#6E7891',
   life: '#D5AE4C',
   health: '#55B98B',
   event: '#B775E3',
   social: '#D97CA6',
-  finance: '#3CA7A0',
-  travel: '#5D9ED6',
+  finance: '#5D9ED6',
+  travel: '#3CA7A0',
   shopping: '#E28C63',
 };
 

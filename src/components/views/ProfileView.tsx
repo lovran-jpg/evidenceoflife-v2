@@ -3,6 +3,8 @@ import { LifeHeatmap } from '@/components/today/LifeHeatmap';
 import { LifeCalendar } from '@/components/views/LifeCalendar';
 import monetPainting from '@/assets/monet-impression-sunrise.jpg';
 import { CircularTimeRing } from '@/components/CircularTimeRing';
+import { AppearanceEditor } from '@/components/AppearanceEditor';
+import { EmptyState } from '@/components/ui/empty-state';
 import {
   BarChart3,
   Bell,
@@ -14,10 +16,8 @@ import {
   ChevronRight,
   Clock3,
   Download,
-  MapPin,
   Pencil,
   RefreshCw,
-  RotateCcw,
   Settings,
   Sparkles,
   X,
@@ -26,7 +26,6 @@ import { useLifeReminder } from '@/hooks/useLifeReminder';
 import { useProfile } from '@/hooks/useProfile';
 import { useDues } from '@/hooks/useDues';
 import { useLanguage } from '@/hooks/useLanguage';
-import { useAccentColor } from '@/hooks/useAccentColor';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { GoogleCalendarButton } from '@/components/GoogleCalendarButton';
@@ -74,7 +73,6 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
   const { dues } = useDues();
   const [showLifeCalendar, setShowLifeCalendar] = useState(false);
   const { lang, setLang, t } = useLanguage();
-  const { accentId, setAccentId, options: accentOptions } = useAccentColor();
 
   const [displayName, setDisplayName] = useState(profile?.display_name || '');
   const [isEditingName, setIsEditingName] = useState(false);
@@ -86,6 +84,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [reflectionOpen, setReflectionOpen] = useState(false);
+  const [showAllEvidence, setShowAllEvidence] = useState(false);
   const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -130,8 +129,23 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
   const recentEvidence = useMemo(() => {
     return [...moments]
       .filter(m => m.text || m.emoji || m.photos.length > 0 || (m.tags && m.tags.length > 0))
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 5);
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [moments]);
+  const visibleEvidence = showAllEvidence ? recentEvidence.slice(0, 24) : recentEvidence.slice(0, 3);
+
+  const recentPhotos = useMemo(() => {
+    const seen = new Set<string>();
+    const out: { url: string; date: string; momentText: string }[] = [];
+    [...moments]
+      .sort((a, b) => new Date(b.createdAt || b.date).getTime() - new Date(a.createdAt || a.date).getTime())
+      .forEach(m => {
+        m.photos?.forEach(url => {
+          if (!url || seen.has(url)) return;
+          seen.add(url);
+          out.push({ url, date: m.createdAt || m.date, momentText: m.text?.split('---DETAIL---')[0]?.trim() || m.emoji || '' });
+        });
+      });
+    return out;
   }, [moments]);
 
   const upcomingDues = useMemo(() => {
@@ -281,14 +295,14 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
   return (
     <div className="flex-1 w-full overflow-y-auto bg-[hsl(var(--surface-soft))] px-4 pb-14 pt-4 sm:px-5 lg:px-7">
       <div className="mx-auto max-w-[1120px] space-y-4">
-        <section className="overflow-hidden rounded-[32px] border border-border/60 bg-background shadow-[0_24px_80px_-62px_rgba(88,70,54,0.42)]">
+        <section className="overflow-hidden rounded-3xl border border-border/60 bg-background shadow-[0_24px_80px_-62px_rgba(88,70,54,0.42)]">
           <div className="grid gap-0 lg:grid-cols-[1fr_340px]">
             <div className="p-5 sm:p-6 lg:p-7">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="flex min-w-0 items-center gap-3.5">
                   <button
                     onClick={() => avatarInputRef.current?.click()}
-                    className="group relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-[20px] border border-border/65 bg-primary/8 shadow-[0_14px_36px_-28px_rgba(190,120,82,0.5)]"
+                    className="group relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-2xl border border-border/65 bg-primary/8 shadow-[0_14px_36px_-28px_rgba(190,120,82,0.5)]"
                   >
                     {profile?.avatar_url ? (
                       <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
@@ -372,109 +386,122 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
         </section>
 
         {settingsOpen && (
-          <section className="rounded-[28px] border border-border/60 bg-background/92 p-4 shadow-[0_18px_60px_-48px_rgba(88,70,54,0.34)]">
-            <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
-              <div className="rounded-[24px] border border-border/55 bg-card/72 p-4">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/45">Day Rhythm</p>
-                    <p className="mt-1 text-[12px] text-muted-foreground/58">{lang === 'zh' ? '决定 timeline 一天的显示范围。' : 'Controls the day range used by the timeline.'}</p>
-                  </div>
-                </div>
-                <CircularTimeRing
-                  wakeHour={wakeHour} wakeMinute={wakeMinute}
-                  bedtimeHour={bedtimeHour} bedtimeMinute={bedtimeMinute}
-                  lang={lang}
-                  onWakeChange={(h, m) => { setWakeHour(h); setWakeMinute(m); }}
-                  onBedtimeChange={(h, m) => { setBedtimeHour(h); setBedtimeMinute(m); }}
-                />
-                <div className="mt-4 flex gap-2">
-                  <button onClick={handleSaveTimeTodayOnly} className="flex-1 rounded-full px-3 py-2 text-[13px] font-semibold text-muted-foreground hover:bg-muted/55 hover:text-foreground">
-                    {lang === 'zh' ? '仅今天' : 'Today only'}
-                  </button>
-                  <button onClick={handleSave} className="flex-1 rounded-full bg-foreground px-3 py-2 text-[13px] font-semibold text-background hover:opacity-90">
-                    {lang === 'zh' ? '全部应用' : 'Apply to all'}
-                  </button>
-                </div>
-              </div>
+          <section className="rounded-3xl border border-border/60 bg-background/92 p-4 shadow-[0_18px_60px_-48px_rgba(88,70,54,0.34)]">
+            <div className="space-y-4">
+              <AppearanceEditor
+                lang={lang}
+                homepageImageUrl={profile?.homepage_image_url}
+                uploading={uploading}
+                onUploadImage={handleImageUpload}
+                onResetImage={handleResetHomepageImage}
+              />
 
-              <div className="space-y-3">
-                <div className="rounded-[24px] border border-border/55 bg-card/72 p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/45">Connected Tools</p>
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <GoogleCalendarButton />
-                    <div className="flex h-10 items-center rounded-full border border-border/65 bg-secondary/30 p-1">
-                      <button onClick={() => setLang('zh')} className={cn('rounded-full px-3 py-1.5 text-[12px] font-semibold transition-colors', lang === 'zh' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground')}>中文</button>
-                      <button onClick={() => setLang('en')} className={cn('rounded-full px-3 py-1.5 text-[12px] font-semibold transition-colors', lang === 'en' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground')}>EN</button>
+              <div className="rounded-3xl border border-border/55 bg-card/72 p-4">
+                <div className="mb-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/45">
+                    {lang === 'zh' ? '每日节奏' : 'Daily flow'}
+                  </p>
+                  <p className="mt-1 text-[12px] text-muted-foreground/58">
+                    {lang === 'zh' ? '作息、提醒、语言与连接的服务。' : 'Day rhythm, reminders, language, and connected tools.'}
+                  </p>
+                </div>
+
+                <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+                  <div>
+                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/55">
+                      {lang === 'zh' ? '作息时间' : 'Day rhythm'}
+                    </p>
+                    <CircularTimeRing
+                      wakeHour={wakeHour} wakeMinute={wakeMinute}
+                      bedtimeHour={bedtimeHour} bedtimeMinute={bedtimeMinute}
+                      lang={lang}
+                      onWakeChange={(h, m) => { setWakeHour(h); setWakeMinute(m); }}
+                      onBedtimeChange={(h, m) => { setBedtimeHour(h); setBedtimeMinute(m); }}
+                    />
+                    <div className="mt-3 flex gap-2">
+                      <button onClick={handleSaveTimeTodayOnly} className="flex-1 rounded-full border border-border/55 px-3 py-2 text-[12px] font-semibold text-muted-foreground hover:bg-muted/55 hover:text-foreground">
+                        {lang === 'zh' ? '仅今天' : 'Today only'}
+                      </button>
+                      <button onClick={handleSave} className="flex-1 rounded-full bg-foreground px-3 py-2 text-[12px] font-semibold text-background hover:opacity-90">
+                        {lang === 'zh' ? '全部应用' : 'Apply to all'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <LifeReminderCard lang={lang} flat />
+
+                    <div>
+                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/55">
+                        {lang === 'zh' ? '语言与连接' : 'Language & connections'}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex h-10 items-center rounded-full border border-border/65 bg-secondary/30 p-1">
+                          <button onClick={() => setLang('zh')} className={cn('rounded-full px-3 py-1.5 text-[12px] font-semibold transition-colors', lang === 'zh' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground')}>中文</button>
+                          <button onClick={() => setLang('en')} className={cn('rounded-full px-3 py-1.5 text-[12px] font-semibold transition-colors', lang === 'en' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground')}>EN</button>
+                        </div>
+                        <GoogleCalendarButton />
+                      </div>
                     </div>
                   </div>
                 </div>
+              </div>
 
-                <div className="rounded-[24px] border border-border/55 bg-card/72 p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/45">{lang === 'zh' ? '主题色' : 'Accent color'}</p>
-                  <p className="mt-1 text-[12px] text-muted-foreground/58">{lang === 'zh' ? '挑一个你喜欢的品牌色，全站即时生效。' : 'Pick a brand color — applies across the app instantly.'}</p>
-                  <div className="mt-3 flex flex-wrap items-center gap-2.5">
-                    {accentOptions.map(opt => {
-                      const selected = opt.id === accentId;
-                      return (
-                        <button
-                          key={opt.id}
-                          onClick={() => setAccentId(opt.id)}
-                          title={lang === 'zh' ? opt.labelZh : opt.labelEn}
-                          aria-label={`${opt.labelEn} accent`}
-                          aria-pressed={selected}
-                          className={cn(
-                            'relative h-8 w-8 rounded-full transition-transform hover:scale-105 focus:outline-none',
-                            selected ? 'scale-105' : 'ring-1 ring-border/50',
-                          )}
-                          style={{
-                            backgroundColor: `hsl(${opt.hsl})`,
-                            ...(selected ? { boxShadow: `0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(${opt.hsl})` } : {}),
-                          }}
-                        >
-                          {selected && <Check size={14} className="absolute inset-0 m-auto text-white drop-shadow" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+              <div className="rounded-3xl border border-border/55 bg-card/72 p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/45">
+                  {lang === 'zh' ? '你的数据' : 'Your data'}
+                </p>
+                <p className="mt-1 text-[12px] text-muted-foreground/58">
+                  {lang === 'zh'
+                    ? '私密优先。随时把全部记忆导出为一份 JSON——即使有一天我们不在了，它仍然属于你。'
+                    : 'Private by default. Export everything as one JSON file anytime — even if we disappear, your evidence stays yours.'}
+                </p>
+                <button
+                  onClick={handleExportEvidence}
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-border/65 bg-background px-3 py-2 text-[12px] font-semibold text-muted-foreground hover:text-foreground"
+                >
+                  <Download size={13} /> {lang === 'zh' ? '导出我的证据' : 'Export my evidence'}
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
 
-                <div className="rounded-[24px] border border-border/55 bg-card/72 p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/45">Home Image</p>
-                  <div className="mt-3 flex items-center gap-2">
-                    <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-                    <button onClick={() => fileInputRef.current?.click()} disabled={uploading} className="inline-flex items-center gap-1.5 rounded-full border border-border/65 bg-background px-3 py-2 text-[12px] font-semibold text-muted-foreground hover:text-foreground">
-                      <Camera size={13} /> {uploading ? '...' : t('profile.changeImage')}
-                    </button>
-                    <button onClick={handleResetHomepageImage} className="inline-flex items-center gap-1.5 rounded-full border border-border/65 bg-background px-3 py-2 text-[12px] font-semibold text-muted-foreground hover:text-foreground">
-                      <RotateCcw size={13} /> {lang === 'zh' ? '恢复' : 'Reset'}
-                    </button>
-                  </div>
-                </div>
-
-                <LifeReminderCard lang={lang} />
-
-                <div className="rounded-[24px] border border-border/55 bg-card/72 p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/45">Your Data</p>
-                  <p className="mt-1 text-[12px] text-muted-foreground/58">
-                    {lang === 'zh'
-                      ? '私密优先。随时把全部记忆导出为一份 JSON——即使有一天我们不在了，它仍然属于你。'
-                      : 'Private by default. Export everything as one JSON file anytime — even if we disappear, your evidence stays yours.'}
-                  </p>
+        {recentPhotos.length > 0 && (
+          <section className="rounded-3xl border border-border/60 bg-background p-4 shadow-[0_16px_60px_-50px_rgba(88,70,54,0.28)]">
+            <div className="mb-3 flex items-end justify-between gap-3 px-1">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/45">
+                  {lang === 'zh' ? '最近的照片' : 'Recent photos'}
+                </p>
+                <h2 className="mt-0.5 text-[17px] font-semibold tracking-[-0.03em] text-foreground">
+                  {lang === 'zh' ? `共 ${recentPhotos.length} 张` : `${recentPhotos.length} captured`}
+                </h2>
+              </div>
+            </div>
+            <div className="-mx-1 overflow-x-auto px-1 pb-1 no-scrollbar">
+              <div className="flex gap-2">
+                {recentPhotos.slice(0, 40).map(photo => (
                   <button
-                    onClick={handleExportEvidence}
-                    className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-border/65 bg-background px-3 py-2 text-[12px] font-semibold text-muted-foreground hover:text-foreground"
+                    key={photo.url}
+                    type="button"
+                    onClick={() => setLightboxPhoto(photo.url)}
+                    title={`${shortDate(photo.date)}${photo.momentText ? ' · ' + photo.momentText : ''}`}
+                    className="group relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-[16px] border border-border/45 bg-secondary/30 transition-transform hover:scale-[1.03] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                   >
-                    <Download size={13} /> {lang === 'zh' ? '导出我的证据' : 'Export my evidence'}
+                    <img src={photo.url} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                    <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/45 via-black/0 to-transparent px-2 pb-1 pt-4 text-left text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100">
+                      {shortDate(photo.date)}
+                    </span>
                   </button>
-                </div>
+                ))}
               </div>
             </div>
           </section>
         )}
 
         <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-          <section className="rounded-[28px] border border-border/60 bg-background p-5 shadow-[0_16px_60px_-50px_rgba(88,70,54,0.28)]">
+          <section className="rounded-3xl border border-border/60 bg-background p-5 shadow-[0_16px_60px_-50px_rgba(88,70,54,0.28)]">
             <button onClick={() => setShowLifeCalendar(true)} className="group w-full text-left">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div>
@@ -491,7 +518,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
             </button>
           </section>
 
-          <section className="rounded-[28px] border border-border/60 bg-background p-5 shadow-[0_16px_60px_-50px_rgba(88,70,54,0.28)]">
+          <section className="rounded-3xl border border-border/60 bg-background p-5 shadow-[0_16px_60px_-50px_rgba(88,70,54,0.28)]">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/45">Upcoming Attention</p>
@@ -517,14 +544,15 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
                 ))}
               </div>
             ) : (
-              <div className="rounded-[20px] border border-dashed border-border/70 bg-card/45 px-4 py-6 text-center text-[13px] font-medium text-muted-foreground/55">
-                {lang === 'zh' ? '暂时没有临近 deadline。' : 'No urgent commitments right now.'}
-              </div>
+              <EmptyState
+                variant="inline"
+                title={lang === 'zh' ? '暂时没有临近 deadline。' : 'No urgent commitments right now.'}
+              />
             )}
           </section>
         </div>
 
-        <section className="rounded-[28px] border border-border/60 bg-background p-5 shadow-[0_16px_60px_-50px_rgba(88,70,54,0.28)]">
+        <section className="rounded-3xl border border-border/60 bg-background p-5 shadow-[0_16px_60px_-50px_rgba(88,70,54,0.28)]">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/45">Recent Proof</p>
@@ -538,50 +566,66 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
           </div>
 
           {recentEvidence.length > 0 ? (
-            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-              {recentEvidence.map(memory => (
-                <div key={memory.id} className="rounded-[20px] border border-border/55 bg-card/72 p-3.5">
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <span className="font-mono text-[11px] text-muted-foreground/48">{shortDate(memory.createdAt || memory.date)}</span>
-                    {memory.emoji && <span className="text-[18px]">{memory.emoji}</span>}
+            <>
+              <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                {visibleEvidence.map(memory => (
+                  <div key={memory.id} className="rounded-2xl border border-border/55 bg-card/72 p-3.5">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <span className="font-mono text-[11px] text-muted-foreground/48">{shortDate(memory.createdAt || memory.date)}</span>
+                      {memory.emoji && <span className="text-[18px]">{memory.emoji}</span>}
+                    </div>
+                    <p className="line-clamp-3 text-[13px] font-medium leading-5 text-foreground/82">
+                      {memory.text?.split('---DETAIL---')[0] || (lang === 'zh' ? '一条生活证据' : 'A piece of evidence')}
+                    </p>
+                    {(() => {
+                      const displayTags = getMomentDisplayTags(memory.tags);
+                      return displayTags.length > 0 ? (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {displayTags.slice(0, 2).map((tag, i) => (
+                            <span key={i} className="rounded-full bg-secondary/65 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground/64">
+                              {TAG_CATEGORY_ICONS[tag] || '•'} {tag}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null;
+                    })()}
+                    {memory.photos.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setLightboxPhoto(memory.photos[0])}
+                        className="mt-2 block w-full overflow-hidden rounded-[14px] border border-border/40 bg-secondary/30"
+                      >
+                        <img src={memory.photos[0]} alt="" loading="lazy" className="max-h-48 w-full object-contain" />
+                      </button>
+                    )}
                   </div>
-                  <p className="line-clamp-3 text-[13px] font-medium leading-5 text-foreground/82">
-                    {memory.text?.split('---DETAIL---')[0] || (lang === 'zh' ? '一条生活证据' : 'A piece of evidence')}
-                  </p>
-                  {(() => {
-                    const displayTags = getMomentDisplayTags(memory.tags);
-                    return displayTags.length > 0 ? (
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {displayTags.slice(0, 2).map((tag, i) => (
-                          <span key={i} className="rounded-full bg-secondary/65 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground/64">
-                            {TAG_CATEGORY_ICONS[tag] || '•'} {tag}
-                          </span>
-                        ))}
-                      </div>
-                    ) : null;
-                  })()}
-                  {memory.photos.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setLightboxPhoto(memory.photos[0])}
-                      className="mt-2 block w-full overflow-hidden rounded-[14px] border border-border/40 bg-secondary/30"
-                    >
-                      <img src={memory.photos[0]} alt="" loading="lazy" className="max-h-48 w-full object-contain" />
-                    </button>
-                  )}
+                ))}
+              </div>
+              {recentEvidence.length > 3 && (
+                <div className="mt-3 flex justify-center">
+                  <button
+                    onClick={() => setShowAllEvidence(v => !v)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border/65 bg-card px-3 py-1.5 text-[12px] font-semibold text-muted-foreground hover:text-foreground"
+                  >
+                    {showAllEvidence
+                      ? (lang === 'zh' ? '收起' : 'Show less')
+                      : (lang === 'zh' ? `查看全部 (${recentEvidence.length})` : `See more (${recentEvidence.length})`)}
+                  </button>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           ) : (
-            <div className="rounded-[20px] border border-dashed border-border/70 bg-card/45 px-4 py-8 text-center text-[13px] font-medium text-muted-foreground/55">
-              {lang === 'zh' ? '记录 moment 后，这里会变成你的证据流。' : 'Log moments and this becomes your evidence stream.'}
-            </div>
+            <EmptyState
+              variant="inline"
+              title={lang === 'zh' ? '记录 moment 后，这里会变成你的证据流。' : 'Log moments and this becomes your evidence stream.'}
+              className="py-8"
+            />
           )}
         </section>
 
         {reflectionOpen && (
           <section className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-[28px] border border-border/60 bg-background p-5">
+            <div className="rounded-3xl border border-border/60 bg-background p-5">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/45">Life Replay</p>
@@ -598,7 +642,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
             </div>
 
             {randomMemory && (
-              <div className="rounded-[28px] border border-border/60 bg-background p-5">
+              <div className="rounded-3xl border border-border/60 bg-background p-5">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/45">Memory</p>
                 <h2 className="mt-1 text-[18px] font-semibold tracking-[-0.04em] text-foreground">{t('profile.memory')}</h2>
                 <div className="mt-4 rounded-[18px] bg-card/62 px-4 py-4">
@@ -629,7 +673,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
 function SummaryMetric({ value, label, icon: Icon, primary = false }: { value: string; label: string; icon: typeof Clock3; primary?: boolean }) {
   return (
     <div className={cn(
-      'rounded-[22px] border px-3.5 py-3.5',
+      'rounded-2xl border px-3.5 py-3.5',
       primary
         ? 'border-[rgba(200,112,76,0.2)] bg-[rgba(232,130,90,0.08)]'
         : 'border-border/55 bg-card/70',
@@ -643,7 +687,7 @@ function SummaryMetric({ value, label, icon: Icon, primary = false }: { value: s
   );
 }
 
-function LifeReminderCard({ lang }: { lang: string }) {
+function LifeReminderCard({ lang, flat = false }: { lang: string; flat?: boolean }) {
   const { config, setConfig, requestPermission } = useLifeReminder();
   const intervals = [1, 2, 3, 4];
 
@@ -663,7 +707,12 @@ function LifeReminderCard({ lang }: { lang: string }) {
   };
 
   return (
-    <div className="rounded-[24px] border border-border/55 bg-card/72 p-4">
+    <div className={flat ? '' : 'rounded-3xl border border-border/55 bg-card/72 p-4'}>
+      {flat && (
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/55">
+          {lang === 'zh' ? '生活提醒' : 'Reminder'}
+        </p>
+      )}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
           {config.enabled ? <Bell size={17} className="text-primary" /> : <BellOff size={17} className="text-muted-foreground/58" />}
@@ -672,13 +721,13 @@ function LifeReminderCard({ lang }: { lang: string }) {
             <p className="mt-0.5 text-[11px] text-muted-foreground/52">{lang === 'zh' ? '轻轻提醒你记录瞬间' : 'A gentle nudge to log moments'}</p>
           </div>
         </div>
-        <button onClick={handleToggle} className={cn('relative h-6 w-11 rounded-full transition-colors', config.enabled ? 'bg-primary' : 'bg-muted')}>
+        <button onClick={handleToggle} aria-pressed={config.enabled} aria-label={config.enabled ? 'Disable reminder' : 'Enable reminder'} className={cn('relative h-6 w-11 rounded-full transition-colors', config.enabled ? 'bg-primary' : 'bg-muted')}>
           <span className={cn('absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform', config.enabled ? 'translate-x-[22px]' : 'translate-x-0.5')} />
         </button>
       </div>
 
       {config.enabled && (
-        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border/55 pt-3">
+        <div className={cn('mt-3 flex flex-wrap items-center gap-2', flat ? '' : 'border-t border-border/55 pt-3')}>
           <span className="text-[12px] font-medium text-muted-foreground/55">{lang === 'zh' ? '每' : 'Every'}</span>
           {intervals.map(h => (
             <button

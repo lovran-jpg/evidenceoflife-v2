@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { LanguageProvider } from "@/hooks/useLanguage";
 import { AccentColorProvider } from "@/hooks/useAccentColor";
+import { ThemeProvider } from "@/hooks/useTheme";
 import { Suspense, lazy, useEffect } from "react";
 import { identifyUser } from "@/lib/analytics";
 
@@ -69,23 +70,25 @@ const App = () => (
     <AuthProvider>
       <LanguageProvider>
         <AccentColorProvider>
-          <TooltipProvider>
-            <AnalyticsIdentity />
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <Suspense fallback={<LoadingScreen />}>
-                <Routes>
-                  <Route path="/" element={<HomeRoute />} />
-                  <Route path="/demo-app" element={<PublicDemo />} />
-                  <Route path="/auth" element={<AuthRoute><Auth /></AuthRoute>} />
-                  <Route path="/auth/callback" element={<AuthCallback />} />
-                  <Route path="/app" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </Suspense>
-            </BrowserRouter>
-          </TooltipProvider>
+          <ThemeProvider>
+            <TooltipProvider>
+              <AnalyticsIdentity />
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <Suspense fallback={<LoadingScreen />}>
+                  <Routes>
+                    <Route path="/" element={<HomeRoute />} />
+                    <Route path="/demo-app" element={<PublicDemo />} />
+                    <Route path="/auth" element={<AuthRoute><Auth /></AuthRoute>} />
+                    <Route path="/auth/callback" element={<AuthCallback />} />
+                    <Route path="/app" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </Suspense>
+              </BrowserRouter>
+            </TooltipProvider>
+          </ThemeProvider>
         </AccentColorProvider>
       </LanguageProvider>
     </AuthProvider>

@@ -76,8 +76,8 @@ export function DailyHabitTracker({
 
   return (
     <aside className="min-w-0 lg:sticky lg:top-4">
-      <div className="rounded-[24px] border border-border/70 bg-[hsl(var(--surface-soft))] px-3.5 py-3.5 shadow-[0_10px_24px_hsl(var(--foreground)/0.05)]">
-        <div className="rounded-[20px] border border-border/60 bg-background/55 px-3.5 py-3">
+      <div className="rounded-3xl border border-border/70 bg-[hsl(var(--surface-soft))] px-3.5 py-3.5 shadow-[0_10px_24px_hsl(var(--foreground)/0.05)]">
+        <div className="rounded-2xl border border-border/60 bg-background/55 px-3.5 py-3">
           <div className="flex items-center justify-between gap-3">
             <p className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground/55">Daily Tracker</p>
             {habits.length > 0 && (
@@ -104,7 +104,7 @@ export function DailyHabitTracker({
 
         <div className="mt-3.5 space-y-2.5">
           {habits.length === 0 && (
-            <div className="rounded-[20px] border border-dashed border-border/70 px-3.5 py-4 text-center">
+            <div className="rounded-2xl border border-dashed border-border/70 px-3.5 py-4 text-center">
               <p className="text-[11px] text-muted-foreground/65">
                 Add your first daily habit here. It will sync with Habits automatically.
               </p>
@@ -136,7 +136,7 @@ export function DailyHabitTracker({
               <div
                 key={habit.id}
                 className={cn(
-                  "rounded-[20px] border px-3.5 py-2.5 transition-colors",
+                  "rounded-2xl border px-3.5 py-2.5 transition-colors",
                   isComplete ? "border-primary/30 bg-primary/6" : "border-border/70 bg-background/45"
                 )}
               >
@@ -206,7 +206,7 @@ export function DailyHabitTracker({
           })}
 
           {habits.length > 0 && (
-            <div className="rounded-[20px] border border-border/60 bg-background/35 px-3 py-2.5">
+            <div className="rounded-2xl border border-border/60 bg-background/35 px-3 py-2.5">
               <div className="flex items-center gap-2">
                 <input
                   value={newHabitTitle}
@@ -229,14 +229,14 @@ export function DailyHabitTracker({
         </div>
       </div>
       <Dialog open={showHistory} onOpenChange={setShowHistory}>
-        <DialogContent className="max-w-3xl rounded-[28px] border border-border/70 bg-background/95 p-0 shadow-[0_24px_80px_hsl(var(--foreground)/0.16)]">
+        <DialogContent className="max-w-3xl rounded-3xl border border-border/70 bg-background/95 p-0 shadow-[0_24px_80px_hsl(var(--foreground)/0.16)]">
           <DialogHeader className="border-b border-border/60 px-6 py-5">
             <DialogTitle className="text-[18px] font-semibold text-foreground">Habit consistency</DialogTitle>
             <p className="text-[12px] text-muted-foreground">Last 12 weeks. Darker squares mean more completed.</p>
           </DialogHeader>
           <div className="max-h-[70vh] space-y-4 overflow-y-auto px-6 py-5">
             {habits.map((habit) => (
-              <div key={`${habit.id}-history`} className="rounded-[22px] border border-border/60 bg-[hsl(var(--surface-soft))] px-4 py-4">
+              <div key={`${habit.id}-history`} className="rounded-2xl border border-border/60 bg-[hsl(var(--surface-soft))] px-4 py-4">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="truncate text-[14px] font-semibold text-foreground">{habit.title}</p>
@@ -518,7 +518,7 @@ export function LifeReplay({ items, lang, dateKey }: { items: { type: string; ti
   if (events.length < 3) return null;
 
   return (
-    <div className="mb-4 rounded-[20px] border border-primary/10 bg-gradient-to-br from-primary/[0.04] to-primary/[0.08] px-3.5 py-3">
+    <div className="mb-4 rounded-2xl border border-primary/10 bg-gradient-to-br from-primary/[0.04] to-primary/[0.08] px-3.5 py-3">
       <div className="mb-2 flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <span className="text-[12px]">✨</span>

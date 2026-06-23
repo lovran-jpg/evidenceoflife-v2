@@ -1,12 +1,14 @@
 import { useState, useMemo, useEffect, useRef, useCallback, Component, type ErrorInfo, type ReactNode } from 'react';
 import { useDateLocale } from '@/hooks/useDateLocale';
-import { MapPin, Coffee, UtensilsCrossed, Trees, Building2, ChevronLeft, ChevronRight, Globe, Search, X } from 'lucide-react';
+import { MapPin, Coffee, UtensilsCrossed, Trees, Building2, ChevronLeft, ChevronRight, Globe, Search, X, Image as ImageIcon, MapPinned } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.heat';
 import { Moment } from '@/types';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/hooks/useLanguage';
+import { PageHeader } from '@/components/ui/page-header';
+import { EmptyState } from '@/components/ui/empty-state';
 
 import { CityWithPlaces } from '@/hooks/usePlaces';
 
@@ -38,6 +40,18 @@ const categoryColors: Record<string, string> = {
   park: '#22c55e',
   museum: '#8b5cf6',
   other: '#c9a88c',
+};
+
+// Softer, theme-aligned accents used only for the filter chip row above the
+// place list. Map markers stay on the saturated `categoryColors` for legibility
+// at small sizes; chips need to read as warm/editorial, not highlighter.
+const chipAccents: Record<string, string> = {
+  all: '#c98b63',       // terracotta (matches --primary)
+  restaurant: '#d97757', // soft tomato
+  coffee: '#a1734a',     // warm coffee brown
+  park: '#7a9c6e',       // muted sage
+  museum: '#9e7bb5',     // dusty plum
+  other: '#b09280',      // warm taupe
 };
 
 // When a place is saved as a generic 'other' (common for geocoded spots like
@@ -1469,87 +1483,107 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
   return (
     <div className="flex-1 flex flex-col pb-6">
       {/* Header */}
-      <div className="px-5 pt-5 pb-4 flex items-center gap-3">
-        {viewMode === 'city' ? (
-          <>
-            <button onClick={() => { setViewMode('world'); }} className="p-1 -ml-1 hover:bg-secondary rounded-xl transition-colors">
+      {viewMode === 'city' ? (
+        <PageHeader
+          leading={
+            <button
+              onClick={() => { setViewMode('world'); }}
+              aria-label="Back to world view"
+              className="mt-1 -ml-1 rounded-xl p-1 transition-colors hover:bg-secondary"
+            >
               <ChevronLeft size={22} />
             </button>
-            <h1 className="text-[26px] font-bold font-display tracking-tight leading-none">{currentCity?.cityName || t('map.places')}</h1>
-            <span className="text-muted-foreground/60 text-xs ml-auto tabular-nums">
-              {cityPlaces.length} {t('map.places')}
-            </span>
-          </>
-        ) : (
-          <>
+          }
+          eyebrow={lang === 'zh' ? '城市' : 'City'}
+          title={currentCity?.cityName || t('map.places')}
+          subtitle={`${cityPlaces.length} ${t('map.places')}`}
+        />
+      ) : (
+        <PageHeader
+          leading={
             <div
-              className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0"
+              className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl"
               style={{ backgroundColor: `${LIFE_MAP_COLOR}1F`, color: LIFE_MAP_COLOR }}
             >
               <Globe size={24} strokeWidth={2.25} />
             </div>
-            <div className="min-w-0">
-              <h1 className="text-[28px] font-bold font-display tracking-tight leading-none">{lang === 'zh' ? '生活足迹' : 'Life Map'}</h1>
-              <p className="text-[13px] text-muted-foreground/60 mt-1 tabular-nums">
-                {cities.length} {lang === 'zh' ? '个城市' : (cities.length === 1 ? 'city' : 'cities')} · {totalPlaces} {t('map.places')}
-              </p>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Category pills - city view only */}
-      {viewMode === 'city' && (
-        <div className="px-5 pb-3 flex gap-2 overflow-x-auto no-scrollbar">
-          {categoryKeys
-            .filter(({ id }) => id === 'all' || (categoryCounts[id] ?? 0) > 0)
-            .map(({ id, labelKey, icon: Icon }) => {
-              const count = id === 'all' ? cityPlaces.length : (categoryCounts[id] ?? 0);
-              const isActive = activeCategory === id;
-              const accent = id === 'all' ? undefined : categoryColors[id];
-              return (
-                <button
-                  key={id}
-                  onClick={() => setActiveCategory(id)}
-                  aria-pressed={isActive}
-                  className={cn(
-                    'flex items-center gap-1.5 whitespace-nowrap text-xs py-2 px-3.5 rounded-full transition-all font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
-                    isActive
-                      ? 'text-background shadow-sm'
-                      : 'bg-secondary/60 text-muted-foreground hover:bg-secondary hover:text-foreground'
-                  )}
-                  style={isActive ? { backgroundColor: accent ?? 'hsl(var(--foreground))' } : undefined}
-                >
-                  <Icon size={13} />
-                  {t(labelKey)}
-                  <span className={cn('tabular-nums', isActive ? 'opacity-80' : 'opacity-50')}>{count}</span>
-                </button>
-              );
-            })}
-        </div>
+          }
+          eyebrow={lang === 'zh' ? '足迹' : 'Places'}
+          title={lang === 'zh' ? '生活足迹' : 'Life Map'}
+          subtitle={`${cities.length} ${lang === 'zh' ? '个城市' : (cities.length === 1 ? 'city' : 'cities')} · ${totalPlaces} ${t('map.places')}`}
+        />
       )}
 
-      {/* Place search - city view only, helps find a spot fast in busy cities */}
-      {viewMode === 'city' && cityPlaces.length > 4 && (
-        <div className="px-5 pb-3">
-          <div className="flex items-center gap-2 bg-secondary/50 rounded-full px-3.5 py-2">
-            <Search size={14} className="text-muted-foreground/60 flex-shrink-0" />
-            <input
-              value={placeQuery}
-              onChange={(e) => setPlaceQuery(e.target.value)}
-              placeholder={lang === 'zh' ? '搜索地点…' : 'Search places…'}
-              className="flex-1 bg-transparent text-sm focus:outline-none placeholder:text-muted-foreground/50 min-w-0"
-              aria-label={lang === 'zh' ? '搜索地点' : 'Search places'}
-            />
-            {placeQuery && (
-              <button
-                onClick={() => setPlaceQuery('')}
-                className="text-muted-foreground/60 hover:text-foreground flex-shrink-0"
-                aria-label={lang === 'zh' ? '清除' : 'Clear'}
-              >
-                <X size={14} />
-              </button>
-            )}
+      {/* Toolbar — search first (primary), category filter chips below as a quieter strip.
+          City view only. The search row only renders when there are enough places to need filtering. */}
+      {viewMode === 'city' && (
+        <div className="space-y-2 px-5 pb-3">
+          {cityPlaces.length > 4 && (
+            <div className="flex items-center gap-2 rounded-full bg-secondary/50 px-3.5 py-2">
+              <Search size={14} className="flex-shrink-0 text-muted-foreground/60" />
+              <input
+                value={placeQuery}
+                onChange={(e) => setPlaceQuery(e.target.value)}
+                placeholder={lang === 'zh' ? '搜索地点…' : 'Search places…'}
+                className="min-w-0 flex-1 bg-transparent text-sm placeholder:text-muted-foreground/50 focus:outline-none"
+                aria-label={lang === 'zh' ? '搜索地点' : 'Search places'}
+              />
+              {placeQuery && (
+                <button
+                  onClick={() => setPlaceQuery('')}
+                  className="flex-shrink-0 text-muted-foreground/60 hover:text-foreground"
+                  aria-label={lang === 'zh' ? '清除' : 'Clear'}
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          )}
+
+          <div className="-mx-1 flex items-center gap-1.5 overflow-x-auto px-1 no-scrollbar">
+            {categoryKeys
+              .filter(({ id }) => id === 'all' || (categoryCounts[id] ?? 0) > 0)
+              .map(({ id, labelKey, icon: Icon }) => {
+                const count = id === 'all' ? cityPlaces.length : (categoryCounts[id] ?? 0);
+                const isActive = activeCategory === id;
+                const accent = chipAccents[id] ?? chipAccents.other;
+                return (
+                  <button
+                    key={id}
+                    onClick={() => setActiveCategory(id)}
+                    aria-pressed={isActive}
+                    className={cn(
+                      'inline-flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+                      !isActive && 'border-border/55 bg-transparent text-muted-foreground hover:text-foreground',
+                    )}
+                    style={
+                      isActive
+                        ? {
+                            backgroundColor: `${accent}1f`, // ~12% tint
+                            borderColor: `${accent}73`,     // ~45% border
+                            color: accent,
+                          }
+                        : undefined
+                    }
+                  >
+                    <Icon
+                      size={13}
+                      className={isActive ? '' : 'text-muted-foreground/70'}
+                      style={isActive ? { color: accent } : undefined}
+                    />
+                    <span>{t(labelKey)}</span>
+                    <span
+                      className={cn(
+                        'tabular-nums text-[11px]',
+                        !isActive && 'text-muted-foreground/55',
+                      )}
+                      style={isActive ? { color: accent, opacity: 0.7 } : undefined}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
           </div>
         </div>
       )}
@@ -1824,7 +1858,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                     <div className="px-4 pt-4 pb-3">
                       {!DETAIL_MAP_ENABLED ? (
                         <div
-                          className="h-[220px] rounded-[28px] overflow-hidden shadow-sm border border-border/40 bg-secondary/20 flex items-center justify-center px-4"
+                          className="h-[220px] rounded-3xl overflow-hidden shadow-sm border border-border/40 bg-secondary/20 flex items-center justify-center px-4"
                         >
                           {getPlaceCoverPhoto(showPlaceDetail) ? (
                             <div className="flex w-full items-center gap-4">
@@ -1859,7 +1893,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                         </div>
                       ) : detailMapFailed ? (
                         <div
-                          className="h-[220px] rounded-[28px] overflow-hidden shadow-sm border border-border/40 bg-secondary/20 flex items-center justify-center text-center px-6"
+                          className="h-[220px] rounded-3xl overflow-hidden shadow-sm border border-border/40 bg-secondary/20 flex items-center justify-center text-center px-6"
                         >
                           <div>
                             <p className="text-sm font-medium text-foreground/85">{showPlaceDetail.name}</p>
@@ -1870,7 +1904,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                         </div>
                       ) : (
                         <div
-                          className="h-[220px] rounded-[28px] overflow-hidden shadow-sm"
+                          className="h-[220px] rounded-3xl overflow-hidden shadow-sm"
                           style={{ border: '1px solid hsl(var(--border) / 0.3)' }}
                           ref={detailContainerRef}
                         />
@@ -1879,13 +1913,13 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
 
                     <div className="px-4 py-4 pb-8">
                       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                        <div className="rounded-[22px] border border-border/40 bg-card/70 px-4 py-4">
+                        <div className="rounded-3xl border border-border/40 bg-card/70 px-4 py-4">
                           <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground/55">
                             {lang === 'zh' ? '地点' : 'Place'}
                           </p>
                           <p className="mt-2 text-lg font-semibold text-foreground">{showPlaceDetail.name}</p>
                         </div>
-                        <div className="rounded-[22px] border border-border/40 bg-card/70 px-4 py-4">
+                        <div className="rounded-3xl border border-border/40 bg-card/70 px-4 py-4">
                           <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground/55">
                             {lang === 'zh' ? '记录' : 'Visits'}
                           </p>
@@ -1893,7 +1927,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                             {showPlaceDetail.visits} {showPlaceDetail.visits === 1 ? t('map.visit') : t('map.visits')}
                           </p>
                         </div>
-                        <div className="rounded-[22px] border border-border/40 bg-card/70 px-4 py-4">
+                        <div className="rounded-3xl border border-border/40 bg-card/70 px-4 py-4">
                           <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground/55">
                             {lang === 'zh' ? '最近一次' : 'Last visit'}
                           </p>
@@ -1904,7 +1938,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                       </div>
 
                       <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
-                        <div className="rounded-[26px] border border-border/40 bg-card/70 p-4">
+                        <div className="rounded-3xl border border-border/40 bg-card/70 p-4">
                           <div className="mb-3 flex items-center justify-between gap-3">
                             <div>
                               <p className="text-sm font-medium text-foreground">{lang === 'zh' ? '照片' : 'Photos'}</p>
@@ -1915,7 +1949,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                           </div>
                           {allPhotos.length > 0 ? (
                             <div className="grid grid-cols-2 gap-3">
-                              <div className="col-span-2 overflow-hidden rounded-[22px] border border-border/35 bg-secondary/20">
+                              <div className="col-span-2 overflow-hidden rounded-2xl border border-border/35 bg-secondary/20">
                                 <img src={allPhotos[0]} alt="" className="aspect-[4/3] h-full w-full object-cover" loading="lazy" />
                               </div>
                               {allPhotos.slice(1).map((photo, index) => (
@@ -1925,13 +1959,16 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                               ))}
                             </div>
                           ) : (
-                            <div className="rounded-[20px] border border-dashed border-border/40 px-4 py-10 text-center text-[12px] text-muted-foreground/60">
-                              {lang === 'zh' ? '还没有照片' : 'No photos'}
-                            </div>
+                            <EmptyState
+                              variant="inline"
+                              icon={<ImageIcon size={18} />}
+                              title={lang === 'zh' ? '还没有照片' : 'No photos'}
+                              className="py-8"
+                            />
                           )}
                         </div>
 
-                        <div className="rounded-[26px] border border-border/40 bg-card/70 p-4">
+                        <div className="rounded-3xl border border-border/40 bg-card/70 p-4">
                           <div className="mb-3 flex items-center justify-between gap-3">
                             <div>
                               <p className="text-sm font-medium text-foreground">{lang === 'zh' ? '到访记录' : 'Visits'}</p>
@@ -1939,9 +1976,12 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                             </div>
                           </div>
                           {sortedVisits.length === 0 ? (
-                            <p className="rounded-[20px] border border-dashed border-border/40 px-4 py-10 text-center text-[12px] leading-6 text-muted-foreground/65">
-                              {lang === 'zh' ? '还没有到访记录' : 'No visits yet'}
-                            </p>
+                            <EmptyState
+                              variant="inline"
+                              icon={<MapPinned size={18} />}
+                              title={lang === 'zh' ? '还没有到访记录' : 'No visits yet'}
+                              className="py-8"
+                            />
                           ) : (
                             <div className="space-y-3">
                               {sortedVisits.map((visit, index) => {

@@ -1,30 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
   Brain,
   CalendarClock,
-  CalendarDays,
-  CheckCircle2,
-  Clock3,
-  Images,
-  Link2,
-  Layers,
-  MapPin,
-  NotebookPen,
-  Pin,
   PlayCircle,
-  Repeat,
   Route,
   ShieldCheck,
   Sparkles,
-  Target,
-  Timer,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { trackEvent } from '@/lib/analytics';
 import { BrandLogo } from '@/components/BrandLogo';
 import { useLanguage } from '@/hooks/useLanguage';
+import { cn } from '@/lib/utils';
 
 const steps = [
   { number: '01', id: 'plan', labelKey: 'landing.phase.plan', titleKey: 'landing.step.plan.title', bodyKey: 'landing.step.plan.body' },
@@ -39,51 +28,10 @@ const featurePillars = [
   { icon: Route, titleKey: 'landing.pillar.recall.title', bodyKey: 'landing.pillar.recall.body' },
 ];
 
-// Modules grouped into three layers so the landing page mirrors the in-app
-// mental model: the core loop users must understand first, the evidence types
-// that prove a day happened, and the obligations that keep life moving.
-const moduleGroups = [
-  {
-    labelKey: 'landing.group.core.label',
-    captionKey: 'landing.group.core.caption',
-    items: [
-      { icon: Clock3, titleKey: 'landing.mod.today.title', bodyKey: 'landing.mod.today.body' },
-      { icon: Timer, titleKey: 'landing.mod.focus.title', bodyKey: 'landing.mod.focus.body' },
-      { icon: NotebookPen, titleKey: 'landing.mod.recap.title', bodyKey: 'landing.mod.recap.body' },
-      { icon: CalendarDays, titleKey: 'landing.mod.recall.title', bodyKey: 'landing.mod.recall.body' },
-    ],
-  },
-  {
-    labelKey: 'landing.group.evidence.label',
-    captionKey: 'landing.group.evidence.caption',
-    items: [
-      { icon: Images, titleKey: 'landing.mod.photo.title', bodyKey: 'landing.mod.photo.body' },
-      { icon: MapPin, titleKey: 'landing.mod.place.title', bodyKey: 'landing.mod.place.body' },
-      { icon: Link2, titleKey: 'landing.mod.link.title', bodyKey: 'landing.mod.link.body' },
-    ],
-  },
-  {
-    labelKey: 'landing.group.obligations.label',
-    captionKey: 'landing.group.obligations.caption',
-    items: [
-      { icon: Pin, titleKey: 'landing.mod.dues.title', bodyKey: 'landing.mod.dues.body' },
-      { icon: Repeat, titleKey: 'landing.mod.habits.title', bodyKey: 'landing.mod.habits.body' },
-    ],
-  },
-];
-
-const useCaseKeys = ['landing.fit.1', 'landing.fit.2', 'landing.fit.3', 'landing.fit.4'];
-
 const outcomeKeys = [
   ['landing.outcome.1.title', 'landing.outcome.1.body'],
   ['landing.outcome.2.title', 'landing.outcome.2.body'],
   ['landing.outcome.3.title', 'landing.outcome.3.body'],
-];
-
-const marketAngleKeys = [
-  ['landing.angle.todo.title', 'landing.angle.todo.body'],
-  ['landing.angle.journal.title', 'landing.angle.journal.body'],
-  ['landing.angle.habit.title', 'landing.angle.habit.body'],
 ];
 
 const framePresets: Record<string, { scale: number; x: number; y: number; width: string; height: string }> = {
@@ -94,15 +42,95 @@ const framePresets: Record<string, { scale: number; x: number; y: number; width:
   map: { scale: 0.9, x: -8, y: -10, width: '114%', height: '114%' },
 };
 
+const DEMO_ADVANCE_MS = 6000;
+
+function useReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => setReduced(mq.matches);
+    update();
+    mq.addEventListener?.('change', update);
+    return () => mq.removeEventListener?.('change', update);
+  }, []);
+  return reduced;
+}
+
+function Reveal({
+  className,
+  delay = 0,
+  children,
+}: {
+  className?: string;
+  delay?: number;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [visible, setVisible] = useState(false);
+  const reduced = useReducedMotion();
+
+  useEffect(() => {
+    if (reduced) {
+      setVisible(true);
+      return;
+    }
+    const node = ref.current;
+    if (!node) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setVisible(true);
+            io.disconnect();
+            break;
+          }
+        }
+      },
+      { rootMargin: '-10% 0px -10% 0px', threshold: 0.05 },
+    );
+    io.observe(node);
+    return () => io.disconnect();
+  }, [reduced]);
+
+  return (
+    <div
+      ref={ref}
+      style={{ transitionDelay: visible ? `${delay}ms` : '0ms' }}
+      className={cn(
+        'transition-[opacity,transform] duration-700 ease-out motion-reduce:transition-none',
+        visible ? 'translate-y-0 opacity-100' : 'translate-y-3 opacity-0 motion-reduce:translate-y-0 motion-reduce:opacity-100',
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
 export default function Landing() {
   const navigate = useNavigate();
   const { t } = useLanguage();
   const [activeStepIndex, setActiveStepIndex] = useState(0);
+  const [autoplay, setAutoplay] = useState(true);
+  const reduced = useReducedMotion();
   const activeStep = steps[activeStepIndex];
   const activeFrame = framePresets[activeStep.id] ?? framePresets.plan;
 
   useEffect(() => {
     trackEvent('landing_page_view', { page: '/' });
+  }, []);
+
+  useEffect(() => {
+    if (!autoplay || reduced) return;
+    const id = window.setInterval(() => {
+      setActiveStepIndex((i) => (i + 1) % steps.length);
+    }, DEMO_ADVANCE_MS);
+    return () => window.clearInterval(id);
+  }, [autoplay, reduced]);
+
+  const selectStep = useCallback((index: number) => {
+    setActiveStepIndex(index);
+    setAutoplay(false);
   }, []);
 
   const handleStart = () => {
@@ -116,12 +144,12 @@ export default function Landing() {
   };
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#f8f1e8] text-[#2d221d] antialiased">
-      <header className="sticky top-0 z-30 border-b border-[rgba(124,82,56,0.08)] bg-[rgba(248,241,232,0.86)] backdrop-blur-md">
+    <div className="min-h-screen overflow-x-hidden bg-[#f8f1e8] text-[#2d221d] antialiased selection:bg-[#d4875f]/25 selection:text-[#2d221d]">
+      <header className="sticky top-0 z-30 border-b border-[rgba(124,82,56,0.08)] bg-[rgba(248,241,232,0.82)] backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3.5 lg:px-8">
           <button
             type="button"
-            className="flex items-center gap-3 text-left"
+            className="flex items-center gap-3 rounded-full text-left transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4875f]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f8f1e8]"
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
           >
             <BrandLogo alt="Evidence of Life" className="h-10 w-10" />
@@ -131,36 +159,28 @@ export default function Landing() {
             </div>
           </button>
 
-          <nav className="hidden items-center gap-6 text-sm font-medium text-[#7b675a] md:flex">
+          <nav className="hidden items-center gap-7 text-sm font-medium text-[#7b675a] md:flex">
             <a className="transition-colors hover:text-[#c9784e]" href="#product">{t('landing.nav.product')}</a>
-            <a className="transition-colors hover:text-[#c9784e]" href="#positioning">{t('landing.nav.positioning')}</a>
-            <a className="transition-colors hover:text-[#c9784e]" href="#how-it-works">{t('landing.nav.how')}</a>
           </nav>
 
-          <div className="flex items-center gap-1.5">
-            <Button
-              variant="ghost"
-              className="hidden rounded-full px-4 text-[#8d7564] hover:bg-[rgba(124,82,56,0.06)] hover:text-[#5d493d] sm:inline-flex"
-              onClick={() => navigate('/auth')}
-            >
-              {t('landing.cta.signIn')}
-            </Button>
-            <Button
-              className="rounded-full bg-[#d4875f] px-5 text-white shadow-[0_8px_20px_-10px_rgba(212,135,95,0.9)] hover:bg-[#c9784e]"
-              onClick={handleStart}
-            >
-              {t('landing.cta.startFree')}
-            </Button>
-          </div>
+          <button
+            type="button"
+            onClick={() => navigate('/auth')}
+            className="text-sm font-medium text-[#8d7564] transition-colors hover:text-[#c9784e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4875f]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f8f1e8]"
+          >
+            {t('landing.cta.signIn')}
+          </button>
         </div>
       </header>
 
       <main>
+        {/* ── 1. Hero + live demo (the entire opener) ──────────────── */}
         <section className="relative mx-auto max-w-6xl px-6 pb-20 pt-16 text-center lg:px-8 lg:pt-24">
-          <div className="pointer-events-none absolute left-1/2 top-[-10%] -z-0 h-[480px] w-[680px] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(212,135,95,0.18),transparent)] blur-2xl" />
+          <div className="pointer-events-none absolute left-1/2 top-[-12%] -z-0 h-[520px] w-[760px] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(212,135,95,0.22),transparent)] blur-2xl" />
+          <div className="pointer-events-none absolute left-[12%] top-[18%] -z-0 hidden h-[200px] w-[200px] rounded-full bg-[radial-gradient(closest-side,rgba(143,168,131,0.18),transparent)] blur-2xl lg:block" />
 
-          <div className="relative mx-auto flex max-w-3xl flex-col items-center">
-            <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(212,135,95,0.22)] bg-[rgba(255,250,244,0.9)] px-3.5 py-1.5 text-sm font-medium text-[#c9784e] shadow-sm">
+          <Reveal className="relative mx-auto flex max-w-3xl flex-col items-center">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(212,135,95,0.22)] bg-[rgba(255,250,244,0.92)] px-3.5 py-1.5 text-sm font-medium text-[#c9784e] shadow-[0_4px_14px_-6px_rgba(212,135,95,0.4)]">
               <Sparkles size={14} />
               {t('landing.eyebrow')}
             </div>
@@ -168,7 +188,9 @@ export default function Landing() {
             <h1 className="mt-7 text-balance text-4xl font-semibold leading-[1.04] tracking-[-0.04em] text-[#2d221d] sm:text-6xl">
               {t('landing.heroTitle1')}
               <br />
-              <span className="text-[#c9784e]">{t('landing.heroTitle2')}</span>
+              <span className="bg-gradient-to-br from-[#e09870] via-[#d4875f] to-[#b86a3f] bg-clip-text text-transparent">
+                {t('landing.heroTitle2')}
+              </span>
             </h1>
 
             <p className="mt-6 max-w-2xl text-pretty text-lg leading-8 text-[#6d594d]">
@@ -178,11 +200,11 @@ export default function Landing() {
             <div className="mt-9 flex w-full flex-col items-center justify-center gap-3 sm:flex-row">
               <Button
                 size="lg"
-                className="h-12 w-full rounded-full bg-[#d4875f] px-7 text-base text-white shadow-[0_14px_30px_-12px_rgba(212,135,95,0.95)] hover:bg-[#c9784e] sm:w-auto"
+                className="group h-12 w-full rounded-full bg-[#d4875f] px-7 text-base text-white shadow-[0_16px_32px_-14px_rgba(212,135,95,0.95)] transition-transform hover:bg-[#c9784e] active:scale-[0.985] sm:w-auto"
                 onClick={handleStart}
               >
                 {t('landing.cta.createAccount')}
-                <ArrowRight />
+                <ArrowRight className="transition-transform group-hover:translate-x-0.5" />
               </Button>
               <Button
                 size="lg"
@@ -198,10 +220,14 @@ export default function Landing() {
             <p className="mt-4 text-sm text-[#9a8473]">
               {t('landing.hero.note')}
             </p>
-          </div>
+          </Reveal>
 
-          <div className="relative mx-auto mt-14 max-w-4xl">
-            <div className="overflow-hidden rounded-2xl border border-[rgba(49,36,31,0.12)] bg-[#1b1512] shadow-[0_40px_80px_-32px_rgba(45,34,29,0.55)]">
+          {/* Live demo frame — this IS the "how it works" content (each tab is a phase) */}
+          <Reveal delay={120} className="relative mx-auto mt-14 max-w-4xl">
+            <div
+              className="overflow-hidden rounded-2xl border border-[rgba(49,36,31,0.12)] bg-[#1b1512] shadow-[0_44px_88px_-36px_rgba(45,34,29,0.6)]"
+              onMouseEnter={() => setAutoplay(false)}
+            >
               <div className="flex items-center gap-2 border-b border-white/5 bg-[#231b17] px-4 py-2.5">
                 <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
                 <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
@@ -212,8 +238,10 @@ export default function Landing() {
               </div>
 
               <div className="relative aspect-[16/10] overflow-hidden bg-[#171210]">
-                <div className="absolute left-4 top-4 z-10 rounded-full border border-[rgba(223,154,118,0.24)] bg-[rgba(23,18,16,0.82)] px-3 py-1.5 text-[11px] font-medium text-[#f4dfd1]">
-                  {activeStep.number}. {t(activeStep.labelKey)}
+                <div className="absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-full border border-[rgba(223,154,118,0.24)] bg-[rgba(23,18,16,0.82)] px-3 py-1.5 text-[11px] font-medium text-[#f4dfd1] backdrop-blur-sm">
+                  <span className="text-[#d4875f]">{activeStep.number}</span>
+                  <span className="h-1 w-1 rounded-full bg-[#9a8473]/60" />
+                  {t(activeStep.labelKey)}
                 </div>
                 <iframe
                   src={`/demo-app?embed=1&demoStep=${activeStep.id}`}
@@ -227,264 +255,185 @@ export default function Landing() {
                     transformOrigin: 'top left',
                   }}
                 />
-                <div className="pointer-events-none absolute bottom-4 left-4 z-10 rounded-full border border-[rgba(223,154,118,0.18)] bg-[rgba(23,18,16,0.82)] px-3 py-1 text-[10px] font-medium text-[#f4dfd1]">
+                <div className="pointer-events-none absolute bottom-4 left-4 z-10 rounded-full border border-[rgba(223,154,118,0.18)] bg-[rgba(23,18,16,0.82)] px-3 py-1 text-[10px] font-medium text-[#f4dfd1] backdrop-blur-sm">
                   {t('landing.demo.caption')}
                 </div>
               </div>
             </div>
 
-            <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-              {steps.map((step, index) => (
-                <button
-                  key={step.id}
-                  type="button"
-                  onClick={() => setActiveStepIndex(index)}
-                  className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-                    step.id === activeStep.id
-                      ? 'bg-[#d4875f] text-white shadow-[0_8px_18px_-10px_rgba(212,135,95,0.9)]'
-                      : 'border border-[rgba(124,82,56,0.14)] bg-white/70 text-[#7b675a] hover:bg-white'
-                  }`}
-                >
-                  {t(step.labelKey)}
-                </button>
-              ))}
+            <div
+              role="tablist"
+              aria-label="Demo steps"
+              className="mt-5 flex flex-wrap items-center justify-center gap-2"
+            >
+              {steps.map((step, index) => {
+                const isActive = step.id === activeStep.id;
+                return (
+                  <button
+                    key={step.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    aria-controls="demo-step-caption"
+                    onClick={() => selectStep(index)}
+                    className={cn(
+                      'relative overflow-hidden rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4875f]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f8f1e8]',
+                      isActive
+                        ? 'bg-[#d4875f] text-white shadow-[0_10px_22px_-12px_rgba(212,135,95,0.9)]'
+                        : 'border border-[rgba(124,82,56,0.14)] bg-white/70 text-[#7b675a] hover:bg-white hover:text-[#5d493d]',
+                    )}
+                  >
+                    <span className="relative z-10 inline-flex items-center gap-1.5">
+                      <span className={cn('text-[10px] font-semibold tracking-[0.1em]', isActive ? 'text-white/80' : 'text-[#9a8473]')}>
+                        {step.number}
+                      </span>
+                      {t(step.labelKey)}
+                    </span>
+                    {isActive && autoplay && !reduced && (
+                      <span
+                        key={`${step.id}-progress`}
+                        className="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] origin-left bg-white/70"
+                        style={{ animation: `eolProgress ${DEMO_ADVANCE_MS}ms linear forwards` }}
+                      />
+                    )}
+                  </button>
+                );
+              })}
             </div>
-            <p className="mt-3 text-center text-[15px] text-[#786457]">
-              <span className="font-semibold text-[#342821]">{t(activeStep.titleKey)}.</span> {t(activeStep.bodyKey)}
+
+            <p id="demo-step-caption" className="mt-3 text-center text-[15px] leading-7 text-[#786457]">
+              <span className="font-semibold text-[#342821]">{t(activeStep.titleKey)}.</span>{' '}
+              {t(activeStep.bodyKey)}
             </p>
-          </div>
+          </Reveal>
         </section>
 
-        <section className="border-y border-[rgba(124,82,56,0.08)] bg-[rgba(255,250,244,0.62)]">
-          <div className="mx-auto grid max-w-5xl grid-cols-2 gap-6 px-6 py-10 text-center sm:grid-cols-4 lg:px-8">
-            {[
-              ['landing.phase.plan', 'landing.stat.planSub'],
-              ['landing.phase.live', 'landing.stat.liveSub'],
-              ['landing.phase.capture', 'landing.stat.captureSub'],
-              ['landing.phase.revisit', 'landing.stat.revisitSub'],
-            ].map(([statKey, labelKey]) => (
-              <div key={statKey}>
-                <div className="text-xl font-semibold tracking-tight text-[#c9784e]">{t(statKey)}</div>
-                <div className="mt-1 text-sm leading-6 text-[#786457]">{t(labelKey)}</div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section id="product" className="mx-auto max-w-6xl px-6 py-24 lg:px-8">
-          <div className="grid gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
-            <div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-[rgba(212,135,95,0.12)] px-3 py-1 text-sm font-semibold text-[#c9784e]">
-                <Target size={14} />
-                {t('landing.product.eyebrow')}
-              </div>
-              <h2 className="mt-5 text-3xl font-semibold tracking-[-0.03em] text-[#2d221d] sm:text-4xl">
+        {/* ── 2. Product — 3 pillars + 6 modules (one combined section) ── */}
+        <section id="product" className="border-t border-[rgba(124,82,56,0.08)] bg-[rgba(255,250,244,0.55)]">
+          <div className="mx-auto max-w-6xl px-6 py-24 lg:px-8">
+            <Reveal className="mx-auto max-w-2xl text-center">
+              <h2 className="text-3xl font-semibold tracking-[-0.03em] text-[#2d221d] sm:text-4xl">
                 {t('landing.product.h2')}
               </h2>
               <p className="mt-4 text-lg leading-8 text-[#6d594d]">
                 {t('landing.product.body')}
               </p>
-            </div>
+            </Reveal>
 
-            <div className="grid gap-4 sm:grid-cols-3">
-              {featurePillars.map((feature) => (
-                <div
-                  key={feature.titleKey}
-                  className="rounded-2xl border border-[rgba(124,82,56,0.1)] bg-[rgba(255,250,244,0.78)] p-5 shadow-[0_18px_48px_-34px_rgba(45,34,29,0.45)]"
-                >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[rgba(212,135,95,0.14)] text-[#c9784e]">
-                    <feature.icon size={19} />
+            {/* 3 pillars — the "why" */}
+            <div className="mt-12 grid gap-4 sm:grid-cols-3">
+              {featurePillars.map((feature, i) => (
+                <Reveal key={feature.titleKey} delay={i * 80}>
+                  <div className="flex h-full flex-col rounded-2xl border border-[rgba(124,82,56,0.1)] bg-[rgba(255,250,244,0.82)] p-5 shadow-[0_20px_48px_-34px_rgba(45,34,29,0.45)] transition-shadow duration-300 hover:shadow-[0_28px_56px_-30px_rgba(45,34,29,0.55)]">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[rgba(212,135,95,0.22)] to-[rgba(212,135,95,0.08)] text-[#c9784e]">
+                      <feature.icon size={19} />
+                    </div>
+                    <h3 className="mt-4 text-base font-semibold text-[#342821]">{t(feature.titleKey)}</h3>
+                    <p className="mt-2 text-sm leading-6 text-[#786457]">{t(feature.bodyKey)}</p>
                   </div>
-                  <h3 className="mt-4 text-base font-semibold text-[#342821]">{t(feature.titleKey)}</h3>
-                  <p className="mt-2 text-sm leading-6 text-[#786457]">{t(feature.bodyKey)}</p>
-                </div>
+                </Reveal>
               ))}
             </div>
           </div>
-
-          <div className="mt-14 space-y-12">
-            {moduleGroups.map((group) => (
-              <div key={group.labelKey}>
-                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                  <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-[#c9784e]">
-                    {t(group.labelKey)}
-                  </h3>
-                  <span className="text-sm text-[#9a8473]">{t(group.captionKey)}</span>
-                </div>
-                <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                  {group.items.map((feature) => (
-                    <div
-                      key={feature.titleKey}
-                      className="group rounded-2xl border border-[rgba(124,82,56,0.1)] bg-[rgba(255,250,244,0.78)] p-6 transition-shadow hover:shadow-[0_24px_48px_-28px_rgba(45,34,29,0.4)]"
-                    >
-                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[rgba(212,135,95,0.14)] text-[#c9784e]">
-                        <feature.icon size={20} />
-                      </div>
-                      <h3 className="mt-5 text-lg font-semibold text-[#342821]">{t(feature.titleKey)}</h3>
-                      <p className="mt-2 text-[15px] leading-7 text-[#786457]">{t(feature.bodyKey)}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-
-            <div className="flex items-center gap-4 rounded-2xl border border-[rgba(124,82,56,0.1)] bg-[rgba(255,250,244,0.78)] p-6">
-              <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-[rgba(212,135,95,0.14)] text-[#c9784e]">
-                <ShieldCheck size={20} />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold text-[#342821]">{t('landing.private.title')}</h3>
-                <p className="mt-1 text-[15px] leading-7 text-[#786457]">
-                  {t('landing.private.body')}
-                </p>
-              </div>
-            </div>
-          </div>
         </section>
 
-        <section id="positioning" className="border-t border-[rgba(124,82,56,0.08)] bg-[rgba(255,250,244,0.55)]">
-          <div className="mx-auto grid max-w-6xl gap-10 px-6 py-24 lg:grid-cols-[1fr_0.9fr] lg:px-8">
-            <div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-white/70 px-3 py-1 text-sm font-semibold text-[#c9784e]">
-                <Layers size={14} />
-                {t('landing.angle.eyebrow')}
-              </div>
-              <h2 className="mt-5 text-3xl font-semibold tracking-[-0.03em] text-[#2d221d] sm:text-4xl">
-                {t('landing.angle.h2')}
-              </h2>
-              <p className="mt-4 text-lg leading-8 text-[#6d594d]">
-                {t('landing.angle.body')}
-              </p>
-
-              <div className="mt-8 grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
-                {marketAngleKeys.map(([titleKey, bodyKey]) => (
-                  <div key={titleKey} className="rounded-2xl border border-[rgba(124,82,56,0.1)] bg-white/70 p-4">
-                    <h3 className="font-semibold text-[#342821]">{t(titleKey)}</h3>
-                    <p className="mt-2 text-sm leading-6 text-[#786457]">{t(bodyKey)}</p>
-                  </div>
-                ))}
-              </div>
-
-              <h3 className="mt-10 text-lg font-semibold text-[#342821]">{t('landing.fit.title')}</h3>
-              <div className="mt-4 grid gap-3">
-                {useCaseKeys.map((useCaseKey) => (
-                  <div key={useCaseKey} className="flex gap-3 rounded-2xl border border-[rgba(124,82,56,0.1)] bg-white/70 p-4">
-                    <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-[#c9784e]" />
-                    <p className="text-[15px] leading-7 text-[#5d493d]">{t(useCaseKey)}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-3xl border border-[rgba(124,82,56,0.1)] bg-[#2d221d] p-7 text-[#f8f1e8] shadow-[0_34px_70px_-38px_rgba(45,34,29,0.7)]">
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#d4875f]">{t('landing.promise.eyebrow')}</p>
-              <h3 className="mt-4 text-2xl font-semibold tracking-[-0.02em]">
-                {t('landing.promise.h3')}
-              </h3>
-              <div className="mt-7 space-y-5">
-                {outcomeKeys.map(([titleKey, bodyKey]) => (
-                  <div key={titleKey} className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-                    <h4 className="font-semibold text-white">{t(titleKey)}</h4>
-                    <p className="mt-2 text-sm leading-6 text-[#d8c6b8]">{t(bodyKey)}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section id="how-it-works" className="mx-auto max-w-6xl px-6 py-24 lg:px-8">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-semibold tracking-[-0.03em] text-[#2d221d] sm:text-4xl">
-              {t('landing.how.h2')}
-            </h2>
-            <p className="mt-4 text-lg leading-8 text-[#6d594d]">
-              {t('landing.how.sub')}
-            </p>
-          </div>
-
-          <ol className="mt-14 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {steps.map((step) => (
-              <li
-                key={step.id}
-                className="rounded-2xl border border-[rgba(124,82,56,0.1)] bg-white/70 p-5"
-              >
-                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#d4875f] text-base font-semibold text-white">
-                  {step.number}
-                </div>
-                <h3 className="mt-5 text-lg font-semibold text-[#342821]">{t(step.labelKey)}</h3>
-                <p className="mt-2 text-sm leading-6 text-[#786457]">{t(step.bodyKey)}</p>
-              </li>
-            ))}
-          </ol>
-        </section>
-
+        {/* ── 3. Positioning — 3 angles only ───────────────────────── */}
+        {/* ── 4. Promise — dark outcomes block (kept private-by-default inline as footnote) ── */}
         <section className="border-y border-[rgba(124,82,56,0.08)] bg-[rgba(255,250,244,0.58)]">
-          <div className="mx-auto max-w-4xl px-6 py-20 text-center lg:px-8">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[rgba(212,135,95,0.14)] text-[#c9784e]">
-              <Sparkles size={22} />
-            </div>
-            <blockquote className="mt-6 text-2xl font-semibold leading-10 tracking-[-0.02em] text-[#342821] sm:text-3xl">
-              {t('landing.narrative')}
-            </blockquote>
-            <p className="mt-4 text-sm font-medium text-[#8d7564]">{t('landing.narrative.label')}</p>
+          <div className="mx-auto max-w-5xl px-6 py-24 lg:px-8">
+            <Reveal>
+              <div className="relative overflow-hidden rounded-3xl border border-[rgba(124,82,56,0.12)] bg-[#2d221d] p-8 text-[#f8f1e8] shadow-[0_40px_80px_-40px_rgba(45,34,29,0.75)] sm:p-10">
+                <div className="pointer-events-none absolute -left-px top-8 h-24 w-1 rounded-r bg-gradient-to-b from-[#d4875f] to-transparent" />
+                <div className="pointer-events-none absolute right-[-15%] top-[-30%] h-[320px] w-[320px] rounded-full bg-[radial-gradient(closest-side,rgba(212,135,95,0.28),transparent)] blur-2xl" />
+
+                <div className="relative">
+                  <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#d4875f]">{t('landing.promise.eyebrow')}</p>
+                  <h3 className="mt-4 text-2xl font-semibold tracking-[-0.02em] sm:text-3xl">
+                    {t('landing.promise.h3')}
+                  </h3>
+
+                  <ol className="mt-8 grid gap-4 sm:grid-cols-3">
+                    {outcomeKeys.map(([titleKey, bodyKey], i) => (
+                      <li
+                        key={titleKey}
+                        className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 transition-colors hover:bg-white/[0.07]"
+                      >
+                        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-[#d4875f]/40 bg-[#d4875f]/10 text-xs font-semibold text-[#f4dfd1]">
+                          {String(i + 1).padStart(2, '0')}
+                        </span>
+                        <h4 className="mt-3 font-semibold text-white">{t(titleKey)}</h4>
+                        <p className="mt-2 text-sm leading-6 text-[#d8c6b8]">{t(bodyKey)}</p>
+                      </li>
+                    ))}
+                  </ol>
+
+                  {/* Private-by-default folded in as a quiet footnote */}
+                  <div className="mt-7 flex items-start gap-3 border-t border-white/10 pt-5 text-sm leading-6 text-[#d8c6b8]">
+                    <ShieldCheck size={16} className="mt-0.5 flex-shrink-0 text-[#d4875f]" />
+                    <p>
+                      <span className="font-semibold text-white">{t('landing.private.title')}.</span>{' '}
+                      {t('landing.private.body')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </Reveal>
           </div>
         </section>
 
+        {/* ── 5. Final CTA (narrative quote folded in as lead-in) ──── */}
         <section className="mx-auto max-w-6xl px-6 py-24 lg:px-8">
-          <div className="relative overflow-hidden rounded-3xl bg-[#2d221d] px-8 py-16 text-center shadow-[0_40px_80px_-40px_rgba(45,34,29,0.7)] sm:px-16">
-            <div className="pointer-events-none absolute left-1/2 top-0 h-[300px] w-[520px] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(212,135,95,0.35),transparent)] blur-2xl" />
-            <div className="relative mx-auto max-w-2xl">
-              <h2 className="text-3xl font-semibold tracking-[-0.03em] text-[#f8f1e8] sm:text-4xl">
-                {t('landing.final.h2')}
-              </h2>
-              <p className="mt-4 text-lg leading-8 text-[#d8c6b8]">
-                {t('landing.final.body')}
-              </p>
-              <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                <Button
-                  size="lg"
-                  className="h-12 w-full rounded-full bg-[#d4875f] px-7 text-base text-white hover:bg-[#c9784e] sm:w-auto"
-                  onClick={handleStart}
-                >
-                  {t('landing.cta.createAccount')}
-                  <ArrowRight />
-                </Button>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="h-12 w-full rounded-full border-white/25 bg-transparent px-7 text-base text-[#f3e7db] hover:bg-white/10 hover:text-white sm:w-auto"
-                  onClick={handleDemo}
-                >
-                  <PlayCircle />
-                  {t('landing.cta.tryDemo')}
-                </Button>
+          <Reveal>
+            <div className="relative overflow-hidden rounded-3xl bg-[#2d221d] px-8 py-14 text-center shadow-[0_44px_88px_-44px_rgba(45,34,29,0.75)] sm:px-16 sm:py-16">
+              <div className="pointer-events-none absolute left-1/2 top-0 h-[320px] w-[560px] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(212,135,95,0.38),transparent)] blur-2xl" />
+              <div className="pointer-events-none absolute bottom-[-30%] right-[-10%] h-[260px] w-[260px] rounded-full bg-[radial-gradient(closest-side,rgba(143,168,131,0.22),transparent)] blur-2xl" />
+              <div className="relative mx-auto max-w-2xl">
+                <blockquote className="text-pretty font-serif text-xl italic leading-[1.55] text-[#d8c6b8] sm:text-2xl">
+                  {t('landing.narrative')}
+                </blockquote>
+                <div className="mx-auto mt-7 h-px w-12 bg-[#d4875f]/40" />
+                <h2 className="mt-7 text-3xl font-semibold tracking-[-0.03em] text-[#f8f1e8] sm:text-4xl">
+                  {t('landing.final.h2')}
+                </h2>
+                <p className="mt-4 text-lg leading-8 text-[#d8c6b8]">
+                  {t('landing.final.body')}
+                </p>
+                <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+                  <Button
+                    size="lg"
+                    className="group h-12 w-full rounded-full bg-[#d4875f] px-7 text-base text-white shadow-[0_16px_32px_-14px_rgba(212,135,95,0.95)] hover:bg-[#c9784e] active:scale-[0.985] sm:w-auto"
+                    onClick={handleStart}
+                  >
+                    {t('landing.cta.createAccount')}
+                    <ArrowRight className="transition-transform group-hover:translate-x-0.5" />
+                  </Button>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="h-12 w-full rounded-full border-white/25 bg-transparent px-7 text-base text-[#f3e7db] hover:bg-white/10 hover:text-white sm:w-auto"
+                    onClick={handleDemo}
+                  >
+                    <PlayCircle />
+                    {t('landing.cta.tryDemo')}
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
+          </Reveal>
         </section>
       </main>
 
       <footer className="border-t border-[rgba(124,82,56,0.1)]">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-10 sm:flex-row lg:px-8">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-8 sm:flex-row lg:px-8">
           <div className="flex items-center gap-3">
             <BrandLogo alt="Evidence of Life" className="h-8 w-8" />
             <span className="font-brand text-lg text-[#6f5646]">Evidence of life</span>
           </div>
-          <div className="flex items-center gap-6 text-sm text-[#8d7564]">
-            <button type="button" className="transition-colors hover:text-[#5d493d]" onClick={() => navigate('/auth')}>
-              {t('landing.cta.signIn')}
-            </button>
-            <button type="button" className="transition-colors hover:text-[#5d493d]" onClick={handleDemo}>
-              {t('landing.cta.liveDemo')}
-            </button>
-            <button type="button" className="transition-colors hover:text-[#5d493d]" onClick={handleStart}>
-              {t('landing.cta.startFree')}
-            </button>
-          </div>
           <p className="text-sm text-[#9a8473]">© {new Date().getFullYear()} Evidence of Life</p>
         </div>
       </footer>
+
+      <style>{`@keyframes eolProgress { from { transform: scaleX(0); } to { transform: scaleX(1); } }`}</style>
     </div>
   );
 }

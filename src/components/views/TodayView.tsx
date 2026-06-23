@@ -3,7 +3,7 @@ import { autoClassifyTag, TAG_CATEGORY_ICONS } from '@/lib/autoTag';
 import { addDays, format, parseISO, startOfWeek, subDays } from 'date-fns';
 import { useDateLocale } from '@/hooks/useDateLocale';
 import { classifyMood } from '@/lib/moodClassifier';
-import { MapPin, Image, Send, X, Smile, Pencil, Trash2, Sparkles, CheckCircle2, Check, Timer, Pause, Play, Square, Mic, Clock, ArrowUp, ChevronDown, ChevronUp, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { MapPin, Image, Send, X, Smile, Pencil, Trash2, Sparkles, CheckCircle2, Check, Timer, Pause, Play, Square, Mic, Clock, ArrowUp, ChevronDown, ChevronUp, ChevronRight, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { InputPlusMenu, detectAutoTags } from '@/components/InputPlusMenu';
 import { useReminders } from '@/hooks/useReminders';
 import { Button } from '@/components/ui/button';
@@ -978,14 +978,14 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
             ))}
           </div>
         )}
-        <div className="bg-[hsl(var(--toolbar-background))] border border-border rounded-[20px] shadow-[0_2px_10px_hsl(var(--foreground)/0.08)] overflow-hidden">
+        <div className="bg-[hsl(var(--toolbar-background))] rounded-2xl overflow-hidden">
           {/* Photo previews */}
           {selectedPhotos.length > 0 && (
-            <div className="flex gap-2 p-2.5 border-b border-border/70 overflow-x-auto">
+            <div className="flex gap-2 px-2.5 pt-2.5 overflow-x-auto">
               {selectedPhotos.map((photo, i) => (
                 <div key={i} className="relative flex-shrink-0">
                   <img src={photo} alt="" className="w-14 h-14 object-cover rounded-lg" />
-                  <button 
+                  <button
                     onClick={() => removePhoto(i)}
                     className="absolute -top-1 -right-1 w-5 h-5 bg-foreground text-background rounded-full flex items-center justify-center"
                   >
@@ -997,7 +997,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
           )}
 
           {(selectedLinks.length > 0 || isResolvingLink) && (
-            <div className="space-y-2 border-b border-border/70 p-2.5">
+            <div className="space-y-2 px-2.5 pt-2.5">
               {selectedLinks.map((link, index) => (
                 <LinkPreviewCard
                   key={`${link.url}-${index}`}
@@ -1007,7 +1007,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                 />
               ))}
               {isResolvingLink && (
-                <div className="flex items-center gap-2 rounded-[16px] border border-border/70 bg-[hsl(var(--surface-soft))] px-3 py-2 text-[12px] text-muted-foreground">
+                <div className="flex items-center gap-2 rounded-[16px] bg-[hsl(var(--surface-soft))] px-3 py-2 text-[12px] text-muted-foreground">
                   <Loader2 size={13} className="animate-spin" />
                   <span>Loading link preview…</span>
                 </div>
@@ -1194,12 +1194,15 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                 <span className="text-[11px] text-muted-foreground/50">
                   {[todosDone != null && todosTotal != null && todosTotal > 0 && `${todosDone}/${todosTotal} done`, sortedMoments.length > 0 && `${sortedMoments.length} moments`].filter(Boolean).join(' · ')}
                 </span>
-                <button
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => onTodayModeChange('plan')}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-[#d7c8bc]/65 bg-[#fbf8f4] px-3.5 py-1.5 text-[12px] font-semibold text-[#8a7465] shadow-[0_6px_18px_rgba(110,92,76,0.07)] transition-all hover:border-[#c9ad9a] hover:bg-[#f6efe8] hover:text-[#725d50] dark:border-foreground/[0.14] dark:bg-foreground/[0.05] dark:text-foreground/80 dark:shadow-[0_6px_18px_rgba(0,0,0,0.4)] dark:hover:border-foreground/22 dark:hover:bg-foreground/[0.09] dark:hover:text-foreground"
+                  className="rounded-full gap-1.5 text-[12px] font-semibold"
                 >
-                  Plan my day ›
-                </button>
+                  Plan my day
+                  <ChevronRight size={14} />
+                </Button>
               </div>
             )}
           </div>
@@ -1245,13 +1248,14 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
           if (timelineItems.length === 0) {
             return (
               <div className="flex min-h-[42vh] items-center justify-center">
-                <div className="w-full max-w-md rounded-[28px] border border-border bg-[hsl(var(--surface-soft))] px-8 py-10 text-center shadow-[0_8px_24px_hsl(var(--foreground)/0.04)]">
+                <div className="w-full max-w-md rounded-3xl border border-border bg-[hsl(var(--surface-soft))] px-8 py-10 text-center shadow-[0_8px_24px_hsl(var(--foreground)/0.04)]">
                   <p className="text-[17px] font-normal text-[hsl(var(--text-soft))]">
-                    Recap my day
+                    {lang === 'zh' ? '今天的回看' : 'Recap my day'}
                   </p>
                   <p className="mt-3 text-[12px] leading-6 text-muted-foreground/70">
-                    Nothing logged yet. Add a moment below.
+                    {lang === 'zh' ? '还没有记录。在下方添加一条 moment。' : 'Nothing logged yet. Add a moment below.'}
                   </p>
+                  <ChevronDown size={16} className="mx-auto mt-3 text-muted-foreground/35 animate-bounce" aria-hidden />
                 </div>
               </div>
             );
@@ -1352,20 +1356,33 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                        else tagTotals.set(seg.tag, { min: seg.durationMin, color: seg.color });
                      }
                      const sorted = [...tagTotals.entries()].sort((a, b) => b[1].min - a[1].min);
-                     return sorted.map(([tag, info]) => {
-                       const h = Math.floor(info.min / 60);
-                       const m = info.min % 60;
-                       return (
-                         <span key={tag} className="flex items-center gap-0.5">
-                           <span className="text-muted-foreground/30">·</span>
-                           <span className="w-[5px] h-[5px] rounded-full flex-shrink-0" style={{ backgroundColor: info.color }} />
-                           <span className="text-muted-foreground/50 ml-0.5">{tag}</span>
-                           <span className="font-mono tabular-nums text-muted-foreground/40 text-[11px]">
-                             {h > 0 ? `${h}h` : ''}{m > 0 ? `${m}m` : h > 0 ? '' : '0m'}
+                     const TOP_N = 3;
+                     const top = sorted.slice(0, TOP_N);
+                     const extraCount = Math.max(0, sorted.length - TOP_N);
+                     return (
+                       <>
+                         {top.map(([tag, info]) => {
+                           const h = Math.floor(info.min / 60);
+                           const m = info.min % 60;
+                           return (
+                             <span key={tag} className="flex items-center gap-0.5">
+                               <span className="text-muted-foreground/30">·</span>
+                               <span className="w-[5px] h-[5px] rounded-full flex-shrink-0" style={{ backgroundColor: info.color }} />
+                               <span className="text-muted-foreground/50 ml-0.5">{tag}</span>
+                               <span className="font-mono tabular-nums text-muted-foreground/40 text-[11px]">
+                                 {h > 0 ? `${h}h` : ''}{m > 0 ? `${m}m` : h > 0 ? '' : '0m'}
+                               </span>
+                             </span>
+                           );
+                         })}
+                         {extraCount > 0 && (
+                           <span className="flex items-center gap-0.5">
+                             <span className="text-muted-foreground/30">·</span>
+                             <span className="text-muted-foreground/45 text-[11px]">+{extraCount} more</span>
                            </span>
-                         </span>
-                       );
-                     });
+                         )}
+                       </>
+                     );
                    })()}
                  </div>
                  {rhythmSegments.length > 0 && (() => {
