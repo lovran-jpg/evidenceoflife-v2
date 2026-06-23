@@ -23,12 +23,17 @@ import { autoClassifyTag, TAG_CATEGORY_COLORS } from '@/lib/autoTag';
 import { PlanDrift } from '@/components/today/PlanDrift';
 import { FocusTimerOverlay, FloatingTimer } from '@/components/FocusTimerOverlay';
 import { Moment } from '@/types';
+import type { MomentLinkPreview } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 import { LocationPopover } from '@/components/LocationPopover';
+import { LinkPreviewCard } from '@/components/LinkPreviewCard';
+import { extractFirstUrl, normalizeUrl } from '@/lib/linkUtils';
+import { isStandaloneUrl } from '@/components/views/today/todayHelpers';
 import { useWorkTypes } from '@/hooks/useWorkTypes';
 import { WorkType, WORK_TYPE_META, resolveWorkType, getWorkTypeKey } from '@/lib/workType';
 import { tidyTaskTitle } from '@/lib/tidyTaskTitle';
 import { useIsDarkMode } from '@/hooks/useIsDarkMode';
+import { getActivityAccentColor } from '@/lib/activityColors';
 import { buildTimerSpanISO } from '@/components/views/today/todayHelpers';
 import {
   getPlanTimelineRhythmPreset,
@@ -694,6 +699,7 @@ export function PlanView({
     text?: string;
     emoji?: string;
     photos: string[];
+    links?: MomentLinkPreview[];
     tags?: string[];
     isSpecial?: boolean;
     location?: { name: string; lat: number; lng: number; category?: 'restaurant' | 'coffee' | 'grocery' | 'park' | 'museum' | 'other' };
@@ -725,6 +731,7 @@ export function PlanView({
   const { defaultPlanTags, customPlanTags, orderedPlanTags } = useCustomOptions();
   const { getWorkType: getPlanWorkType } = useWorkTypes();
   const { t: tLang, lang } = useLanguage();
+  const planViewIsDark = useIsDarkMode();
   const { addReminder } = useReminders();
   const planTags = orderedPlanTags.map(key => {
     const def = defaultPlanTags.find(d => d.key === key);
@@ -887,8 +894,12 @@ export function PlanView({
   const [captureDraft, setCaptureDraft] = useState('');
   const [captureMood, setCaptureMood] = useState<(typeof CAPTURE_MOODS)[number] | null>(null);
   const [capturePhotos, setCapturePhotos] = useState<string[]>([]);
+  const [captureLinks, setCaptureLinks] = useState<MomentLinkPreview[]>([]);
+  const [isResolvingCaptureLink, setIsResolvingCaptureLink] = useState(false);
   const [captureLocation, setCaptureLocation] = useState<{ name: string; lat: number; lng: number; category: 'restaurant' | 'coffee' | 'grocery' | 'park' | 'museum' | 'other' } | null>(null);
+  const [captureLocationAutoFilled, setCaptureLocationAutoFilled] = useState(false);
   const [showCaptureLocationPopover, setShowCaptureLocationPopover] = useState(false);
+  const [showMoodDrawer, setShowMoodDrawer] = useState(false);
   const captureFileInputRef = useRef<HTMLInputElement>(null);
   const [isSavingCapture, setIsSavingCapture] = useState(false);
   const [timerDockPos, setTimerDockPos] = useState<{ x: number; y: number } | null>(() => {
@@ -949,22 +960,77 @@ export function PlanView({
         draft?: string;
         mood?: (typeof CAPTURE_MOODS)[number] | null;
         photos?: string[];
+        links?: MomentLinkPreview[];
         location?: { name: string; lat: number; lng: number; category: 'restaurant' | 'coffee' | 'grocery' | 'park' | 'museum' | 'other' } | null;
       };
       setCaptureDraft(parsed.draft || '');
       setCaptureMood(parsed.mood || null);
       setCapturePhotos(Array.isArray(parsed.photos) ? parsed.photos : []);
+      setCaptureLinks(Array.isArray(parsed.links) ? parsed.links : []);
       setCaptureLocation(parsed.location || null);
+      // A location restored from a saved draft is a USER choice, not auto-filled —
+      // it should look like a normal chip, not the muted "auto" variant.
+      if (parsed.location) setCaptureLocationAutoFilled(false);
     } catch {
       localStorage.removeItem(captureDraftStorageKey);
     }
   }, [captureDraftStorageKey]);
+
+  // Auto-tag current location when the user opens the Capture sheet, unless:
+  //   - they already have a location (manual or restored draft)
+  //   - they denied geolocation earlier in this browser session
+  //   - the browser has no geolocation support
+  // Failures (denied, unavailable, reverse-geocode error) are silent and set
+  // a session-scoped "denied" flag so we don't re-prompt every time the user
+  // re-opens the sheet within the same session. A new browser session retries.
+  useEffect(() => {
+    if (!captureSheetOpen) return;
+    if (captureLocation) return;
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return;
+    if (sessionStorage.getItem('capture-geo-denied') === '1') return;
+
+    let cancelled = false;
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        if (cancelled) return;
+        const { latitude: lat, longitude: lng } = pos.coords;
+        try {
+          const { data, error } = await supabase.functions.invoke('geo', {
+            body: { type: 'reverse', lat, lng },
+          });
+          if (cancelled) return;
+          if (error) throw error;
+          const rawName = String(data?.name ?? '').trim();
+          const city = String(data?.city ?? '').trim();
+          const name = (!rawName || rawName === 'Nearby') ? (city || 'Current location') : rawName;
+          const category = (data?.category || 'other') as 'restaurant' | 'coffee' | 'grocery' | 'park' | 'museum' | 'other';
+          // Re-check in case the user picked one manually while we were
+          // resolving — never clobber an explicit choice.
+          setCaptureLocation((prev) => prev ?? { name, lat, lng, category });
+          setCaptureLocationAutoFilled(true);
+        } catch {
+          // reverse-geocode failed but we still know coords — fall back to a
+          // generic "Current location" tag rather than dropping the data.
+          if (cancelled) return;
+          setCaptureLocation((prev) => prev ?? { name: 'Current location', lat, lng, category: 'other' });
+          setCaptureLocationAutoFilled(true);
+        }
+      },
+      () => {
+        // Denied / unavailable / timeout. Stay quiet for the rest of the session.
+        try { sessionStorage.setItem('capture-geo-denied', '1'); } catch { /* private mode */ }
+      },
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 60_000 },
+    );
+    return () => { cancelled = true; };
+  }, [captureSheetOpen, captureLocation]);
 
   useEffect(() => {
     const hasDraft = Boolean(
       captureDraft.trim() ||
       captureMood ||
       capturePhotos.length > 0 ||
+      captureLinks.length > 0 ||
       captureLocation
     );
     if (!hasDraft) {
@@ -977,10 +1043,11 @@ export function PlanView({
         draft: captureDraft,
         mood: captureMood,
         photos: capturePhotos,
+        links: captureLinks,
         location: captureLocation,
       })
     );
-  }, [captureDraft, captureDraftStorageKey, captureLocation, captureMood, capturePhotos]);
+  }, [captureDraft, captureDraftStorageKey, captureLocation, captureMood, capturePhotos, captureLinks]);
   void pauseStateVersion;
 
   const getElapsed = (todo: Todo) => {
@@ -1162,10 +1229,9 @@ export function PlanView({
         const dockRect = timerDockRef.current?.getBoundingClientRect();
         const width = dockRect?.width || 220;
         const margin = 10;
-        const centerX = current.x + width / 2;
-        const snappedX = centerX < (frame.left + frame.right) / 2
-          ? frame.left + margin
-          : Math.max(frame.left + margin, frame.right - width - margin);
+        // Always re-home to the RIGHT edge of the timeline on load, so a
+        // previously dragged/stale position never strands the pill on the left.
+        const snappedX = Math.max(frame.left + margin, frame.right - width - margin);
         const snapped = clampTimerDock(snappedX, current.y);
         if (snapped.x === current.x && snapped.y === current.y) return current;
         localStorage.setItem('plan-floating-timer-pos', JSON.stringify(snapped));
@@ -1589,6 +1655,40 @@ export function PlanView({
     if (captureFileInputRef.current) captureFileInputRef.current.value = '';
   }, [uploadCapturePhoto]);
 
+  const addCaptureLinkPreview = useCallback(async (rawUrl: string) => {
+    const url = normalizeUrl(rawUrl);
+    if (!url) return false;
+    const siteFallback = (() => {
+      try { return new URL(url).hostname.replace(/^www\./, ''); }
+      catch { return url; }
+    })();
+    let shouldFetch = false;
+    setCaptureLinks(prev => {
+      if (prev.some(l => l.url === url)) return prev;
+      shouldFetch = true;
+      return [...prev, { url, siteName: siteFallback, title: siteFallback }];
+    });
+    if (!shouldFetch) return true;
+    setIsResolvingCaptureLink(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('link-preview', { body: { url } });
+      if (error) return true;
+      const preview: MomentLinkPreview = {
+        url,
+        title: typeof data?.title === 'string' ? data.title : siteFallback,
+        description: typeof data?.description === 'string' ? data.description : undefined,
+        image: typeof data?.image === 'string' ? data.image : undefined,
+        siteName: typeof data?.siteName === 'string' ? data.siteName : siteFallback,
+      };
+      setCaptureLinks(prev => prev.map(l => l.url === url ? { ...l, ...preview } : l));
+      return true;
+    } catch {
+      return true;
+    } finally {
+      setIsResolvingCaptureLink(false);
+    }
+  }, []);
+
   const handleSaveCapture = useCallback(async () => {
     const text = captureDraft.trim();
     if (!text || !onAddMoment || isSavingCapture) return;
@@ -1599,6 +1699,7 @@ export function PlanView({
       await onAddMoment({
         text,
         photos: capturePhotos,
+        links: captureLinks.length > 0 ? captureLinks : undefined,
         emoji: captureMood ? CAPTURE_MOOD_EMOJIS[captureMood] : undefined,
         location: captureLocation ?? undefined,
         tags: [
@@ -1610,13 +1711,16 @@ export function PlanView({
       setCaptureDraft('');
       setCaptureMood(null);
       setCapturePhotos([]);
+      setCaptureLinks([]);
       setCaptureLocation(null);
+      setCaptureLocationAutoFilled(false);
+      setShowMoodDrawer(false);
       localStorage.removeItem(captureDraftStorageKey);
       setCaptureSheetOpen(false);
     } finally {
       setIsSavingCapture(false);
     }
-  }, [captureDraft, captureMood, capturePhotos, captureLocation, captureDraftStorageKey, isSavingCapture, onAddMoment]);
+  }, [captureDraft, captureMood, capturePhotos, captureLinks, captureLocation, captureDraftStorageKey, isSavingCapture, onAddMoment]);
 
   const resetPromptTodo = resetPromptTodoId ? todos.find(t => t.id === resetPromptTodoId) : null;
 
@@ -1668,13 +1772,12 @@ export function PlanView({
             const snap = withFreshTimerStart(overlayTodo);
             const inheritedPlanRange = getInheritedPlanActualRange(snap);
             // Detach into a correctly-dated moment when the work is partial OR
-            // when the session crossed a day (forgotten overnight timer). The
-            // todo itself was rolled forward to today, so keeping the timer on
-            // it would paint yesterday's work on today's timeline.
-            const sessionStartISO = inheritedPlanRange?.startISO ?? snap.timer_started_at;
-            const sessionCrossedDay = !!sessionStartISO &&
-              new Date(sessionStartISO).toDateString() !== new Date(endedAtISO).toDateString();
-            const shouldDetachSession = finalProgress < 100 || sessionCrossedDay;
+            // when the session ended on a day BEFORE today (forgotten / past
+            // session being closed retroactively). The todo itself was rolled
+            // forward to today, so keeping its timer_* on a past-day span would
+            // paint a phantom block on today's timeline at those hours.
+            const sessionEndsOnPastDay = format(new Date(endedAtISO), 'yyyy-MM-dd') !== todayStr;
+            const shouldDetachSession = finalProgress < 100 || sessionEndsOnPastDay;
             setPendingStopIds(prev => new Set([...prev, snap.id]));
             clearPauseState(snap.id);
             clearFreshTimerStart(snap.id);
@@ -1734,13 +1837,13 @@ export function PlanView({
             const isDueChild = Boolean((overlayTodo as any).parent_due_id);
             const snap = withFreshTimerStart(overlayTodo);
             const inheritedPlanRange = getInheritedPlanActualRange(snap);
-            // Detach when not completed OR when the session crossed a day, so a
-            // completed forgotten-overnight timer lands on the day it happened
-            // (as a moment) instead of today's timeline.
-            const sessionStartISO = inheritedPlanRange?.startISO ?? snap.timer_started_at;
-            const sessionCrossedDay = !!sessionStartISO &&
-              new Date(sessionStartISO).toDateString() !== new Date(endedAtISO).toDateString();
-            const shouldDetachSession = !completed || sessionCrossedDay;
+            // Detach when not completed OR when the chosen end-time lands on a
+            // day BEFORE today (forgotten timer being closed retroactively).
+            // The todo itself was rolled forward to today, so leaving its
+            // timer_* fields on a past-day span would paint a phantom block at
+            // those hours on today's timeline (instead of yesterday's).
+            const sessionEndsOnPastDay = format(new Date(endedAtISO), 'yyyy-MM-dd') !== todayStr;
+            const shouldDetachSession = !completed || sessionEndsOnPastDay;
             setPendingStopIds(prev => new Set([...prev, snap.id]));
             clearPauseState(snap.id);
             clearFreshTimerStart(snap.id);
@@ -1805,13 +1908,7 @@ export function PlanView({
               isPaused={pausedTimers.has(t.id)}
               pauseState={pauseStatesRef.current.get(t.id)}
               onClick={() => setShowOverlayForId(t.id)}
-              accentColor={(() => {
-                const inferredTag = t.tags?.[0] || autoClassifyTag(t.title);
-                const tagColor = inferredTag ? TAG_CATEGORY_COLORS[inferredTag.toLowerCase()] : null;
-                if (tagColor) return tagColor;
-                const wt = getPlanWorkType({ entity: 'todo', id: t.id, title: t.title, tags: t.tags });
-                return WORK_TYPE_META[wt]?.color || undefined;
-              })()}
+              accentColor={getActivityAccentColor({ title: t.title, tags: t.tags, isDarkMode: planViewIsDark })}
             />
           ))}
         </div>
@@ -2097,7 +2194,7 @@ export function PlanView({
               style={{ left: taskInputDock.left, width: taskInputDock.width, bottom: 16 }}
             >
               <div className="pointer-events-auto">
-              <div className="relative bg-[hsl(var(--toolbar-background))] border border-border rounded-[20px] shadow-[0_2px_10px_hsl(var(--foreground)/0.08)] overflow-visible">
+              <div className="relative bg-[hsl(var(--toolbar-background))] border border-border rounded-2xl shadow-[0_2px_10px_hsl(var(--foreground)/0.08)] overflow-visible">
                 {taskSuggestions.length > 0 && (
                   <div className="absolute bottom-full left-0 mb-1.5 w-full max-w-[320px] bg-card border border-border rounded-xl shadow-xl p-1 z-[70] animate-scale-in">
                     <p className="px-2 pt-1 pb-0.5 text-[10px] uppercase tracking-wider text-muted-foreground/55">
@@ -2128,24 +2225,24 @@ export function PlanView({
                       <Plus size={16} />
                     </button>
                     {plusMenuOpen && (
-                      <div className="absolute bottom-12 left-0 bg-card border border-border rounded-xl shadow-xl p-2 min-w-[180px] z-[70] space-y-0.5 animate-scale-in" onClick={e => e.stopPropagation()}>
-                        <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider px-2 pt-1">Time slot</p>
-                        <div className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs bg-primary/10 text-primary">
+                      <div className="absolute bottom-12 left-0 bg-card border border-border rounded-xl shadow-xl p-2 min-w-[220px] z-[70] space-y-0.5 animate-scale-in font-normal" onClick={e => e.stopPropagation()}>
+                        <p className="text-[9px] text-muted-foreground/60 uppercase tracking-wider px-2 pt-1">Time slot</p>
+                        <div className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-[11px] bg-primary/10 text-primary whitespace-nowrap">
                           <span>{defaultQuickSegmentConfig.emoji}</span>
                           <span>
                             {tLang(`plan.seg.${defaultQuickSegment}`) || defaultQuickSegmentConfig.label}
                           </span>
                           <Check size={12} className="ml-auto" />
                         </div>
-                        <p className="px-2 pt-0.5 text-[10px] leading-4 text-muted-foreground/60">
+                        <p className="px-2 pt-0.5 text-[9px] leading-4 text-muted-foreground/60">
                           {lang === 'zh' ? '先放到当前时间段，可拖到 Anytime' : 'Drops into the current segment · drag to Anytime'}
                         </p>
                         <div className="border-t border-border/30 my-1" />
                         <button onClick={() => setReminderConfig(prev => ({ ...prev, enabled: !prev.enabled }))}
-                          className={cn("w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors",
+                          className={cn("w-full flex items-center gap-2 px-2 py-1 rounded-lg text-[11px] whitespace-nowrap transition-colors",
                             reminderConfig.enabled ? "bg-primary/10 text-primary" : "hover:bg-secondary text-foreground"
                           )}>
-                          <Bell size={14} className={reminderConfig.enabled ? "text-primary" : "text-muted-foreground"} />
+                          <Bell size={13} className={reminderConfig.enabled ? "text-primary" : "text-muted-foreground"} />
                           <span>{tLang('plan.setReminder') || 'Set Reminder'}</span>
                           {reminderConfig.enabled && <Check size={12} className="ml-auto" />}
                         </button>
@@ -2163,10 +2260,10 @@ export function PlanView({
                           </div>
                         )}
                         <button onClick={() => { setRecurringUntilDone(prev => !prev); }}
-                          className={cn("w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors",
+                          className={cn("w-full flex items-center gap-2 px-2 py-1 rounded-lg text-[11px] whitespace-nowrap transition-colors",
                             recurringUntilDone ? "bg-primary/10 text-primary" : "hover:bg-secondary text-foreground"
                           )}>
-                          <Repeat size={14} className={recurringUntilDone ? "text-primary" : "text-muted-foreground"} />
+                          <Repeat size={13} className={recurringUntilDone ? "text-primary" : "text-muted-foreground"} />
                           <span>{tLang('plan.repeatDaily') || 'Repeat daily until done'}</span>
                           {recurringUntilDone && <Check size={12} className="ml-auto" />}
                         </button>
@@ -2202,7 +2299,7 @@ export function PlanView({
           <div className="flex-1 flex flex-col min-w-0 pl-0">
           <div
             ref={timelineFrameRef}
-            className="relative flex-1 min-h-0 rounded-[28px] border border-[rgba(55,55,62,0.07)] bg-[#f9fafc] px-2.5 py-4 dark:border-border/35 dark:bg-transparent"
+            className="relative flex-1 min-h-0 rounded-3xl border border-[rgba(55,55,62,0.07)] bg-[#f9fafc] px-2.5 py-4 dark:border-border/35 dark:bg-transparent"
           >
             <PlanTimelineView
               todos={todos}
@@ -2248,59 +2345,70 @@ export function PlanView({
           className="w-full border-border/70 bg-background/95 p-0 sm:max-w-md"
         >
           <SheetHeader className="border-b border-border/60 px-5 py-4">
-            <SheetTitle className="text-[15px] font-semibold">Log a moment</SheetTitle>
+            <SheetTitle className="text-[15px] font-semibold">
+              {lang === 'zh' ? '记录此刻' : 'Log a moment'}
+            </SheetTitle>
           </SheetHeader>
 
-          <div className="px-5 py-5 space-y-3">
-            {/* Mood — above the input */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {CAPTURE_MOODS.map((mood) => (
-                <button
-                  key={mood}
-                  type="button"
-                  onClick={() => setCaptureMood((c) => c === mood ? null : mood)}
-                  className={cn(
-                    "flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
-                    captureMood === mood
-                      ? "border-primary/40 bg-primary/10 text-primary"
-                      : "border-border/40 bg-[hsl(var(--surface-soft))] text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <span>{CAPTURE_MOOD_EMOJIS[mood]}</span>
-                  <span>{mood.charAt(0).toUpperCase() + mood.slice(1)}</span>
-                </button>
-              ))}
-            </div>
-
-            {/* Unified input box */}
-            <div className="flex flex-col rounded-[18px] border border-border/60 bg-[hsl(var(--surface-soft))] overflow-visible">
-              {/* Photo previews at top */}
-              {capturePhotos.length > 0 && (
-                <div className="flex flex-wrap gap-2 px-3 pt-3">
-                  {capturePhotos.map((url, i) => (
-                    <div key={i} className="relative w-[68px] h-[68px] flex-shrink-0 rounded-xl overflow-hidden">
-                      <img src={url} alt="" className="w-full h-full object-cover" />
-                      <button
-                        onClick={() => setCapturePhotos(prev => prev.filter((_, idx) => idx !== i))}
-                        className="absolute top-1 right-1 w-5 h-5 bg-black/60 text-white rounded-full flex items-center justify-center hover:bg-black/80 transition-colors"
-                      >
-                        <X size={10} />
-                      </button>
+          <div className="flex flex-col gap-4 px-5 py-5">
+            {/* Hero composer — textarea is the focal point. Photos / links
+                ride above it as a dismissible preview row, mood + send live
+                in the toolbar below. No more 5-chip header crowding. */}
+            <div className="flex flex-col rounded-[20px] border border-border/60 bg-[hsl(var(--surface-soft))] shadow-[inset_0_1px_0_hsl(var(--surface-contrast)/0.35)] transition-shadow focus-within:border-primary/40 focus-within:shadow-[0_0_0_3px_hsl(var(--primary)/0.08)]">
+              {/* Context strip: photos + links, only when present */}
+              {(capturePhotos.length > 0 || captureLinks.length > 0 || isResolvingCaptureLink) && (
+                <div className="space-y-2 border-b border-border/40 px-3.5 pb-3 pt-3.5">
+                  {capturePhotos.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {capturePhotos.map((url, i) => (
+                        <div
+                          key={i}
+                          className="group/photo relative h-[72px] w-[72px] flex-shrink-0 overflow-hidden rounded-xl ring-1 ring-border/45 animate-in fade-in slide-in-from-bottom-1 duration-200"
+                        >
+                          <img src={url} alt="" className="h-full w-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => setCapturePhotos(prev => prev.filter((_, idx) => idx !== i))}
+                            aria-label={lang === 'zh' ? '移除照片' : 'Remove photo'}
+                            className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/65 text-white opacity-0 transition-opacity hover:bg-black/85 group-hover/photo:opacity-100 focus:opacity-100"
+                          >
+                            <X size={11} />
+                          </button>
+                        </div>
+                      ))}
                     </div>
+                  )}
+                  {captureLinks.map((link, index) => (
+                    <LinkPreviewCard
+                      key={`${link.url}-${index}`}
+                      preview={link}
+                      compact
+                      onRemove={() => setCaptureLinks(prev => prev.filter((_, i) => i !== index))}
+                    />
                   ))}
+                  {isResolvingCaptureLink && (
+                    <div className="flex items-center gap-2 rounded-xl bg-[hsl(var(--surface-contrast))]/70 px-3 py-2 text-[12px] text-muted-foreground">
+                      <Loader2 size={13} className="animate-spin" />
+                      <span>{lang === 'zh' ? '正在解析链接…' : 'Loading link preview…'}</span>
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* Textarea */}
+              {/* The hero: bigger min-height, larger text, calmer placeholder */}
               <Textarea
                 value={captureDraft}
                 onChange={(e) => setCaptureDraft(e.target.value)}
                 onKeyDown={(e) => {
+                  // Enter submits, Shift+Enter inserts a newline, and IME
+                  // composition (Chinese/Japanese pinyin candidate selection)
+                  // never triggers submit — the Enter there is "pick this
+                  // candidate", not "send".
+                  if (e.key !== 'Enter' || e.shiftKey) return;
                   const native = e.nativeEvent as KeyboardEvent;
-                  if (e.key === 'Enter' && !e.shiftKey && !native.isComposing && (e.metaKey || e.ctrlKey)) {
-                    e.preventDefault();
-                    void handleSaveCapture();
-                  }
+                  if (isImeComposing(native)) return;
+                  e.preventDefault();
+                  void handleSaveCapture();
                 }}
                 onPaste={(e) => {
                   const imageItem = Array.from(e.clipboardData.items).find(item => item.type.startsWith('image/'));
@@ -2318,22 +2426,31 @@ export function PlanView({
                         setCapturePhotos(prev => prev.filter(p => p !== localUrl));
                       }
                     });
+                    return;
+                  }
+                  const pastedText = e.clipboardData.getData('text/plain');
+                  const pastedUrl = extractFirstUrl(pastedText);
+                  if (pastedUrl && isStandaloneUrl(pastedUrl)) {
+                    e.preventDefault();
+                    void addCaptureLinkPreview(pastedUrl);
                   }
                 }}
-                placeholder="Capture a win, thought, or feeling..."
-                className="border-0 bg-transparent px-4 py-3 text-[13px] leading-6 min-h-[120px] resize-none focus-visible:ring-0 placeholder:text-muted-foreground/45"
+                placeholder={lang === 'zh' ? '今天怎么样?有什么想记下的…' : "What's on your mind right now?"}
+                className="min-h-[168px] resize-none border-0 bg-transparent px-4 py-3.5 text-[15px] leading-[1.6] placeholder:text-muted-foreground/45 focus-visible:ring-0"
               />
 
-              {/* Bottom toolbar */}
-              <div className="flex items-center gap-2 px-3 pb-3">
+              {/* Bottom toolbar: attach actions (left) + send (right).
+                  All touch targets are 36px to clear mobile minima with
+                  comfortable spacing. */}
+              <div className="flex items-center gap-1.5 border-t border-border/40 px-2.5 py-2.5">
                 <button
                   type="button"
                   onClick={() => captureFileInputRef.current?.click()}
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-soft-hover))] transition-colors"
+                  className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-[hsl(var(--surface-soft-hover))] hover:text-foreground"
                   title={lang === 'zh' ? '添加照片' : 'Add photo'}
                   aria-label={lang === 'zh' ? '添加照片' : 'Add photo'}
                 >
-                  <Camera size={15} />
+                  <Camera size={16} />
                 </button>
                 <div className="relative">
                   <button
@@ -2341,18 +2458,31 @@ export function PlanView({
                     onClick={() => setShowCaptureLocationPopover(v => !v)}
                     aria-label={lang === 'zh' ? '选择地点' : 'Choose location'}
                     className={cn(
-                      "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition-colors",
-                      captureLocation
+                      "inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-[12px] font-medium transition-colors",
+                      captureLocation && !captureLocationAutoFilled
                         ? "border-primary/40 bg-primary/10 text-primary"
-                        : "border-border/50 bg-transparent text-muted-foreground hover:text-foreground"
+                        : captureLocation && captureLocationAutoFilled
+                          ? "border-dashed border-primary/40 bg-primary/5 text-primary/85"
+                          : "border-border/55 bg-transparent text-muted-foreground hover:border-border hover:text-foreground"
                     )}
                   >
-                    <MapPin size={11} />
-                    {captureLocation ? captureLocation.name : (lang === 'zh' ? '地点' : 'Location')}
+                    <MapPin size={13} />
+                    <span className="max-w-[140px] truncate">
+                      {captureLocation ? captureLocation.name : (lang === 'zh' ? '地点' : 'Location')}
+                    </span>
+                    {captureLocation && captureLocationAutoFilled && (
+                      <span className="rounded-full bg-primary/15 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wider text-primary/80">
+                        {lang === 'zh' ? '自动' : 'auto'}
+                      </span>
+                    )}
                   </button>
                   {showCaptureLocationPopover && (
                     <LocationPopover
-                      onSelect={(loc) => { setCaptureLocation(loc); setShowCaptureLocationPopover(false); }}
+                      onSelect={(loc) => {
+                        setCaptureLocation(loc);
+                        setCaptureLocationAutoFilled(false);
+                        setShowCaptureLocationPopover(false);
+                      }}
                       onClose={() => setShowCaptureLocationPopover(false)}
                     />
                   )}
@@ -2360,25 +2490,96 @@ export function PlanView({
                 {captureLocation && (
                   <button
                     type="button"
-                    onClick={() => setCaptureLocation(null)}
+                    onClick={() => {
+                      setCaptureLocation(null);
+                      setCaptureLocationAutoFilled(false);
+                      try { sessionStorage.setItem('capture-geo-denied', '1'); } catch { /* private mode */ }
+                    }}
                     aria-label={lang === 'zh' ? '清除地点' : 'Clear location'}
-                    className="text-muted-foreground/50 hover:text-destructive transition-colors"
+                    className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground/55 transition-colors hover:bg-destructive/8 hover:text-destructive"
                   >
-                    <X size={11} />
+                    <X size={13} />
                   </button>
                 )}
+
+                {/* Mood: collapsed by default as a quiet trigger; when one is
+                    picked the trigger shows the chosen emoji+label, when not
+                    picked it reads "How are you feeling?". Tapping opens an
+                    inline drawer with all 5 options. */}
+                <button
+                  type="button"
+                  onClick={() => setShowMoodDrawer(v => !v)}
+                  aria-expanded={showMoodDrawer}
+                  className={cn(
+                    "inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-[12px] font-medium transition-colors",
+                    captureMood
+                      ? "border-primary/40 bg-primary/10 text-primary"
+                      : "border-border/55 bg-transparent text-muted-foreground hover:border-border hover:text-foreground"
+                  )}
+                >
+                  <span className="text-[14px] leading-none">
+                    {captureMood ? CAPTURE_MOOD_EMOJIS[captureMood] : '🙂'}
+                  </span>
+                  <span>
+                    {captureMood
+                      ? captureMood.charAt(0).toUpperCase() + captureMood.slice(1)
+                      : (lang === 'zh' ? '心情' : 'Mood')}
+                  </span>
+                </button>
+
                 <Button
                   onClick={handleSaveCapture}
                   disabled={!captureDraft.trim() || isSavingCapture}
                   size="icon"
-                  title={lang === 'zh' ? '保存 moment' : 'Save moment'}
+                  title={lang === 'zh' ? '保存(回车)' : 'Save (Enter)'}
                   aria-label={lang === 'zh' ? '保存 moment' : 'Save moment'}
-                  className="ml-auto h-8 w-8 rounded-full"
+                  className="ml-auto h-10 w-10 rounded-full shadow-[0_4px_14px_hsl(var(--primary)/0.25)] transition-transform hover:scale-[1.04] active:scale-[0.96] disabled:scale-100 disabled:shadow-none"
                 >
-                  {isSavingCapture ? <Loader2 size={13} className="animate-spin" /> : <ArrowUp size={15} />}
+                  {isSavingCapture ? <Loader2 size={15} className="animate-spin" /> : <ArrowUp size={17} />}
                 </Button>
               </div>
+
+              {/* Mood drawer — only appears when expanded. Animates in/out. */}
+              {showMoodDrawer && (
+                <div className="flex flex-wrap items-center gap-1.5 border-t border-border/40 px-3 py-2.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                  {CAPTURE_MOODS.map((mood) => (
+                    <button
+                      key={mood}
+                      type="button"
+                      onClick={() => {
+                        setCaptureMood((c) => c === mood ? null : mood);
+                        // Close drawer after a pick — keeps the toolbar tidy.
+                        if (captureMood !== mood) setShowMoodDrawer(false);
+                      }}
+                      className={cn(
+                        "inline-flex h-8 items-center gap-1.5 rounded-full border px-2.5 text-[12px] font-medium transition-colors",
+                        captureMood === mood
+                          ? "border-primary/45 bg-primary/12 text-primary"
+                          : "border-border/45 bg-[hsl(var(--surface-contrast))]/40 text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <span className="text-[13px] leading-none">{CAPTURE_MOOD_EMOJIS[mood]}</span>
+                      <span>{mood.charAt(0).toUpperCase() + mood.slice(1)}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
+
+            {/* Affordance hint — quietly teaches the keyboard shortcut */}
+            <p className="px-1 text-center text-[11px] text-muted-foreground/45">
+              {lang === 'zh' ? (
+                <>
+                  <kbd className="rounded border border-border/50 bg-[hsl(var(--surface-soft))] px-1 py-px font-mono text-[10px]">Enter</kbd> 保存 ·{' '}
+                  <kbd className="rounded border border-border/50 bg-[hsl(var(--surface-soft))] px-1 py-px font-mono text-[10px]">Shift</kbd>+<kbd className="rounded border border-border/50 bg-[hsl(var(--surface-soft))] px-1 py-px font-mono text-[10px]">Enter</kbd> 换行
+                </>
+              ) : (
+                <>
+                  <kbd className="rounded border border-border/50 bg-[hsl(var(--surface-soft))] px-1 py-px font-mono text-[10px]">Enter</kbd> to save ·{' '}
+                  <kbd className="rounded border border-border/50 bg-[hsl(var(--surface-soft))] px-1 py-px font-mono text-[10px]">Shift</kbd>+<kbd className="rounded border border-border/50 bg-[hsl(var(--surface-soft))] px-1 py-px font-mono text-[10px]">Enter</kbd> for newline
+                </>
+              )}
+            </p>
           </div>
         </SheetContent>
       </Sheet>

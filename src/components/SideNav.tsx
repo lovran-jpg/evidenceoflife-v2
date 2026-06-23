@@ -76,7 +76,7 @@ export function SideNav({ activeTab, activeSheet, onTabChange }: SideNavProps) {
     } catch {}
     return tabConfig.map((tab) => tab.id);
   });
-  const hoverExpandTimeoutRef = useRef<number | null>(null);
+  const hoverTimeoutMs = 200;
   const profileHoverTimeoutRef = useRef<number | null>(null);
   const sideNavRef = useRef<HTMLElement>(null);
 
@@ -99,16 +99,8 @@ export function SideNav({ activeTab, activeSheet, onTabChange }: SideNavProps) {
   const nextDue = validTimedDues
     .sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime())[0];
 
-  const clearHoverExpandTimeout = () => {
-    if (hoverExpandTimeoutRef.current !== null) {
-      window.clearTimeout(hoverExpandTimeoutRef.current);
-      hoverExpandTimeoutRef.current = null;
-    }
-  };
-
   useEffect(() => {
     return () => {
-      clearHoverExpandTimeout();
       if (profileHoverTimeoutRef.current !== null) {
         window.clearTimeout(profileHoverTimeoutRef.current);
       }
@@ -131,7 +123,7 @@ export function SideNav({ activeTab, activeSheet, onTabChange }: SideNavProps) {
     profileHoverTimeoutRef.current = window.setTimeout(() => {
       setShowProfileHoverCard(true);
       profileHoverTimeoutRef.current = null;
-    }, 420);
+    }, hoverTimeoutMs);
   };
 
   const closeProfileHoverCardWithDelay = () => {
@@ -139,7 +131,7 @@ export function SideNav({ activeTab, activeSheet, onTabChange }: SideNavProps) {
     profileHoverTimeoutRef.current = window.setTimeout(() => {
       setShowProfileHoverCard(false);
       profileHoverTimeoutRef.current = null;
-    }, 120);
+    }, hoverTimeoutMs);
   };
 
   const nextDueDateLabel = nextDue?.due_date
@@ -171,7 +163,7 @@ export function SideNav({ activeTab, activeSheet, onTabChange }: SideNavProps) {
     <aside
       ref={sideNavRef}
       className={cn(
-        'flex-shrink-0 border-r border-border bg-[hsl(var(--surface-contrast))] transition-[width] duration-200',
+        'flex-shrink-0 border-r border-border bg-[hsl(var(--surface-contrast))] transition-[width] duration-200 ease-out',
         expanded ? 'w-[236px]' : 'w-[52px]'
       )}
     >
@@ -179,17 +171,6 @@ export function SideNav({ activeTab, activeSheet, onTabChange }: SideNavProps) {
         <div className={cn(expanded ? 'px-1.5' : 'px-2')}>
           <button
             onClick={() => setExpanded((prev) => !prev)}
-            onMouseEnter={() => {
-              if (expanded) return;
-              clearHoverExpandTimeout();
-              hoverExpandTimeoutRef.current = window.setTimeout(() => {
-                setExpanded(true);
-                hoverExpandTimeoutRef.current = null;
-              }, 220);
-            }}
-            onMouseLeave={() => {
-              clearHoverExpandTimeout();
-            }}
             className={cn(
               'flex h-10 w-full items-center rounded-[12px] transition-colors',
               expanded ? 'justify-between gap-2 bg-[hsl(var(--surface-soft))] px-2' : 'justify-center'
@@ -260,22 +241,25 @@ export function SideNav({ activeTab, activeSheet, onTabChange }: SideNavProps) {
               onDragEnd={() => setDraggedTab(null)}
               title={t(labelKey)}
               className={cn(
-                'relative flex h-9 items-center rounded-[10px] transition-colors',
-                expanded ? 'w-full justify-start gap-2 px-3' : 'w-9 justify-center self-center',
+                'relative flex h-10 items-center rounded-[10px] transition-colors',
+                expanded ? 'w-full justify-start gap-2.5 px-3' : 'w-10 justify-center self-center',
                 expanded && 'cursor-grab active:cursor-grabbing',
                 draggedTab === id && 'opacity-60',
                 activeTab === id
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-[hsl(var(--text-soft))] hover:bg-[hsl(var(--surface-soft-hover))]'
+                  ? 'bg-primary/12 text-primary'
+                  : 'text-muted-foreground hover:bg-[hsl(var(--surface-soft-hover))] hover:text-foreground'
               )}
             >
-              {activeTab === id && expanded && (
+              {activeTab === id && (
                 <span
                   aria-hidden
-                  className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-primary"
+                  className={cn(
+                    'absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-primary',
+                    !expanded && '-translate-x-1.5'
+                  )}
                 />
               )}
-              <Icon size={24} strokeWidth={activeTab === id ? 2 : 1.6} />
+              <Icon size={20} strokeWidth={activeTab === id ? 2.2 : 1.85} />
               {expanded && (
                 <span className="text-[16px] font-medium text-inherit">
                   {t(labelKey)}
@@ -286,15 +270,12 @@ export function SideNav({ activeTab, activeSheet, onTabChange }: SideNavProps) {
 
           {/* Utility library: sheet openers grouped by role (Evidence / Obligations) */}
           {expanded ? (
-            <div className="mt-3 space-y-2">
+            <div className="mt-4 space-y-3 border-t border-border/45 pt-3">
               {sheetGroups.map((group) => (
-                <div key={group.labelKey} className="rounded-[18px] border border-border/55 bg-background/55 p-1.5 shadow-[0_8px_24px_hsl(var(--foreground)/0.035)]">
-                  <div className="mb-1 flex items-center justify-between px-2 py-1">
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/45">
-                      {t(group.labelKey)}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground/35">{group.items.length}</span>
-                  </div>
+                <div key={group.labelKey}>
+                  <span className="mb-1 block px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/45">
+                    {t(group.labelKey)}
+                  </span>
                   <div className="space-y-0.5">
                     {group.items.map(({ id, icon: Icon, shortLabel, hint }) => {
                       const isOpen = activeSheet != null && SHEET_KEY_BY_TAB[id] === activeSheet;
@@ -303,29 +284,19 @@ export function SideNav({ activeTab, activeSheet, onTabChange }: SideNavProps) {
                         key={id}
                         onClick={() => onTabChange(id)}
                         title={`${shortLabel} · ${hint}`}
+                        aria-label={`${shortLabel}: ${hint}`}
                         aria-current={isOpen ? 'true' : undefined}
                         className={cn(
-                          "group/lib flex min-h-11 w-full items-center gap-2.5 rounded-[14px] px-2.5 py-2 text-left transition-colors",
+                          "group/lib flex h-9 w-full items-center gap-2.5 rounded-[10px] px-3 text-left transition-colors",
                           isOpen
                             ? "bg-primary/10 text-primary"
                             : "text-[hsl(var(--text-soft))] hover:bg-[hsl(var(--surface-soft-hover))] hover:text-foreground"
                         )}
                       >
-                        <span className={cn(
-                          "flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[10px] bg-[hsl(var(--surface-soft))] transition-colors group-hover/lib:text-foreground",
-                          isOpen ? "text-primary" : "text-muted-foreground/75"
-                        )}>
-                          <Icon size={17} strokeWidth={isOpen ? 1.95 : 1.65} />
+                        <Icon size={17} strokeWidth={isOpen ? 2 : 1.6} className="flex-shrink-0" />
+                        <span className="truncate text-[14px] font-medium leading-tight text-inherit">
+                          {shortLabel}
                         </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[13px] font-semibold leading-none text-inherit">
-                            {shortLabel}
-                          </span>
-                          <span className="mt-1 block truncate text-[10px] font-medium leading-none text-muted-foreground/45">
-                            {hint}
-                          </span>
-                        </span>
-                        <ChevronRight size={13} className="flex-shrink-0 text-muted-foreground/25 transition-colors group-hover/lib:text-muted-foreground/55" />
                       </button>
                       );
                     })}
@@ -334,81 +305,68 @@ export function SideNav({ activeTab, activeSheet, onTabChange }: SideNavProps) {
               ))}
             </div>
           ) : (
-            <>
-              {sheetGroups.map((group) => (
-                <div key={group.labelKey}>
-                  <div className="my-1 h-px bg-border/35 mx-1" />
-                  <div className="flex flex-col gap-1 rounded-[14px] bg-background/35 py-1">
-                    {group.items.map(({ id, icon: Icon, shortLabel, hint }) => {
-                      const isOpen = activeSheet != null && SHEET_KEY_BY_TAB[id] === activeSheet;
-                      return (
-                      <button
-                        key={id}
-                        onClick={() => onTabChange(id)}
-                        title={`${shortLabel} · ${hint}`}
-                        aria-current={isOpen ? 'true' : undefined}
-                        className={cn(
-                          "flex h-9 w-9 items-center justify-center self-center rounded-[10px] transition-colors",
-                          isOpen
-                            ? "bg-primary/10 text-primary"
-                            : "text-[hsl(var(--text-soft))] hover:bg-[hsl(var(--surface-soft-hover))] hover:text-foreground"
-                        )}
-                      >
-                        <Icon size={19} strokeWidth={isOpen ? 1.95 : 1.65} />
-                      </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </>
+            <div className="mt-3 flex flex-col gap-0.5 border-t border-border/45 pt-3">
+              {sheetGroups.flatMap((group) =>
+                group.items.map(({ id, icon: Icon, shortLabel, hint }) => {
+                  const isOpen = activeSheet != null && SHEET_KEY_BY_TAB[id] === activeSheet;
+                  return (
+                    <button
+                      key={id}
+                      onClick={() => onTabChange(id)}
+                      title={`${shortLabel} · ${hint}`}
+                      aria-label={`${shortLabel}: ${hint}`}
+                      aria-current={isOpen ? 'true' : undefined}
+                      className={cn(
+                        "relative flex h-10 w-10 items-center justify-center self-center rounded-[10px] transition-colors",
+                        isOpen
+                          ? "bg-primary/12 text-primary"
+                          : "text-muted-foreground hover:bg-[hsl(var(--surface-soft-hover))] hover:text-foreground"
+                      )}
+                    >
+                      {isOpen && (
+                        <span
+                          aria-hidden
+                          className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 -translate-x-1.5 rounded-full bg-primary"
+                        />
+                      )}
+                      <Icon size={19} strokeWidth={isOpen ? 2.2 : 1.85} />
+                    </button>
+                  );
+                })
+              )}
+            </div>
           )}
         </nav>
 
-        {expanded && activeTab === 'today' && (
+        {expanded && nextDue && (
           <div className="mt-4 px-1.5">
             <button
               onClick={() => {
-                if (nextDue) {
-                  window.dispatchEvent(new CustomEvent('navigate-to-dues', { detail: { dueId: nextDue.id } }));
-                } else {
-                  onTabChange('dues');
-                }
+                window.dispatchEvent(new CustomEvent('navigate-to-dues', { detail: { dueId: nextDue.id } }));
               }}
               className="w-full rounded-[14px] border border-border bg-card px-4 py-3.5 text-left transition-colors hover:bg-[hsl(var(--surface-soft-hover))]"
             >
-              {nextDue ? (
-                <>
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/50 font-medium">
-                      {t('plan.comingUp')}
-                    </span>
-                    <ChevronRight size={12} className="text-muted-foreground/40" />
-                  </div>
-                  <p className="text-[12px] font-semibold leading-snug text-foreground truncate">
-                    {nextDue.title}
-                  </p>
-                  <div className="mt-1.5 flex items-center gap-2 flex-wrap">
-                    {nextDueDateLabel && (
-                      <span className="text-[11px] text-muted-foreground/70">{nextDueDateLabel}</span>
-                    )}
-                    {nextDueRemainingLabel && (
-                      <span className="text-[11px] font-medium text-primary/80">{nextDueRemainingLabel}</span>
-                    )}
-                  </div>
-                  {nextDue.links?.[0] && (
-                    <p className="mt-1.5 truncate text-[11px] text-primary/70">
-                      {nextDue.links[0].label || nextDue.links[0].url?.replace(/^https?:\/\//, '')}
-                    </p>
-                  )}
-                </>
-              ) : (
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[12px] text-muted-foreground/60">
-                    {t('plan.deadlinesHabits')}
-                  </span>
-                  <ChevronRight size={12} className="text-muted-foreground/40" />
-                </div>
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/50 font-medium">
+                  {t('plan.comingUp')}
+                </span>
+                <ChevronRight size={12} className="text-muted-foreground/40" />
+              </div>
+              <p className="text-[12px] font-semibold leading-snug text-foreground truncate">
+                {nextDue.title}
+              </p>
+              <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+                {nextDueDateLabel && (
+                  <span className="text-[11px] text-muted-foreground/70">{nextDueDateLabel}</span>
+                )}
+                {nextDueRemainingLabel && (
+                  <span className="text-[11px] font-medium text-primary/80">{nextDueRemainingLabel}</span>
+                )}
+              </div>
+              {nextDue.links?.[0] && (
+                <p className="mt-1.5 truncate text-[11px] text-primary/70">
+                  {nextDue.links[0].label || nextDue.links[0].url?.replace(/^https?:\/\//, '')}
+                </p>
               )}
             </button>
           </div>
@@ -433,7 +391,7 @@ export function SideNav({ activeTab, activeSheet, onTabChange }: SideNavProps) {
             {profile?.avatar_url ? (
               <img src={profile.avatar_url} alt="" className={cn(expanded ? 'h-8 w-8' : 'h-9 w-9', 'rounded-full object-cover')} />
             ) : (
-              <User size={22} className="text-[hsl(var(--text-soft))]" />
+              <User size={18} className="text-[hsl(var(--text-soft))]" />
             )}
             {expanded && (
               <span className="text-[16px] font-medium text-foreground">

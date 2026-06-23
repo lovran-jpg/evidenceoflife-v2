@@ -194,17 +194,9 @@ export function buildPlanBlocks(
     });
   });
 
-  // Moments with time
-  // Focus-session moments that belong to a todo (tag `todo-session:<id>`) are
-  // the SAME work as that todo — the timer just stored the worked span on a
-  // separate moment row. Merge those spans back INTO the parent todo block so
-  // a planned task you focused on renders as ONE block (plan outline + actual
-  // fill), instead of a faint plan block PLUS a duplicate same-named session
-  // block sitting next to it.
-  const todoBlockByGroup = new Map<string, TimeBlock>();
-  blocks.forEach(b => {
-    if (b.source === 'todo' && b.sessionGroupKey) todoBlockByGroup.set(b.sessionGroupKey, b);
-  });
+  // Moments with time. Focus-session moments tagged `todo-session:<id>` are
+  // emitted as standalone session blocks rather than being merged into the
+  // parent todo's actual envelope — see the moments forEach below.
 
   moments.forEach(m => {
     if (!m.timer_started_at) return;
@@ -218,20 +210,16 @@ export function buildPlanBlocks(
     const sessionGroupKey = m.tags?.find(tag => tag.startsWith('todo-session:'));
     const isFocusSession = !!m.tags?.includes('focus-session');
 
-    // Absorb into the parent todo block when one is on the timeline.
-    const parent = sessionGroupKey ? todoBlockByGroup.get(sessionGroupKey) : undefined;
-    if (parent && isFocusSession) {
-      const aStart = parent.actualStartMin != null ? Math.min(parent.actualStartMin, startMin) : startMin;
-      const aEnd = parent.actualEndMin != null ? Math.max(parent.actualEndMin, endMin) : endMin;
-      parent.actualStartMin = aStart;
-      parent.actualEndMin = Math.max(aEnd, aStart + 5);
-      parent.hasActual = true;
-      parent.startMin = Math.min(parent.startMin, aStart);
-      parent.endMin = Math.max(parent.endMin, parent.actualEndMin);
-      if (m.photos?.length) parent.photos = [...(parent.photos || []), ...m.photos];
-      return;
-    }
-
+    // Focus-session moments belong to the SAME work as their parent todo —
+    // but we deliberately render them as separate blocks rather than merging
+    // them into the parent envelope. Previously we collapsed each session into
+    // parent.actualStart/End via min/max, which painted the gap BETWEEN
+    // sessions (pause / continue-later wait) as continuous "actual" fill —
+    // a 1h-work + 2h-pause + 1h-work task showed up as a single 4h slab and
+    // overflowed the timeline viewport. Keeping each session as its own block
+    // gives the natural "two work strips with empty space between" reading
+    // the user expects, and the parent todo's live actual fill (if it's
+    // currently running) keeps tracking only the current session.
     blocks.push({
       id: `moment-${m.id}`,
       title: m.text || m.emoji || 'Moment',

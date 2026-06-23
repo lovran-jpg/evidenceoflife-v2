@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { Todo } from '@/hooks/useTodos';
 import { autoClassifyTag, TAG_CATEGORY_COLORS } from '@/lib/autoTag';
 import { useLanguage } from '@/hooks/useLanguage';
+import { buildTimerSpanISO } from '@/components/views/today/todayHelpers';
 
 export interface PauseState {
   pausedAt: number | null;
@@ -110,6 +111,7 @@ export function FocusTimerOverlay({
   const [stageAnimating, setStageAnimating] = useState(false);
   const [editingStart, setEditingStart] = useState(false);
   const [startTimeInput, setStartTimeInput] = useState('');
+  const [forgottenEndInput, setForgottenEndInput] = useState('');
   const pauseState = externalPauseState ?? localPauseState;
   const isPaused = pauseState.pausedAt !== null;
   const mountTimeRef = useRef(Date.now());
@@ -184,6 +186,21 @@ export function FocusTimerOverlay({
   const suggestedEndLabel = suggestedEndDate
     ? `${String(suggestedEndDate.getHours()).padStart(2, '0')}:${String(suggestedEndDate.getMinutes()).padStart(2, '0')}`
     : null;
+  // How many calendar days behind "today" the session start sits. We use this
+  // (not raw elapsed hours) so the UI can label the suggested end time with
+  // "Yesterday" / "N days ago" instead of an ambiguous bare HH:mm.
+  const startedDaysAgo = (() => {
+    if (!startedDate) return 0;
+    const start = new Date(startedDate.getFullYear(), startedDate.getMonth(), startedDate.getDate()).getTime();
+    const today = new Date();
+    const todayKey = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+    return Math.max(0, Math.round((todayKey - start) / 86400000));
+  })();
+  const dayOffsetLabel = (() => {
+    if (startedDaysAgo <= 0) return null;
+    if (lang === 'zh') return startedDaysAgo === 1 ? '昨天' : `${startedDaysAgo} 天前`;
+    return startedDaysAgo === 1 ? 'Yesterday' : `${startedDaysAgo} days ago`;
+  })();
   const suggestedEndElapsedSec = suggestedEndDate && Number.isFinite(startedAt)
     ? Math.max(60, Math.floor((suggestedEndDate.getTime() - startedAt - totalPaused) / 1000))
     : DEFAULT_SESSION_SEC;
@@ -251,7 +268,17 @@ export function FocusTimerOverlay({
   useEffect(() => {
     setCompletionProgress(100);
     setProgressTouched(false);
+    setForgottenEndInput('');
   }, [todo.id]);
+
+  // Seed the forgotten-timer editor with the suggested HH:mm whenever the
+  // suggestion is available and the user hasn't typed their own value yet.
+  // Re-seeds when the suggestion changes (e.g. plan window updated) but never
+  // clobbers a value the user is currently editing.
+  useEffect(() => {
+    if (!suggestedEndLabel) return;
+    setForgottenEndInput((prev) => (prev ? prev : suggestedEndLabel));
+  }, [suggestedEndLabel]);
 
   // "Complete" is a decisive action: it always means 100% done, regardless of
   // where the slider sits. The slider exists only to record partial progress
@@ -270,7 +297,31 @@ export function FocusTimerOverlay({
   }, [completionProgress, progressTouched, todo.progress, onSaveAndContinue, sessionWorkingSec]);
 
   const handleFinishAtSuggestion = useCallback((completed: boolean) => {
-    if (!suggestedEndDate || !onFinishAt) return;
+    if (!onFinishAt || !startedDate) return;
+    // Resolve the actual end the user committed to: prefer the editable input
+    // (anchored to the SESSION-START day so an overnight HH:mm rolls forward
+    // via buildTimerSpanISO instead of jumping to today), else fall back to
+    // the auto-suggestion.
+    const anchorISO = todo.timer_started_at
+      ?? (Number.isFinite(startedAt) ? new Date(startedAt).toISOString() : null);
+    const startISOFallback = Number.isFinite(startedAt) ? new Date(startedAt).toISOString() : null;
+    const startISO = anchorISO ?? startISOFallback;
+    const trimmed = forgottenEndInput.trim();
+    let chosenEndDate: Date | null = null;
+    if (trimmed && startISO) {
+      const startHM = `${String(startedDate.getHours()).padStart(2, '0')}:${String(startedDate.getMinutes()).padStart(2, '0')}`;
+      const fallbackDateStr = `${startedDate.getFullYear()}-${String(startedDate.getMonth() + 1).padStart(2, '0')}-${String(startedDate.getDate()).padStart(2, '0')}`;
+      const span = buildTimerSpanISO(startHM, trimmed, { anchorISO: startISO, fallbackDateStr });
+      if (span) chosenEndDate = new Date(span.endISO);
+    }
+    if (!chosenEndDate) chosenEndDate = suggestedEndDate;
+    if (!chosenEndDate) return;
+
+    const chosenElapsedSec = Math.max(
+      60,
+      Math.floor((chosenEndDate.getTime() - startedAt - totalPaused) / 1000)
+    );
+
     // When NOT completing (e.g. closing a forgotten timer), never fabricate a
     // 100%-but-unfinished state from the default slider — that muddies the
     // resume gating. Keep the task's existing progress unless the user dragged
@@ -280,8 +331,19 @@ export function FocusTimerOverlay({
       : progressTouched
         ? Math.min(99, completionProgress)
         : Math.max(0, Math.min(99, todo.progress || 0));
-    onFinishAt(suggestedEndElapsedSec, nextProgress, completed, suggestedEndDate.toISOString());
-  }, [completionProgress, progressTouched, todo.progress, onFinishAt, suggestedEndDate, suggestedEndElapsedSec]);
+    onFinishAt(chosenElapsedSec, nextProgress, completed, chosenEndDate.toISOString());
+  }, [
+    completionProgress,
+    progressTouched,
+    todo.progress,
+    todo.timer_started_at,
+    onFinishAt,
+    suggestedEndDate,
+    forgottenEndInput,
+    startedDate,
+    startedAt,
+    totalPaused,
+  ]);
 
   const handleCancel = useCallback(() => {
     setShowDeath(true);
@@ -576,19 +638,42 @@ export function FocusTimerOverlay({
           {looksForgotten && suggestedEndLabel && onFinishAt && (
             <div className="mt-4 rounded-[20px] border border-amber-200/55 bg-amber-50/65 px-3.5 py-3 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
               <p className="text-[12px] font-semibold tracking-[-0.01em] text-amber-900/80">
-                {lang === 'zh' ? '可能忘记结束了' : 'Maybe left running'}
-              </p>
-              <p className="mt-1 text-[11px] leading-5 text-amber-900/58">
                 {lang === 'zh'
-                  ? `可以先把这段收在 ${suggestedEndLabel}，也可以继续计时。`
-                  : `End this session at ${suggestedEndLabel}, or keep it running.`}
+                  ? dayOffsetLabel
+                    ? `可能从${dayOffsetLabel}起忘了结束`
+                    : '可能忘记结束了'
+                  : dayOffsetLabel
+                    ? `Left running since ${dayOffsetLabel.toLowerCase()}`
+                    : 'Maybe left running'}
+              </p>
+              <div
+                className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] leading-5 text-amber-900/72"
+                onClick={e => e.stopPropagation()}
+              >
+                <span>{lang === 'zh' ? '结束于' : 'End at'}</span>
+                {dayOffsetLabel && (
+                  <span className="rounded-full bg-amber-900/10 px-2 py-[1px] text-[10px] font-semibold uppercase tracking-[0.04em] text-amber-900/72 dark:bg-amber-200/15 dark:text-amber-100/80">
+                    {dayOffsetLabel}
+                  </span>
+                )}
+                <input
+                  type="time"
+                  value={forgottenEndInput}
+                  onChange={e => setForgottenEndInput(e.target.value)}
+                  className="font-mono text-[12px] tabular-nums bg-white/70 border border-amber-300/60 rounded-lg px-2 py-0.5 text-amber-900 focus:outline-none focus:ring-1 focus:ring-amber-500/40 dark:bg-white/[0.08] dark:text-amber-100 dark:border-amber-200/30"
+                />
+              </div>
+              <p className="mt-1 text-[11px] leading-5 text-amber-900/58">
+                {lang === 'zh' ? '也可以继续计时。' : 'Or keep it running.'}
               </p>
               <div className="mt-2 grid grid-cols-2 gap-2">
                 <button
                   onClick={() => handleFinishAtSuggestion(false)}
                   className="h-8 rounded-full bg-white/75 px-3 text-[11px] font-semibold text-amber-900/72 shadow-[inset_0_0_0_1px_rgba(146,64,14,0.12)] transition-colors hover:bg-white dark:bg-white/[0.06] dark:text-amber-200/85 dark:shadow-[inset_0_0_0_1px_rgba(252,211,77,0.18)] dark:hover:bg-white/[0.10]"
                 >
-                  {lang === 'zh' ? `收在 ${suggestedEndLabel}` : `End ${suggestedEndLabel}`}
+                  {lang === 'zh'
+                    ? `收在 ${dayOffsetLabel ? dayOffsetLabel + ' ' : ''}${forgottenEndInput || suggestedEndLabel}`
+                    : `End ${dayOffsetLabel ? dayOffsetLabel.toLowerCase() + ' ' : ''}${forgottenEndInput || suggestedEndLabel}`}
                 </button>
                 <button
                   onClick={() => handleFinishAtSuggestion(true)}
@@ -714,6 +799,7 @@ interface FloatingTimerProps {
 }
 
 export function FloatingTimer({ todo, isPaused, pauseState, onClick, accentColor }: FloatingTimerProps) {
+  const { lang } = useLanguage();
   const [nowMs, setNowMs] = useState(() => Date.now());
   useEffect(() => {
     const i = setInterval(() => setNowMs(Date.now()), 1000);
@@ -748,6 +834,16 @@ export function FloatingTimer({ todo, isPaused, pauseState, onClick, accentColor
   const progressPct = Math.min(100, (sessionSec / DEFAULT_SESSION_SEC) * 100);
   const treeEmoji = getTreeEmoji(tag, progressPct);
   const pad = (n: number) => String(n).padStart(2, '0');
+  // While paused, count up rest seconds and swap the display to a rest clock
+  // so the float stays in sync with the full overlay's REST screen.
+  const restSec = Math.floor(currentPauseMs / 1000);
+  const restLabel = lang === 'zh' ? '休息中' : 'resting';
+  const restClock = restSec >= 3600
+    ? `${Math.floor(restSec / 3600)}:${pad(Math.floor((restSec % 3600) / 60))}:${pad(restSec % 60)}`
+    : `${pad(Math.floor(restSec / 60))}:${pad(restSec % 60)}`;
+  const sessionClock = sessionSec >= 3600
+    ? `${Math.floor(sessionSec / 3600)}:${pad(Math.floor((sessionSec % 3600) / 60))}:${pad(sessionSec % 60)}`
+    : `${pad(Math.floor(sessionSec / 60))}:${pad(sessionSec % 60)}`;
 
   return (
     <div
@@ -758,7 +854,7 @@ export function FloatingTimer({ todo, isPaused, pauseState, onClick, accentColor
       onPointerDown={e => { e.stopPropagation(); }}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
       className={cn(
-        "flex h-9 w-max max-w-[300px] items-center gap-1.5 pl-2 pr-2 rounded-2xl border shadow-[0_6px_18px_hsl(var(--foreground)/0.1)] transition-colors text-left cursor-pointer select-none overflow-hidden animate-in slide-in-from-bottom-2 fade-in-0 duration-300",
+        "flex h-9 w-max max-w-[min(340px,calc(100vw-32px))] items-center gap-1.5 pl-2 pr-2 rounded-2xl border shadow-[0_6px_18px_hsl(var(--foreground)/0.1)] transition-colors text-left cursor-pointer select-none overflow-hidden animate-in slide-in-from-bottom-2 fade-in-0 duration-300",
         isPaused && "bg-[hsl(var(--surface-soft))] border-border text-muted-foreground"
       )}
       style={!isPaused ? {
@@ -770,20 +866,43 @@ export function FloatingTimer({ todo, isPaused, pauseState, onClick, accentColor
       <span
         className={cn(
           "h-1.5 w-1.5 flex-shrink-0 rounded-full",
-          isPaused ? "bg-muted-foreground/50" : "animate-pulse"
+          isPaused ? "bg-muted-foreground/55" : "animate-pulse"
         )}
-        style={!isPaused ? { backgroundColor: treeColor } : undefined}
+        style={
+          isPaused
+            ? { animation: 'breathe 3s ease-in-out infinite' }
+            : { backgroundColor: treeColor }
+        }
         aria-hidden
       />
       <span className="text-base leading-none flex-shrink-0">{treeEmoji}</span>
-      <span className="min-w-0 max-w-[170px] flex-shrink truncate text-[11px] font-medium leading-none">{todo.title}</span>
       <span
-        className="flex-shrink-0 rounded-md px-1.5 py-1 text-[12px] font-mono font-semibold tabular-nums leading-none"
+        className={cn(
+          "min-w-0 flex-shrink truncate text-[11px] font-medium leading-none",
+          isPaused ? "max-w-[120px]" : "max-w-[170px]"
+        )}
+      >
+        {todo.title}
+      </span>
+      <span
+        className={cn(
+          "flex-shrink-0 rounded-md font-mono tabular-nums leading-none",
+          isPaused
+            ? "flex items-center gap-1 px-1.5 py-1 text-[11px] font-semibold"
+            : "px-1.5 py-1 text-[12px] font-semibold"
+        )}
         style={!isPaused ? { backgroundColor: colorWithAlpha(treeColor, 0.16) } : undefined}
       >
-        {sessionSec >= 3600
-          ? `${Math.floor(sessionSec / 3600)}:${pad(Math.floor((sessionSec % 3600) / 60))}:${pad(sessionSec % 60)}`
-          : `${pad(Math.floor(sessionSec / 60))}:${pad(sessionSec % 60)}`}
+        {isPaused ? (
+          <>
+            <span className="text-[9.5px] font-medium normal-case tracking-wide opacity-70">
+              {restLabel}
+            </span>
+            <span>{restClock}</span>
+          </>
+        ) : (
+          sessionClock
+        )}
       </span>
     </div>
   );

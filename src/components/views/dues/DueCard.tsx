@@ -5,6 +5,7 @@ import { cn, isImeComposing } from '@/lib/utils';
 import {
   normalizeUrl,
   getDomain as getSiteFallback,
+  isUrlLike,
 } from '@/lib/linkUtils';
 import { DueWithStats, DueLink } from '@/hooks/useDues';
 import { DueReminder } from '@/hooks/useDueReminders';
@@ -81,10 +82,12 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
   const timeStr = formatDuration(due.totalSeconds);
   const parsedDueDate = hasDeadline ? parseISO(due.due_date!) : null;
 
-  // Color theming: Deadline = warm orange, Habit = cool teal
+  // Color theming: deadline = warm terracotta sibling of --primary, habit = muted sage.
+  // Kept as hex constants because they flow through inline `style` rules below;
+  // values are tuned to match the --deadline and --habit CSS tokens in index.css.
   const isHabit = due.habit_category !== null;
-  const accentColor = !isHabit ? '#e8825a' : '#2dd4bf';
-  const accentBorder = !isHabit ? 'rgba(232,130,90,0.25)' : 'rgba(45,212,191,0.25)';
+  const accentColor = !isHabit ? '#dc7a4d' : '#5fa48d';
+  const accentBorder = !isHabit ? 'rgba(220,122,77,0.25)' : 'rgba(95,164,141,0.25)';
   const trackedLinkCountTotal = (due.links || []).reduce((sum, link) => sum + (link.count || 0), 0);
   const hasPerLinkCounts = isHabit && (due.links || []).length > 0;
   const displayedHabitCount = optimisticHabitCount ?? (hasPerLinkCounts ? trackedLinkCountTotal : due.totalCount);
@@ -224,7 +227,7 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
 
   return (
     <div id={`due-card-${due.id}`} tabIndex={0} onPaste={handleCardPaste} className={cn(
-      "bg-card rounded-[20px] p-4 group relative transition-shadow hover:shadow-[0_8px_28px_-14px_rgba(0,0,0,0.18)]",
+      "bg-card rounded-2xl p-4 group relative transition-shadow hover:shadow-[0_8px_28px_-14px_rgba(0,0,0,0.18)]",
       due.is_completed && "opacity-55"
     )} style={{ 
       boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
@@ -321,11 +324,11 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
                   {due.show_in_recap_daily ? 'In recap' : 'Add to recap'}
                 </button>
               )}
-              {!isHabit && !hasDeadline && (
-                <span className="cursor-pointer hover:text-foreground transition-colors text-muted-foreground/60"
-                  onClick={() => { setEditDate(''); setIsEditingDate(true); }}>
-                  + Add deadline
-                </span>
+              {!isHabit && !hasDeadline && !timeStr && due.steps.length === 0 && (
+                /* Subtle empty state line — only when there's truly nothing else
+                   to anchor the card. Add-deadline is reachable from the footer
+                   action; we don't want two visible CTAs for the same thing. */
+                <span className="text-muted-foreground/50">No deadline</span>
               )}
               {timeStr && <span>· {timeStr}</span>}
               {!isHabit && due.steps.length > 0 && (
@@ -360,9 +363,9 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
           </button>
           <input ref={editDateInputRef} type="datetime-local" value={editDate} onChange={e => setEditDate(e.target.value)}
             className="datetime-input-iconless bg-secondary rounded-lg px-2 py-1 text-[13px] font-mono focus:outline-none focus:ring-1 focus:ring-primary flex-1" autoFocus />
-          <button onClick={handleSaveDate} className="text-primary"><Check size={14} /></button>
+          <button onClick={handleSaveDate} aria-label="Save deadline" className="text-primary"><Check size={14} /></button>
           {hasDeadline && <button onClick={() => { onUpdate(due.id, { due_date: null }); setIsEditingDate(false); }} className="text-[12px] text-muted-foreground hover:text-destructive">{t('dues.remove')}</button>}
-          <button onClick={() => setIsEditingDate(false)} className="text-muted-foreground"><X size={14} /></button>
+          <button onClick={() => setIsEditingDate(false)} aria-label="Cancel editing deadline" className="text-muted-foreground"><X size={14} /></button>
         </div>
       )}
 
@@ -442,7 +445,7 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
                             {r.reminder_type === 'email' ? <Mail size={11} /> : <Bell size={11} />}
                             <span className="truncate">{formatReminderText(r)}</span>
                           </span>
-                          <button onClick={() => onRemoveReminder(r.id)} className="text-muted-foreground/55 hover:text-destructive">
+                          <button onClick={() => onRemoveReminder(r.id)} aria-label="Remove reminder" className="text-muted-foreground/55 hover:text-destructive">
                             <X size={11} />
                           </button>
                         </div>
@@ -511,6 +514,64 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
                   }
                   if (e.key === 'Escape') { setShowAddStep(false); setNewStepTitle(''); }
                 }}
+                onPaste={async e => {
+                  const pasted = e.clipboardData.getData('text/plain').trim();
+                  if (!pasted || !isUrlLike(pasted)) return;
+                  e.preventDefault();
+                  const url = normalizeUrl(pasted);
+                  if (!url) return;
+                  setShowAddStep(false);
+                  setNewStepTitle('');
+                  const siteFallback = getSiteFallback(url);
+                  // Optimistic: create the step with the domain as title and
+                  // attach a lightweight link entry; once link-preview comes
+                  // back we upgrade both the step title and the link metadata.
+                  const optimisticTitle = siteFallback;
+                  onAddStep(due.id, optimisticTitle);
+                  const existingLink = (due.links || []).find(l => l.url === url);
+                  if (!existingLink) {
+                    onUpdate(due.id, {
+                      links: [
+                        ...(due.links || []),
+                        { url, label: siteFallback, title: siteFallback, siteName: siteFallback },
+                      ],
+                    });
+                  }
+                  try {
+                    const { data, error } = await supabase.functions.invoke('link-preview', { body: { url } });
+                    if (error) throw error;
+                    const previewTitle = typeof data?.title === 'string' && data.title.trim()
+                      ? data.title.trim()
+                      : null;
+                    if (previewTitle) {
+                      // Replace the just-added step (title = siteFallback) with
+                      // the real page title. Pull fresh steps from `due` rather
+                      // than relying on stale closure — the optimistic insert
+                      // arrived via a separate state path.
+                      const matching = due.steps
+                        .filter(s => s.title === optimisticTitle)
+                        .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())[0];
+                      // No direct rename API on steps from this component; the
+                      // optimistic siteFallback title is acceptable as fallback.
+                      // We still upgrade the LINK's stored title/preview below.
+                      void matching;
+                    }
+                    onUpdate(due.id, {
+                      links: (due.links || [])
+                        .filter(l => l.url !== url)
+                        .concat({
+                          url,
+                          label: previewTitle || siteFallback,
+                          title: typeof data?.title === 'string' ? data.title : undefined,
+                          description: typeof data?.description === 'string' ? data.description : undefined,
+                          image: typeof data?.image === 'string' ? data.image : undefined,
+                          siteName: typeof data?.siteName === 'string' ? data.siteName : undefined,
+                        }),
+                    });
+                  } catch (err) {
+                    console.error('Step paste link preview failed:', err);
+                  }
+                }}
                 onBlur={() => {
                   if (newStepTitle.trim()) { onAddStep(due.id, newStepTitle.trim()); setNewStepTitle(''); }
                   setShowAddStep(false);
@@ -520,10 +581,13 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
           ) : (
             <button
               onClick={() => setShowAddStep(true)}
-              className="flex items-center gap-1.5 mt-1 text-[11px] text-muted-foreground/35 hover:text-muted-foreground transition-colors"
+              className="flex items-center gap-1.5 mt-1.5 text-[12px] font-medium text-muted-foreground/60 hover:text-foreground transition-colors group/addstep"
             >
-              <div className="w-4 h-4 rounded-full border-[1.5px] border-dashed border-muted-foreground/20 flex items-center justify-center flex-shrink-0">
-                <Plus size={8} />
+              <div
+                className="w-5 h-5 rounded-full border-[1.5px] border-dashed flex items-center justify-center flex-shrink-0 transition-colors group-hover/addstep:border-solid"
+                style={{ borderColor: `${accentColor}55` }}
+              >
+                <Plus size={10} strokeWidth={2.5} style={{ color: accentColor }} />
               </div>
               {t('dues.addStep')}
             </button>
@@ -548,11 +612,11 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
         <div className="mt-2.5">
           <button
             onClick={() => setLinksCollapsed(c => !c)}
-            className="flex items-center gap-1.5 text-[11px] text-muted-foreground/50 hover:text-muted-foreground transition-colors mb-1.5"
+            className="flex items-center gap-1.5 text-[12px] font-medium text-foreground/70 hover:text-foreground transition-colors mb-1.5"
           >
-            <Link size={11} />
+            <Link size={12} strokeWidth={2.1} />
             <span>{due.links.length} link{due.links.length > 1 ? 's' : ''}</span>
-            {linksCollapsed ? <ChevronDown size={11} /> : <ChevronUp size={11} />}
+            {linksCollapsed ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
           </button>
         </div>
       )}
@@ -697,193 +761,295 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
         </div>
       )}
 
-      {/* Action buttons row */}
+      {/* Action buttons row — iOS-style: one bright primary (Today), the rest
+          live as quiet ghost icons that only fade in on hover/focus. The goal
+          is to STOP the card from looking like a button salad and let the
+          title + primary CTA carry the visual weight. */}
       <div className="mt-3 pt-2.5 border-t border-border/30">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
-            {(due.links || [])[0] && (
-              <a href={(due.links || [])[0].url} target="_blank" rel="noopener noreferrer"
-                className="h-7 px-2.5 rounded-full text-[12px] font-medium bg-secondary hover:bg-secondary/80 text-foreground flex items-center gap-1.5 transition-colors shrink-0">
-                <ExternalLink size={12} />Open
-              </a>
-            )}
+        <div className="flex items-center justify-between gap-2">
+          {/* Left: primary CTA (Today / habit count) — the one thing the eye
+              should land on. For non-habit dues this is the bright accent
+              Today button; for habits it's the +1 counter. */}
+          <div className="flex min-w-0 flex-1 items-center gap-2">
             {isHabit ? (
               <>
-            {isEditingCount ? (
-              <input
-                value={countDraft}
-                onChange={e => setCountDraft(e.target.value.replace(/[^\d]/g, ''))}
-                onBlur={() => {
-                  if (!hasPerLinkCounts) {
-                    setOptimisticHabitCount(Number(countDraft || 0));
-                    void onSetHabitCount(due.id, Number(countDraft || 0));
-                  }
-                  setIsEditingCount(false);
-                }}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    if (!hasPerLinkCounts) {
-                      setOptimisticHabitCount(Number(countDraft || 0));
-                      void onSetHabitCount(due.id, Number(countDraft || 0));
-                    }
-                    setIsEditingCount(false);
-                  }
-                  if (e.key === 'Escape') {
-                    setCountDraft(String(displayedHabitCount || 0));
-                    setIsEditingCount(false);
-                  }
-                }}
-                className="h-7 w-16 rounded-lg bg-secondary px-2 text-[12px] font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                autoFocus
-              />
-            ) : (
-              /* Only show global count when there are no per-link counts (i.e. no links attached) */
-              !hasPerLinkCounts && (
-                <>
-                  <button
-                    onClick={() => {
-                      setOptimisticHabitCount((optimisticHabitCount ?? due.totalCount) + 1);
-                      void onIncrementHabitCount(due.id);
+                {isEditingCount ? (
+                  <input
+                    value={countDraft}
+                    onChange={e => setCountDraft(e.target.value.replace(/[^\d]/g, ''))}
+                    onBlur={() => {
+                      if (!hasPerLinkCounts) {
+                        setOptimisticHabitCount(Number(countDraft || 0));
+                        void onSetHabitCount(due.id, Number(countDraft || 0));
+                      }
+                      setIsEditingCount(false);
                     }}
-                    className="h-7 px-2.5 rounded-lg text-[12px] font-medium bg-secondary hover:bg-secondary/80 text-foreground transition-colors shrink-0"
-                  >
-                    {displayedHabitCount} times
-                  </button>
-                  <button
-                    onClick={() => { setCountDraft(String(displayedHabitCount || 0)); setIsEditingCount(true); }}
-                    className="h-7 w-7 rounded-lg bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors shrink-0"
-                  >
-                    <Pencil size={12} />
-                  </button>
-                </>
-              )
-            )}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        if (!hasPerLinkCounts) {
+                          setOptimisticHabitCount(Number(countDraft || 0));
+                          void onSetHabitCount(due.id, Number(countDraft || 0));
+                        }
+                        setIsEditingCount(false);
+                      }
+                      if (e.key === 'Escape') {
+                        setCountDraft(String(displayedHabitCount || 0));
+                        setIsEditingCount(false);
+                      }
+                    }}
+                    className="h-8 w-16 rounded-full bg-secondary px-3 text-[13px] font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    autoFocus
+                  />
+                ) : (
+                  !hasPerLinkCounts && (
+                    <>
+                      <button
+                        onClick={() => {
+                          setOptimisticHabitCount((optimisticHabitCount ?? due.totalCount) + 1);
+                          void onIncrementHabitCount(due.id);
+                        }}
+                        className="h-8 px-3.5 rounded-full text-[13px] font-semibold text-white shrink-0 transition-all hover:brightness-105 active:scale-[0.97]"
+                        style={{
+                          backgroundColor: accentColor,
+                          boxShadow: `0 2px 8px ${accentColor}30`,
+                        }}
+                      >
+                        +1 · {displayedHabitCount}
+                      </button>
+                      <button
+                        onClick={() => { setCountDraft(String(displayedHabitCount || 0)); setIsEditingCount(true); }}
+                        aria-label="Edit count"
+                        className="h-7 w-7 rounded-full text-muted-foreground/45 hover:text-foreground hover:bg-secondary flex items-center justify-center transition-colors shrink-0 opacity-0 group-hover:opacity-100 focus:opacity-100"
+                      >
+                        <Pencil size={12} />
+                      </button>
+                    </>
+                  )
+                )}
               </>
+            ) : due.is_completed ? (
+              <button
+                onClick={() => onUpdate(due.id, { is_completed: false })}
+                className="h-8 px-3.5 rounded-full text-[13px] font-medium bg-primary/12 text-primary flex items-center gap-1.5 shrink-0 transition-colors hover:bg-primary/18"
+              >
+                <Check size={13} strokeWidth={2.5} />
+                {t('dues.completedLabel')}
+              </button>
+            ) : justAdded ? (
+              <span
+                className="h-8 px-3.5 rounded-full text-[13px] font-semibold text-white shrink-0 flex items-center gap-1.5"
+                style={{ backgroundColor: accentColor }}
+              >
+                <Check size={13} strokeWidth={2.5} />
+                {t('dues.addedToToday')}
+              </span>
+            ) : due.steps.length > 0 && due.steps.some(s => !s.is_completed) ? (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    className="h-8 px-3.5 rounded-full text-[13px] font-semibold text-white flex items-center gap-1.5 shrink-0 transition-all hover:brightness-105 active:scale-[0.97]"
+                    style={{
+                      backgroundColor: accentColor,
+                      boxShadow: `0 2px 8px ${accentColor}38`,
+                    }}
+                  >
+                    <CalendarPlus size={13} strokeWidth={2.4} />
+                    Today
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-60 p-2 space-y-1" align="start">
+                  <button onClick={() => onAddToToday(due.id)}
+                    className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-[13px] hover:bg-secondary transition-colors text-foreground font-medium">
+                    <Target size={13} className="text-muted-foreground" />{due.title}
+                  </button>
+                  <div className="border-t border-border/50 my-1" />
+                  <p className="text-[10px] text-muted-foreground/50 uppercase tracking-wider px-2 py-0.5">Steps</p>
+                  {due.steps.filter(s => !s.is_completed).map(step => (
+                    <button key={step.id} onClick={() => onAddToToday(due.id, step.title)}
+                      className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-[13px] hover:bg-secondary transition-colors text-muted-foreground">
+                      <div className="w-2.5 h-2.5 rounded-full border-2 flex-shrink-0" style={{ borderColor: accentColor }} />
+                      {step.title}
+                    </button>
+                  ))}
+                </PopoverContent>
+              </Popover>
             ) : (
-              <button onClick={() => onUpdate(due.id, { is_completed: !due.is_completed })}
-                className={cn("h-7 px-2.5 rounded-full text-[12px] font-medium flex items-center gap-1.5 transition-colors shrink-0",
-                  due.is_completed ? "bg-primary/15 text-primary" : "bg-secondary hover:bg-secondary/80 text-foreground"
-                )}>
-                <Check size={12} />{due.is_completed ? t('dues.completedLabel') : 'Done'}
+              <button
+                onClick={() => onAddToToday(due.id)}
+                className="h-8 px-3.5 rounded-full text-[13px] font-semibold text-white flex items-center gap-1.5 shrink-0 transition-all hover:brightness-105 active:scale-[0.97]"
+                style={{
+                  backgroundColor: accentColor,
+                  boxShadow: `0 2px 8px ${accentColor}38`,
+                }}
+              >
+                <CalendarPlus size={13} strokeWidth={2.4} />
+                Today
               </button>
             )}
-            {!due.is_completed && (
-              justAdded ? (
-                <span className="h-8 px-3 rounded-lg text-[13px] font-medium text-primary flex items-center gap-1.5 shrink-0">
-                  <Check size={12} />{t('dues.addedToToday')}
-                </span>
-              ) : due.steps.length > 0 && due.steps.some(s => !s.is_completed) ? (
-                <Popover>
+
+            {/* Done / mark-complete — secondary, only for non-habit non-completed
+                tasks. Rendered as a quiet outline checkbox to the right of
+                Today; reads as "I can finish this here too" without competing
+                for attention. */}
+            {!isHabit && !due.is_completed && !justAdded && (
+              <button
+                onClick={() => onUpdate(due.id, { is_completed: true })}
+                aria-label="Mark done"
+                title="Mark done"
+                className="h-7 w-7 rounded-full border border-border/55 text-muted-foreground/55 hover:border-primary/55 hover:text-primary hover:bg-primary/8 flex items-center justify-center transition-colors shrink-0"
+              >
+                <Check size={13} strokeWidth={2.4} />
+              </button>
+            )}
+
+            {/* Open first link — text-link with the leading emoji rendered as
+                a small chip so a label like "📞 美签" reads as "📞 美签 ↗",
+                not a giant standalone emoji. */}
+            {(due.links || [])[0] && (() => {
+              const firstLink = (due.links || [])[0];
+              const rawLabel = (firstLink.label || firstLink.siteName || 'Open').trim();
+              const emojiMatch = rawLabel.match(/^(\p{Emoji_Presentation}|\p{Emoji}️)/u);
+              const leadingEmoji = emojiMatch?.[0];
+              const textLabel = leadingEmoji ? rawLabel.slice(leadingEmoji.length).trim() || rawLabel : rawLabel;
+              return (
+                <a
+                  href={firstLink.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center gap-1.5 text-[13px] font-medium text-foreground/85 hover:text-primary transition-colors truncate min-w-0"
+                >
+                  {leadingEmoji && <span className="text-[14px] leading-none">{leadingEmoji}</span>}
+                  <span className="truncate max-w-[160px] underline decoration-foreground/25 decoration-dotted underline-offset-2 hover:decoration-primary/60">
+                    {textLabel}
+                  </span>
+                  <ExternalLink size={12} strokeWidth={2.1} className="flex-shrink-0 opacity-60" />
+                </a>
+              );
+            })()}
+          </div>
+
+          {/* Right: quiet utility cluster. Default state = nearly invisible
+              (just opacity-30 ghosted icons). Hover/focus brings them up to
+              full visibility. This is the iOS / macOS Finder pattern —
+              secondary actions exist but never compete with the primary CTA. */}
+          <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+            {confirmDelete ? (
+              <div className="flex items-center gap-1.5 opacity-100">
+                <span className="text-[12px] text-destructive/70">Delete?</span>
+                <button onClick={() => onDelete(due.id)} className="text-[12px] font-semibold text-destructive hover:underline">Yes</button>
+                <button onClick={() => setConfirmDelete(false)} className="text-[12px] text-muted-foreground hover:text-foreground">No</button>
+              </div>
+            ) : (
+              <>
+                {/* Reminder bell — quiet unless ACTIVE, in which case it pops out
+                    of the hover-only group with a primary tint. */}
+                <Popover open={showReminderPopover} onOpenChange={setShowReminderPopover}>
                   <PopoverTrigger asChild>
-                    <button className="h-7 px-2.5 rounded-full text-[12px] font-semibold flex items-center gap-1.5 transition-colors shrink-0"
-                      style={{ background: `${accentColor}18`, color: accentColor, border: `1px solid ${accentColor}40` }}>
-                      <CalendarPlus size={12} />Today
+                    <button
+                      aria-label="Reminders"
+                      className={cn(
+                        "h-8 w-8 rounded-full flex items-center justify-center transition-colors",
+                        hasActiveReminder
+                          ? "text-primary bg-primary/10 opacity-100"
+                          : "text-muted-foreground/55 hover:text-primary hover:bg-secondary"
+                      )}
+                      style={hasActiveReminder ? { /* break out of the hover-only opacity */ } : undefined}
+                    >
+                      {hasActiveReminder ? <Bell size={14} /> : <BellOff size={14} />}
                     </button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-48 p-2 space-y-1" align="start">
-                    <button onClick={() => onAddToToday(due.id)}
-                      className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-[13px] hover:bg-secondary transition-colors text-foreground font-medium">
-                      <Target size={12} className="text-muted-foreground" />{due.title}
-                    </button>
-                    <div className="border-t border-border/50 my-1" />
-                    <p className="text-[10px] text-muted-foreground/50 uppercase tracking-wider px-2 py-0.5">Steps</p>
-                    {due.steps.filter(s => !s.is_completed).map(step => (
-                      <button key={step.id} onClick={() => onAddToToday(due.id, step.title)}
-                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-[13px] hover:bg-secondary transition-colors text-muted-foreground">
-                        <div className="w-2.5 h-2.5 rounded-full border-2 flex-shrink-0" style={{ borderColor: accentColor }} />
-                        {step.title}
-                      </button>
+                  <PopoverContent className="w-56 p-3 space-y-2" align="end">
+                    <p className="text-[13px] font-medium text-foreground mb-1">Reminders</p>
+                    {cardReminders.map(r => (
+                      <div key={r.id} className="flex items-center justify-between text-[13px]">
+                        <span className="flex items-center gap-1.5">
+                          {r.reminder_type === 'email' ? <Mail size={12} /> : <Bell size={12} />}
+                          {formatReminderText(r)}
+                        </span>
+                        <button onClick={() => onRemoveReminder(r.id)} className="text-muted-foreground hover:text-destructive"><X size={12} /></button>
+                      </div>
                     ))}
+                    {hasDeadline ? (
+                      <>
+                        <p className="text-[12px] text-muted-foreground">Browser notification</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {REMINDER_PRESETS.map(p => (
+                            <button key={p.minutes} onClick={() => { onUpsertReminder(due.id, 'browser', p.minutes); }}
+                              className="px-2.5 py-1 rounded-lg text-[12px] bg-secondary hover:bg-secondary/80 transition-colors">{p.label}</button>
+                          ))}
+                        </div>
+                        <p className="text-[12px] text-muted-foreground">Email</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {REMINDER_PRESETS.map(p => (
+                            <button key={p.minutes} onClick={() => { onUpsertReminder(due.id, 'email', p.minutes); }}
+                              className="px-2.5 py-1 rounded-lg text-[12px] bg-secondary hover:bg-secondary/80 transition-colors">{p.label}</button>
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-[12px] text-muted-foreground">Recurring reminder</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {HABIT_PRESETS.map(p => (
+                            <button key={p.days} onClick={() => { onUpsertReminder(due.id, 'browser', 0, true, p.days); }}
+                              className="px-2.5 py-1 rounded-lg text-[12px] bg-secondary hover:bg-secondary/80 transition-colors">{p.label}</button>
+                          ))}
+                        </div>
+                      </>
+                    )}
                   </PopoverContent>
                 </Popover>
-              ) : (
-                <button onClick={() => onAddToToday(due.id)}
-                  className="h-7 px-2.5 rounded-full text-[12px] font-semibold flex items-center gap-1.5 transition-colors shrink-0"
-                  style={{ background: `${accentColor}18`, color: accentColor, border: `1px solid ${accentColor}40` }}>
-                  <CalendarPlus size={12} />Today
+
+                {/* + menu — all "add" actions collapsed into one quiet trigger.
+                    Hidden on default, visible on hover. Linear / Things 3 / iOS
+                    Reminders all hide attachment affordances behind a single
+                    + so the card stays calm. */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      aria-label="Add attachment"
+                      className="h-8 w-8 rounded-full text-muted-foreground/55 hover:text-foreground hover:bg-secondary flex items-center justify-center transition-colors"
+                    >
+                      <Plus size={15} strokeWidth={2.2} />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-52 p-1.5" align="end">
+                    <button
+                      onClick={() => setShowAddLink(true)}
+                      className="w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] text-foreground hover:bg-secondary transition-colors"
+                    >
+                      <Link size={14} className="text-muted-foreground" />
+                      <span>{t('dues.link')}</span>
+                    </button>
+                    <button
+                      onClick={() => photoInputRef.current?.click()}
+                      className="w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] text-foreground hover:bg-secondary transition-colors"
+                    >
+                      <Camera size={14} className="text-muted-foreground" />
+                      <span>{t('dues.photo')}</span>
+                    </button>
+                    {!hasDeadline && !isEditingDate && (
+                      <button
+                        onClick={() => { setEditDate(''); setIsEditingDate(true); }}
+                        className="w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] text-foreground hover:bg-secondary transition-colors"
+                      >
+                        <Calendar size={14} className="text-muted-foreground" />
+                        <span>{t('dues.addDeadline')}</span>
+                      </button>
+                    )}
+                  </PopoverContent>
+                </Popover>
+
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  aria-label="Delete"
+                  className="h-8 w-8 rounded-full text-muted-foreground/45 hover:text-destructive hover:bg-destructive/8 flex items-center justify-center transition-colors"
+                >
+                  <Trash2 size={14} />
                 </button>
-              )
-            )}
-          </div>
-          <div className="flex shrink-0 items-center gap-0.5 opacity-50 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-            {/* Delete — bottom right, away from expand area */}
-            {confirmDelete ? (
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-destructive/70">Delete?</span>
-                <button onClick={() => onDelete(due.id)} className="text-[11px] font-semibold text-destructive hover:underline">Yes</button>
-                <button onClick={() => setConfirmDelete(false)} className="text-[11px] text-muted-foreground hover:text-foreground">No</button>
-              </div>
-            ) : (
-              <button onClick={() => setConfirmDelete(true)} className="p-1.5 rounded-lg text-muted-foreground/30 hover:text-destructive transition-colors">
-                <Trash2 size={13} />
-              </button>
-            )}
-            {/* Reminder bell */}
-            <Popover open={showReminderPopover} onOpenChange={setShowReminderPopover}>
-          <PopoverTrigger asChild>
-            <button className={cn("p-1.5 rounded-lg transition-colors", hasActiveReminder ? "text-primary" : "text-muted-foreground/40 hover:text-primary")}>
-              {hasActiveReminder ? <Bell size={14} /> : <BellOff size={14} />}
-            </button>
-          </PopoverTrigger>
-          <PopoverContent className="w-56 p-3 space-y-2" align="end">
-            <p className="text-[13px] font-medium text-foreground mb-1">Reminders</p>
-            {cardReminders.map(r => (
-              <div key={r.id} className="flex items-center justify-between text-[13px]">
-                <span className="flex items-center gap-1.5">
-                  {r.reminder_type === 'email' ? <Mail size={12} /> : <Bell size={12} />}
-                  {formatReminderText(r)}
-                </span>
-                <button onClick={() => onRemoveReminder(r.id)} className="text-muted-foreground hover:text-destructive"><X size={12} /></button>
-              </div>
-            ))}
-            {hasDeadline ? (
-              <>
-                <p className="text-[12px] text-muted-foreground">Browser notification</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {REMINDER_PRESETS.map(p => (
-                    <button key={p.minutes} onClick={() => { onUpsertReminder(due.id, 'browser', p.minutes); }}
-                      className="px-2.5 py-1 rounded-lg text-[12px] bg-secondary hover:bg-secondary/80 transition-colors">{p.label}</button>
-                  ))}
-                </div>
-                <p className="text-[12px] text-muted-foreground">Email</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {REMINDER_PRESETS.map(p => (
-                    <button key={p.minutes} onClick={() => { onUpsertReminder(due.id, 'email', p.minutes); }}
-                      className="px-2.5 py-1 rounded-lg text-[12px] bg-secondary hover:bg-secondary/80 transition-colors">{p.label}</button>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <>
-                <p className="text-[12px] text-muted-foreground">Recurring reminder</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {HABIT_PRESETS.map(p => (
-                    <button key={p.days} onClick={() => { onUpsertReminder(due.id, 'browser', 0, true, p.days); }}
-                      className="px-2.5 py-1 rounded-lg text-[12px] bg-secondary hover:bg-secondary/80 transition-colors">{p.label}</button>
-                  ))}
-                </div>
               </>
             )}
-          </PopoverContent>
-            </Popover>
-            <Popover>
-              <PopoverTrigger asChild>
-                <button className="p-1.5 rounded-lg text-muted-foreground/40 hover:text-primary transition-colors"><Paperclip size={14} /></button>
-              </PopoverTrigger>
-              <PopoverContent className="w-36 p-2 space-y-1" align="end">
-                <button onClick={() => setShowAddLink(true)} className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-[13px] hover:bg-secondary transition-colors text-foreground">
-                  <Link size={13} className="text-muted-foreground" />{t('dues.link')}
-                </button>
-                <button onClick={() => photoInputRef.current?.click()} className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-[13px] hover:bg-secondary transition-colors text-foreground">
-                  <Camera size={13} className="text-muted-foreground" />{t('dues.photo')}
-                </button>
-                {!hasDeadline && !isEditingDate && (
-                  <button onClick={() => { setEditDate(''); setIsEditingDate(true); }} className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-[13px] hover:bg-secondary transition-colors text-foreground">
-                    <Calendar size={13} className="text-muted-foreground" />{t('dues.addDeadline')}
-                  </button>
-                )}
-              </PopoverContent>
-            </Popover>
           </div>
         </div>
       </div>
