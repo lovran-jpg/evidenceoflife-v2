@@ -27,6 +27,17 @@ mkdir -p "$(dirname "$LOG")"
 
 log() { echo "[$(date '+%F %T')] $*" | tee -a "$LOG"; }
 
+# 数当前 lint 错误数。失败/无输出返回大数（让后续比较自动不通过）
+count_lint_errors() {
+  npm run lint --silent 2>&1 | grep -oE '[0-9]+ problems? \([0-9]+ errors?' \
+    | grep -oE '\([0-9]+' | tr -d '(' | tail -1
+}
+
+# 跑 vitest。成功 0 失败 1
+run_vitest() {
+  npx vitest run --silent >> "$LOG" 2>&1
+}
+
 log "=== loop start (max=$MAX_ROUNDS, dry_run=$DRY_RUN) ==="
 
 # 安全检查 1: 必须在仓库内
@@ -39,6 +50,20 @@ if [ -n "$(git status --porcelain)" ]; then
   git add -A
   git commit -m "chore(loop): pre-loop snapshot" >> "$LOG" 2>&1 || log "  (nothing to commit)"
 fi
+
+# 记录起跑时的 lint baseline 与 vitest baseline
+log "measuring lint baseline..."
+LINT_BASELINE="$(count_lint_errors)"
+[ -z "$LINT_BASELINE" ] && LINT_BASELINE=0
+log "  lint baseline = $LINT_BASELINE errors"
+
+log "measuring vitest baseline..."
+if run_vitest; then
+  VITEST_BASELINE="pass"
+else
+  VITEST_BASELINE="fail"
+fi
+log "  vitest baseline = $VITEST_BASELINE"
 
 for round in $(seq 1 "$MAX_ROUNDS"); do
   log ""
@@ -83,18 +108,27 @@ for round in $(seq 1 "$MAX_ROUNDS"); do
     break
   fi
 
-  # 守门 2: lint + vitest 都必须过
-  log "running lint..."
-  if ! npm run lint --silent >> "$LOG" 2>&1; then
-    log "lint FAILED; stashing changes and stopping"
-    git stash push -u -m "loop-round-$round-lint-failed" >> "$LOG" 2>&1
+  # 守门 2: lint 不准比 baseline 多；vitest 不准从 pass 退回 fail
+  log "running lint (baseline=$LINT_BASELINE)..."
+  current_lint="$(count_lint_errors)"
+  [ -z "$current_lint" ] && current_lint=0
+  log "  current = $current_lint"
+  if [ "$current_lint" -gt "$LINT_BASELINE" ]; then
+    log "lint REGRESSED ($current_lint > $LINT_BASELINE); stashing and stopping"
+    git stash push -u -m "loop-round-$round-lint-regression" >> "$LOG" 2>&1
     break
   fi
 
-  log "running vitest..."
-  if ! npx vitest run --silent >> "$LOG" 2>&1; then
-    log "vitest FAILED; stashing changes and stopping"
-    git stash push -u -m "loop-round-$round-test-failed" >> "$LOG" 2>&1
+  log "running vitest (baseline=$VITEST_BASELINE)..."
+  if run_vitest; then
+    current_vitest="pass"
+  else
+    current_vitest="fail"
+  fi
+  log "  current = $current_vitest"
+  if [ "$VITEST_BASELINE" = "pass" ] && [ "$current_vitest" = "fail" ]; then
+    log "vitest REGRESSED (pass -> fail); stashing and stopping"
+    git stash push -u -m "loop-round-$round-test-regression" >> "$LOG" 2>&1
     break
   fi
 
