@@ -549,8 +549,7 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
                       // than relying on stale closure — the optimistic insert
                       // arrived via a separate state path.
                       const matching = due.steps
-                        .filter(s => s.title === optimisticTitle)
-                        .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())[0];
+                        .filter(s => s.title === optimisticTitle)[0];
                       // No direct rename API on steps from this component; the
                       // optimistic siteFallback title is acceptable as fallback.
                       // We still upgrade the LINK's stored title/preview below.

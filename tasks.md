@@ -19,23 +19,23 @@
   - 动作：`src/components/views/MapView.tsx` 里所有 `<button>` 替换为 `@/components/ui/button` 的 `<Button>`；保留原有 className 行为；用 `variant`/`size` props 表达样式
   - 验收：
     - `grep -c "<button" src/components/views/MapView.tsx` == 0
-    - `npm run lint --silent` 通过
-    - `npx vitest run --silent` 通过
+    - lint 错误数 ≤ baseline（由 loop.sh 自动比较）
+    - vitest 仍 pass
   - 范围限制：只动这一个文件，不要顺手改其他视图
 
 - [ ] [P1][todo] **ui-styling: DayDetailSheet.tsx 的 6 个 `<button>` 迁到 shadcn Button**
   - 同上规则，文件换成 `src/components/DayDetail/DayDetailSheet.tsx`
   - 验收：
     - `grep -c "<button" src/components/DayDetail/DayDetailSheet.tsx` == 0
-    - `npm run lint --silent` 通过
-    - `npx vitest run --silent` 通过
+    - lint 错误数 ≤ baseline
+    - vitest 仍 pass
 
 - [ ] [P2][todo] **ui-ux-pro-max: DueCard.tsx 视觉层级复审**
   - 动作：调用 `Skill(ui-ux-pro-max)` 对 `src/components/views/dues/DueCard.tsx` 做层级 / 间距 / 对比度审计；输出 diff 落到代码
   - 验收：
     - 修改 diff 贴到本任务下的 `Notes` 子段（diff 长度 ≤ 80 行；超出说明改太大，应该拆）
-    - `npm run lint --silent` 通过
-    - `npx vitest run --silent` 通过
+    - lint 错误数 ≤ baseline
+    - vitest 仍 pass
   - 备注：这条比上面三条主观，做完后人工 review 才会进 `[done]`，agent 自标 `[in_progress: 等人工 review]`
 
 - [ ] [P2][todo] **design-system: 把上一步发现的新 token 回写 tokens.css**

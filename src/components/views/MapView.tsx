@@ -1495,9 +1495,16 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
               <ChevronLeft size={22} />
             </button>
           }
-          eyebrow={lang === 'zh' ? '城市' : 'City'}
           title={currentCity?.cityName || t('map.places')}
-          subtitle={`${cityPlaces.length} ${t('map.places')}`}
+          right={
+            <span
+              className="mt-1 inline-flex items-baseline gap-1 rounded-full px-2.5 py-1 text-[12px] font-medium"
+              style={{ backgroundColor: `${LIFE_MAP_COLOR}1F`, color: LIFE_MAP_COLOR }}
+            >
+              <span className="text-[13px] font-semibold tabular-nums">{cityPlaces.length}</span>
+              <span className="opacity-75">{t('map.places')}</span>
+            </span>
+          }
         />
       ) : (
         <PageHeader
