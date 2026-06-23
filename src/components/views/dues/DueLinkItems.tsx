@@ -6,7 +6,6 @@ import {
   buildProxyImageUrl,
   getFaviconUrl,
 } from '@/lib/linkUtils';
-import { extractLeadingEmoji } from '@/lib/emoji';
 import type { DueLink } from '@/hooks/useDues';
 
 export function hasRichPreview(link: Partial<DueLink> | undefined): boolean {
@@ -22,14 +21,6 @@ export function hasRichPreview(link: Partial<DueLink> | undefined): boolean {
 
 export function getLinkDisplayName(link: Partial<DueLink>): string {
   return link.label?.trim() || link.title?.trim() || link.siteName?.trim() || getSiteFallback(link.url || '');
-}
-
-/** Strip a leading emoji off a user-typed label so it can be rendered in a
- *  separate thumb slot. Returns both the emoji (if any) and the text rest. */
-function splitLabelEmoji(label: string): { emoji?: string; text: string } {
-  const emoji = extractLeadingEmoji(label);
-  if (!emoji) return { text: label };
-  return { emoji, text: label.slice(emoji.length).trim() };
 }
 
 export function CompactHabitLinkThumb({ link }: { link: Partial<DueLink> }) {
@@ -73,23 +64,17 @@ export function CompactHabitLinkThumb({ link }: { link: Partial<DueLink> }) {
   );
 }
 
-/** Inline thumb for a normal link row. Prefers a leading emoji from the user's
- *  label (e.g. "📞 美签"), falls back to favicon, then to the generic Link
- *  glyph — so we never just render a giant standalone emoji as the whole row. */
-function LinkRowThumb({ link, emoji }: { link: Partial<DueLink>; emoji?: string }) {
+/** Inline thumb for a normal link row. Favicon first, generic Link glyph
+ *  fallback. Leading emojis in the label stay inline with the text — we
+ *  don't extract them into the thumb slot, which produced an inconsistent
+ *  look when one link had an emoji label and the next one didn't. */
+function LinkRowThumb({ link }: { link: Partial<DueLink> }) {
   const [mode, setMode] = useState<'favicon' | 'icon'>(link.url ? 'favicon' : 'icon');
 
   useEffect(() => {
     setMode(link.url ? 'favicon' : 'icon');
   }, [link.url]);
 
-  if (emoji) {
-    return (
-      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-[hsl(var(--surface-contrast))] text-[17px] leading-none">
-        {emoji}
-      </div>
-    );
-  }
   if (mode === 'icon' || !link.url) {
     return (
       <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-border/60 bg-[hsl(var(--surface-contrast))] text-muted-foreground/70">
@@ -121,8 +106,6 @@ export function LightweightLinkItem({
   const [isEditing, setIsEditing] = useState(false);
   const [draftLabel, setDraftLabel] = useState(getLinkDisplayName(link));
   const fullLabel = getLinkDisplayName(link);
-  const { emoji, text } = splitLabelEmoji(fullLabel);
-  const displayText = text || fullLabel;
   const siteName = link.siteName || (link.url ? getSiteFallback(link.url) : '');
 
   useEffect(() => {
@@ -140,7 +123,7 @@ export function LightweightLinkItem({
       "group flex items-center gap-2.5 rounded-xl border border-border/55 bg-[hsl(var(--surface-soft))] px-2.5",
       compact ? "min-h-[44px] py-1.5" : "min-h-[52px] py-2"
     )}>
-      <LinkRowThumb link={link} emoji={emoji} />
+      <LinkRowThumb link={link} />
       <div className="min-w-0 flex-1">
         {isEditing ? (
           <input
@@ -164,7 +147,7 @@ export function LightweightLinkItem({
             rel="noreferrer"
             className="block truncate text-[13px] font-semibold text-foreground hover:underline"
           >
-            {displayText}
+            {fullLabel}
           </a>
         )}
         <div className="mt-0.5 truncate text-[11px] text-muted-foreground/75 lowercase">

@@ -492,6 +492,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
   const [viewMode, setViewMode] = useState<ViewMode>('city');
   const [activeCategory, setActiveCategory] = useState<Category>('all');
   const [placeQuery, setPlaceQuery] = useState('');
+  const [searchExpanded, setSearchExpanded] = useState(false);
   const [selectedPlace, setSelectedPlace] = useState<string | null>(null);
   const [showPlaceDetail, setShowPlaceDetail] = useState<PlaceInfo | null>(null);
   const [mapPreviewFailed, setMapPreviewFailed] = useState(false);
@@ -1514,92 +1515,108 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
         />
       )}
 
-      {/* Toolbar — search first (primary), category filter chips below as a
-          quieter strip. The search field now reads as a polished hero pill:
-          larger touch target, surface-soft background instead of see-through
-          secondary, focus ring tied to the accent — so it stops looking like
-          a placeholder strip glued to the bottom of the map and starts feeling
-          like an intentional control. */}
+      {/* Toolbar — category chips form the main strip; search lives at the
+          end of that row as a quiet icon button that expands into an input
+          when tapped. This keeps a wide blank search bar from dominating the
+          city header on desktop while still being one tap away. */}
       {viewMode === 'city' && (
-        <div className="space-y-2.5 px-5 pb-3">
-          {cityPlaces.length > 4 && (
-            <div
-              className={cn(
-                "flex items-center gap-2.5 rounded-2xl border bg-[hsl(var(--surface-soft))] px-4 py-2.5 transition-[box-shadow,border-color] focus-within:border-primary/45 focus-within:shadow-[0_0_0_3px_hsl(var(--primary)/0.10)]",
-                placeQuery ? "border-primary/35" : "border-border/55"
-              )}
-            >
-              <Search size={16} strokeWidth={2.1} className={cn(
-                "flex-shrink-0 transition-colors",
-                placeQuery ? "text-primary" : "text-muted-foreground/70"
-              )} />
-              <input
-                value={placeQuery}
-                onChange={(e) => setPlaceQuery(e.target.value)}
-                placeholder={lang === 'zh' ? '搜索地点…' : 'Search places…'}
-                className="min-w-0 flex-1 bg-transparent text-[14px] text-foreground placeholder:text-muted-foreground/55 focus:outline-none"
-                aria-label={lang === 'zh' ? '搜索地点' : 'Search places'}
-              />
-              {placeQuery ? (
+        <div className="px-5 pb-3">
+          <div className="flex items-center gap-2">
+            {searchExpanded || placeQuery ? (
+              <div
+                className={cn(
+                  "flex flex-1 items-center gap-2 rounded-full border bg-[hsl(var(--surface-soft))] pl-3.5 pr-1.5 py-1.5 transition-[box-shadow,border-color] focus-within:border-primary/45 focus-within:shadow-[0_0_0_3px_hsl(var(--primary)/0.10)]",
+                  placeQuery ? "border-primary/35" : "border-border/55"
+                )}
+              >
+                <Search size={15} strokeWidth={2.1} className={cn(
+                  "flex-shrink-0 transition-colors",
+                  placeQuery ? "text-primary" : "text-muted-foreground/70"
+                )} />
+                <input
+                  value={placeQuery}
+                  onChange={(e) => setPlaceQuery(e.target.value)}
+                  placeholder={lang === 'zh' ? '搜索地点…' : 'Search places…'}
+                  className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground placeholder:text-muted-foreground/55 focus:outline-none"
+                  aria-label={lang === 'zh' ? '搜索地点' : 'Search places'}
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      setPlaceQuery('');
+                      setSearchExpanded(false);
+                    }
+                  }}
+                />
                 <button
-                  onClick={() => setPlaceQuery('')}
-                  className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground/70 hover:bg-secondary hover:text-foreground transition-colors"
-                  aria-label={lang === 'zh' ? '清除' : 'Clear'}
+                  onClick={() => {
+                    setPlaceQuery('');
+                    setSearchExpanded(false);
+                  }}
+                  className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground/70 hover:bg-secondary hover:text-foreground transition-colors"
+                  aria-label={lang === 'zh' ? '关闭搜索' : 'Close search'}
                 >
                   <X size={14} />
                 </button>
-              ) : (
-                <span className="hidden sm:inline-flex flex-shrink-0 items-center gap-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/45">
-                  {cityPlaces.length} {lang === 'zh' ? '个地点' : 'places'}
-                </span>
-              )}
-            </div>
-          )}
-
-          <div className="-mx-1 flex items-center gap-1.5 overflow-x-auto px-1 no-scrollbar">
-            {categoryKeys
-              .filter(({ id }) => id === 'all' || (categoryCounts[id] ?? 0) > 0)
-              .map(({ id, labelKey, icon: Icon }) => {
-                const count = id === 'all' ? cityPlaces.length : (categoryCounts[id] ?? 0);
-                const isActive = activeCategory === id;
-                const accent = chipAccents[id] ?? chipAccents.other;
-                return (
-                  <button
-                    key={id}
-                    onClick={() => setActiveCategory(id)}
-                    aria-pressed={isActive}
-                    className={cn(
-                      'inline-flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
-                      !isActive && 'border-border/55 bg-transparent text-muted-foreground hover:text-foreground',
-                    )}
-                    style={
-                      isActive
-                        ? {
-                            backgroundColor: `${accent}1f`,
-                            borderColor: `${accent}73`,
-                            color: accent,
+              </div>
+            ) : (
+              <>
+                <div className="-mx-1 flex flex-1 items-center gap-1.5 overflow-x-auto px-1 no-scrollbar">
+                  {categoryKeys
+                    .filter(({ id }) => id === 'all' || (categoryCounts[id] ?? 0) > 0)
+                    .map(({ id, labelKey, icon: Icon }) => {
+                      const count = id === 'all' ? cityPlaces.length : (categoryCounts[id] ?? 0);
+                      const isActive = activeCategory === id;
+                      const accent = chipAccents[id] ?? chipAccents.other;
+                      return (
+                        <button
+                          key={id}
+                          onClick={() => setActiveCategory(id)}
+                          aria-pressed={isActive}
+                          className={cn(
+                            'inline-flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+                            !isActive && 'border-border/55 bg-transparent text-muted-foreground hover:text-foreground',
+                          )}
+                          style={
+                            isActive
+                              ? {
+                                  backgroundColor: `${accent}1f`,
+                                  borderColor: `${accent}73`,
+                                  color: accent,
+                                }
+                              : undefined
                           }
-                        : undefined
-                    }
+                        >
+                          <Icon
+                            size={13}
+                            className={isActive ? '' : 'text-muted-foreground/70'}
+                            style={isActive ? { color: accent } : undefined}
+                          />
+                          <span>{t(labelKey)}</span>
+                          <span
+                            className={cn(
+                              'tabular-nums text-[11px]',
+                              !isActive && 'text-muted-foreground/55',
+                            )}
+                            style={isActive ? { color: accent, opacity: 0.7 } : undefined}
+                          >
+                            {count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                </div>
+                {cityPlaces.length > 4 && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchExpanded(true)}
+                    aria-label={lang === 'zh' ? '搜索地点' : 'Search places'}
+                    className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-border/55 text-muted-foreground/75 transition-colors hover:border-primary/40 hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                   >
-                    <Icon
-                      size={13}
-                      className={isActive ? '' : 'text-muted-foreground/70'}
-                      style={isActive ? { color: accent } : undefined}
-                    />
-                    <span>{t(labelKey)}</span>
-                    <span
-                      className={cn(
-                        'tabular-nums text-[11px]',
-                        !isActive && 'text-muted-foreground/55',
-                      )}
-                      style={isActive ? { color: accent, opacity: 0.7 } : undefined}
-                    >
-                      {count}
-                    </span>
+                    <Search size={14} strokeWidth={2.1} />
                   </button>
-                );
-              })}
+                )}
+              </>
+            )}
           </div>
         </div>
       )}

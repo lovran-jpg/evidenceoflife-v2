@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { parseISO } from 'date-fns';
-import { Plus, Calendar, Trash2, CalendarPlus, Check, Repeat, Pencil, X, Link, ExternalLink, Target, Camera, Bell, BellOff, Mail, ChevronDown, ChevronUp, Paperclip } from 'lucide-react';
+import { Plus, Calendar, Trash2, CalendarPlus, Check, Repeat, Pencil, X, Link, Target, Camera, Bell, BellOff, Mail, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn, isImeComposing } from '@/lib/utils';
 import {
   normalizeUrl,
@@ -902,31 +902,10 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
               </button>
             )}
 
-            {/* Open first link — text-link with the leading emoji rendered as
-                a small chip so a label like "📞 美签" reads as "📞 美签 ↗",
-                not a giant standalone emoji. */}
-            {(due.links || [])[0] && (() => {
-              const firstLink = (due.links || [])[0];
-              const rawLabel = (firstLink.label || firstLink.siteName || 'Open').trim();
-              const emojiMatch = rawLabel.match(/^(\p{Emoji_Presentation}|\p{Emoji}️)/u);
-              const leadingEmoji = emojiMatch?.[0];
-              const textLabel = leadingEmoji ? rawLabel.slice(leadingEmoji.length).trim() || rawLabel : rawLabel;
-              return (
-                <a
-                  href={firstLink.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  className="inline-flex items-center gap-1.5 text-[13px] font-medium text-foreground/85 hover:text-primary transition-colors truncate min-w-0"
-                >
-                  {leadingEmoji && <span className="text-[14px] leading-none">{leadingEmoji}</span>}
-                  <span className="truncate max-w-[160px] underline decoration-foreground/25 decoration-dotted underline-offset-2 hover:decoration-primary/60">
-                    {textLabel}
-                  </span>
-                  <ExternalLink size={12} strokeWidth={2.1} className="flex-shrink-0 opacity-60" />
-                </a>
-              );
-            })()}
+            {/* Note: a "open first link" shortcut used to live here, but with
+                the links collapsed/expanded panel above it was just a duplicate
+                entry point with ambiguous semantics ("which link does this
+                open?"). The action row stays focused on Today / Done. */}
           </div>
 
           {/* Right: quiet utility cluster. Default state = nearly invisible

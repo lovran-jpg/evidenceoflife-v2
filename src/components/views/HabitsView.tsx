@@ -1,7 +1,6 @@
 import { useState, useMemo, useRef, useEffect, KeyboardEvent } from 'react';
 import { format } from 'date-fns';
-import { Check, Plus, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { Check, Plus, MoreHorizontal, Trash2, ChevronDown } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useDues, type DueWithStats } from '@/hooks/useDues';
 import { useDueReminders } from '@/hooks/useDueReminders';
@@ -13,8 +12,9 @@ import { DueCard } from '@/components/views/dues/DueCard';
 
 /**
  * Habits, redesigned to a single repeating action: tap the ring to check in.
- * Everything else (edit title, set target, attach links, delete) lives behind
- * an edit sheet so the list stays calm. Add-habit is a single inline input.
+ * Tap the title to rename it inline. Tap the chevron / row body to expand a
+ * full DueCard accordion in place — no sheets, no side drawers, no extra
+ * page transitions. Everything edits without taking you off this view.
  */
 export function HabitsView() {
   const { lang } = useLanguage();
@@ -34,7 +34,7 @@ export function HabitsView() {
   const { getRemindersForDue, upsertReminder, removeReminder } = useDueReminders();
 
   const [draft, setDraft] = useState('');
-  const [editingHabit, setEditingHabit] = useState<DueWithStats | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const draftRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -45,12 +45,6 @@ export function HabitsView() {
   const habits = useMemo(
     () => dues.filter(d => d.habit_category !== null && !d.is_completed),
     [dues],
-  );
-
-  // Keep the edit sheet's data fresh when the underlying due updates.
-  const liveEditing = useMemo(
-    () => (editingHabit ? dues.find(d => d.id === editingHabit.id) ?? null : null),
-    [editingHabit, dues],
   );
 
   const getRemindersForDueTree = (due: DueWithStats) => {
@@ -68,12 +62,11 @@ export function HabitsView() {
 
   const handleDelete = (due: DueWithStats) => {
     deleteDue(due.id);
-    if (editingHabit?.id === due.id) setEditingHabit(null);
+    if (expandedId === due.id) setExpandedId(null);
     showUndoToast({
       description: lang === 'zh' ? `已删除"${due.title}"` : `Deleted "${due.title}"`,
       undoLabel: lang === 'zh' ? '撤销' : 'Undo',
       onUndo: () => {
-        // Best-effort: re-add by title with the same category. Edit history not restored.
         void addDue(due.title, undefined, due.habit_category || 'Uncategorized');
       },
     });
@@ -100,9 +93,40 @@ export function HabitsView() {
               <HabitRow
                 key={habit.id}
                 habit={habit}
+                expanded={expandedId === habit.id}
+                onToggleExpand={() =>
+                  setExpandedId(prev => (prev === habit.id ? null : habit.id))
+                }
                 onIncrement={() => incrementHabitCount(habit.id)}
-                onOpen={() => setEditingHabit(habit)}
+                onRename={(nextTitle) => {
+                  const trimmed = nextTitle.trim();
+                  if (trimmed && trimmed !== habit.title) {
+                    void updateDue(habit.id, { title: trimmed });
+                  }
+                }}
                 onDelete={() => handleDelete(habit)}
+                detail={
+                  expandedId === habit.id ? (
+                    <DueCard
+                      due={habit}
+                      onUpdate={updateDue}
+                      onDelete={(id) => {
+                        setExpandedId(null);
+                        deleteDue(id);
+                      }}
+                      onAddToToday={addToToday}
+                      justAdded={false}
+                      dueReminders={getRemindersForDueTree(habit)}
+                      onUpsertReminder={upsertReminder}
+                      onRemoveReminder={removeReminder}
+                      onAddStep={addStep}
+                      onToggleStep={toggleStep}
+                      onDeleteStep={deleteStep}
+                      onIncrementHabitCount={incrementHabitCount}
+                      onSetHabitCount={setHabitCount}
+                    />
+                  ) : null
+                }
               />
             ))}
           </ul>
@@ -128,113 +152,133 @@ export function HabitsView() {
           />
         </div>
       </div>
-
-      <Sheet open={!!editingHabit} onOpenChange={open => { if (!open) setEditingHabit(null); }}>
-        <SheetContent
-          side="right"
-          className="w-full p-0 sm:max-w-[520px]"
-          expandable={false}
-        >
-          {liveEditing && (
-            <div className="flex h-full flex-col overflow-hidden">
-              <SheetHeader title={lang === 'zh' ? '编辑习惯' : 'Edit habit'} />
-              <div className="flex-1 overflow-y-auto px-4 pb-8 pt-4">
-                <DueCard
-                  due={liveEditing}
-                  onUpdate={updateDue}
-                  onDelete={(id) => {
-                    setEditingHabit(null);
-                    deleteDue(id);
-                  }}
-                  onAddToToday={addToToday}
-                  justAdded={false}
-                  dueReminders={getRemindersForDueTree(liveEditing)}
-                  onUpsertReminder={upsertReminder}
-                  onRemoveReminder={removeReminder}
-                  onAddStep={addStep}
-                  onToggleStep={toggleStep}
-                  onDeleteStep={deleteStep}
-                  onIncrementHabitCount={incrementHabitCount}
-                  onSetHabitCount={setHabitCount}
-                />
-              </div>
-            </div>
-          )}
-        </SheetContent>
-      </Sheet>
     </div>
   );
 }
 
 function HabitRow({
   habit,
+  expanded,
+  onToggleExpand,
   onIncrement,
-  onOpen,
+  onRename,
   onDelete,
+  detail,
 }: {
   habit: DueWithStats;
+  expanded: boolean;
+  onToggleExpand: () => void;
   onIncrement: () => void;
-  onOpen: () => void;
+  onRename: (nextTitle: string) => void;
   onDelete: () => void;
+  detail: React.ReactNode;
 }) {
   const todayKey = format(new Date(), 'yyyy-MM-dd');
   const todayCount = habit.dailyCounts?.[todayKey] || 0;
   const targetCount = Math.max(1, habit.targetCount || 1);
   const met = todayCount >= targetCount;
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [draft, setDraft] = useState(habit.title);
+
+  useEffect(() => {
+    if (!isEditing) setDraft(habit.title);
+  }, [habit.title, isEditing]);
+
+  const commit = () => {
+    if (draft.trim() && draft.trim() !== habit.title) onRename(draft);
+    else setDraft(habit.title);
+    setIsEditing(false);
+  };
 
   return (
-    <li className="group/row flex items-center gap-3 py-3.5">
-      <button
-        type="button"
-        onClick={onOpen}
-        className="min-w-0 flex-1 text-left"
-      >
-        <p
+    <li className="group/row">
+      <div className="flex items-center gap-3 py-3.5">
+        <button
+          type="button"
+          onClick={onToggleExpand}
+          aria-label={expanded ? 'Collapse' : 'Expand'}
           className={cn(
-            'truncate text-[16px] font-medium leading-snug text-foreground transition-colors',
-            met && 'text-foreground/55',
+            'flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground/45 transition-all hover:bg-[hsl(var(--surface-soft-hover))] hover:text-foreground',
+            expanded && 'text-foreground',
           )}
         >
-          {habit.title}
-        </p>
-      </button>
+          <ChevronDown
+            size={14}
+            className={cn('transition-transform', expanded && 'rotate-180')}
+          />
+        </button>
 
-      <Popover open={menuOpen} onOpenChange={setMenuOpen}>
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            aria-label="More"
-            className={cn(
-              'flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground/50 opacity-0 transition-opacity hover:bg-[hsl(var(--surface-soft-hover))] hover:text-foreground',
-              'group-hover/row:opacity-100 focus-visible:opacity-100',
-              menuOpen && 'opacity-100',
-            )}
-          >
-            <MoreHorizontal size={16} />
-          </button>
-        </PopoverTrigger>
-        <PopoverContent align="end" side="bottom" className="w-40 p-1">
-          <button
-            type="button"
-            onClick={() => { setMenuOpen(false); onOpen(); }}
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[13px] font-medium text-foreground transition-colors hover:bg-secondary"
-          >
-            <Pencil size={14} className="text-muted-foreground" />
-            Edit
-          </button>
-          <button
-            type="button"
-            onClick={() => { setMenuOpen(false); onDelete(); }}
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[13px] font-medium text-destructive transition-colors hover:bg-destructive/10"
-          >
-            <Trash2 size={14} />
-            Delete
-          </button>
-        </PopoverContent>
-      </Popover>
+        <div className="min-w-0 flex-1">
+          {isEditing ? (
+            <input
+              autoFocus
+              value={draft}
+              onChange={e => setDraft(e.target.value)}
+              onBlur={commit}
+              onKeyDown={(e) => {
+                const ne = e.nativeEvent as unknown as globalThis.KeyboardEvent;
+                if (e.key === 'Enter') {
+                  if (isImeComposing(ne)) return;
+                  commit();
+                }
+                if (e.key === 'Escape') {
+                  setDraft(habit.title);
+                  setIsEditing(false);
+                }
+              }}
+              className="w-full bg-transparent text-[16px] font-medium leading-snug text-foreground focus:outline-none"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setIsEditing(true)}
+              className="block w-full text-left"
+            >
+              <p
+                className={cn(
+                  'truncate text-[16px] font-medium leading-snug text-foreground transition-colors',
+                  met && 'text-foreground/55',
+                )}
+              >
+                {habit.title}
+              </p>
+            </button>
+          )}
+        </div>
 
-      <CheckinRing count={todayCount} target={targetCount} onIncrement={onIncrement} ariaLabel={`Check in: ${habit.title}`} />
+        <Popover open={menuOpen} onOpenChange={setMenuOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              aria-label="More"
+              className={cn(
+                'flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground/50 opacity-0 transition-opacity hover:bg-[hsl(var(--surface-soft-hover))] hover:text-foreground',
+                'group-hover/row:opacity-100 focus-visible:opacity-100',
+                menuOpen && 'opacity-100',
+              )}
+            >
+              <MoreHorizontal size={16} />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="end" side="bottom" className="w-40 p-1">
+            <button
+              type="button"
+              onClick={() => { setMenuOpen(false); onDelete(); }}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[13px] font-medium text-destructive transition-colors hover:bg-destructive/10"
+            >
+              <Trash2 size={14} />
+              Delete
+            </button>
+          </PopoverContent>
+        </Popover>
+
+        <CheckinRing count={todayCount} target={targetCount} onIncrement={onIncrement} ariaLabel={`Check in: ${habit.title}`} />
+      </div>
+
+      {expanded && detail && (
+        <div className="pb-4">{detail}</div>
+      )}
     </li>
   );
 }

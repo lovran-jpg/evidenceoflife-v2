@@ -44,12 +44,20 @@ function applyAccent(hsl: string | null) {
 
 interface AccentColorContextType {
   accentId: string;
+  /** Raw HSL triplet (no hsl() wrapper) of the currently selected accent —
+   *  use as `hsl(${accentHsl})` or `hsl(${accentHsl} / 0.38)` to compose
+   *  colors that follow the user's chosen brand color live, without going
+   *  through the global --primary CSS var. */
+  accentHsl: string;
   setAccentId: (id: string) => void;
   options: AccentOption[];
 }
 
+const DEFAULT_HSL = ACCENT_OPTIONS.find(o => o.id === DEFAULT_ID)?.hsl ?? '18 45% 55%';
+
 const AccentColorContext = createContext<AccentColorContextType>({
   accentId: DEFAULT_ID,
+  accentHsl: DEFAULT_HSL,
   setAccentId: () => {},
   options: ACCENT_OPTIONS,
 });
@@ -78,7 +86,10 @@ export function AccentColorProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ accentId, setAccentId, options: ACCENT_OPTIONS }),
+    () => {
+      const opt = ACCENT_OPTIONS.find(o => o.id === accentId);
+      return { accentId, accentHsl: opt?.hsl ?? DEFAULT_HSL, setAccentId, options: ACCENT_OPTIONS };
+    },
     [accentId, setAccentId],
   );
 
