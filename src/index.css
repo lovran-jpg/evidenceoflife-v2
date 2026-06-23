@@ -39,7 +39,7 @@
     --input: 30 10% 90%;
     --ring: 18 45% 55%;
 
-    --radius: 1rem;
+    --radius: 0.625rem;
 
     /* Custom tokens */
     --dot-recorded: 18 45% 55%;
@@ -224,9 +224,10 @@
 }
 
 @layer base {
-  /* Root font-size bump: all rem-based Tailwind classes scale proportionally */
+  /* Root font-size at browser default. All rem-based Tailwind classes
+     and arbitrary text-[Xpx] values render at their literal sizes. */
   html {
-    font-size: 18px;
+    font-size: 16px;
   }
 
   * {
@@ -237,8 +238,8 @@
     @apply bg-background text-foreground antialiased;
     font-family: "Nunito", -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
     letter-spacing: -0.01em;
-    font-size: 1.1875rem; /* 21px at 18px root */
-    font-weight: 500;
+    font-size: 0.9375rem; /* 15px — iOS Body */
+    font-weight: 400;
   }
 
   /* Global slim scrollbars — replace chunky native bars app-wide with a soft,
@@ -267,23 +268,12 @@
     background: transparent;
   }
 
-  /* EN: pixel overrides scaled ×1.125 from previous values */
-  body:not(.lang-zh) .text-xs { font-size: 0.84375rem; } /* 0.75 × 1.125 ≈ 15.2px @18px root */
-  body:not(.lang-zh) .text-sm { font-size: 0.984375rem; } /* 0.875 × 1.125 ≈ 17.7px @18px root */
-  body:not(.lang-zh) .text-\[9px\]  { font-size: 11px; }
-  body:not(.lang-zh) .text-\[10px\] { font-size: 13px; }
-  body:not(.lang-zh) .text-\[11px\] { font-size: 14px; }
-  body:not(.lang-zh) .text-\[12px\] { font-size: 15px; }
-  body:not(.lang-zh) .text-\[13px\] { font-size: 16px; }
-  body:not(.lang-zh) .text-\[14px\] { font-size: 17px; }
-  body:not(.lang-zh) .text-\[15px\] { font-size: 18px; }
-  body:not(.lang-zh) .font-medium { font-weight: 600; }
-  body:not(.lang-zh) .font-semibold { font-weight: 700; }
-  body:not(.lang-zh) .font-light { font-weight: 500; }
+  /* EN: text-[Xpx] arbitrary values render at literal px; font weights use
+     Tailwind defaults (medium=500, semibold=600). No size/weight overrides. */
 
   body.lang-zh {
-    font-weight: 500;
-    font-size: 1.1875rem; /* 21px at 18px root */
+    font-weight: 400;
+    font-size: 1rem; /* 16px — Chinese needs +1px over Latin body */
   }
 
   body.lang-zh h1, body.lang-zh h2, body.lang-zh h3,
@@ -291,15 +281,8 @@
     font-weight: 700;
   }
 
-  /* ZH: pixel overrides scaled ×1.125 */
-  body.lang-zh .text-xs { font-size: 0.9375rem; font-weight: 500; }
-  body.lang-zh .text-sm { font-size: 1.0625rem; font-weight: 500; }
-  body.lang-zh .text-base { font-weight: 500; }
-  body.lang-zh .text-\[9px\]  { font-size: 11px; font-weight: 500; }
-  body.lang-zh .text-\[10px\] { font-size: 13px; font-weight: 500; }
-  body.lang-zh .text-\[11px\] { font-size: 14px; font-weight: 500; }
-  body.lang-zh .text-\[12px\] { font-size: 15px; font-weight: 500; }
-  body.lang-zh .text-\[8px\]  { font-size: 10px; }
+  /* ZH: no size overrides — arbitrary text-[Xpx] renders at literal px.
+     Only keep font-display bump for true display-size headings. */
   body.lang-zh .font-display { font-size: 1.5rem; font-weight: 700; }
 
   h1, h2, h3, h4, h5, h6 {
