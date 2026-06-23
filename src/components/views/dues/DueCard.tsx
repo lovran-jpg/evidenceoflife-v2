@@ -309,8 +309,7 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
           ) : (
             <div className="mt-2 flex items-center gap-2 text-[12px] text-muted-foreground">
               {isHabit && (
-                <span className="flex items-center gap-1 font-medium" style={{ color: accentColor }}>
-                  <Repeat size={10} />
+                <span className="text-[12px] tabular-nums text-muted-foreground/75">
                   {due.habit_category || 'Habit'}
                 </span>
               )}
@@ -318,13 +317,13 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
                 <button
                   onClick={() => onUpdate(due.id, { show_in_recap_daily: !due.show_in_recap_daily })}
                   className={cn(
-                    "rounded-full px-1.5 py-0.5 text-[10px] font-medium transition-colors",
+                    "text-[12px] underline-offset-2 transition-colors",
                     due.show_in_recap_daily
-                      ? "bg-primary/10 text-primary"
-                      : "bg-secondary text-muted-foreground hover:text-foreground"
+                      ? "text-primary underline"
+                      : "text-muted-foreground/65 hover:text-foreground"
                   )}
                 >
-                  {due.show_in_recap_daily ? 'In recap' : 'Add to recap'}
+                  {due.show_in_recap_daily ? 'In recap' : '+ recap'}
                 </button>
               )}
               {!isHabit && !hasDeadline && !timeStr && due.steps.length === 0 && (
@@ -609,90 +608,52 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
         </div>
       )}
 
-      {/* Resources: links */}
+      {/* Resources: links — inline favicon-pill list. Click pill = open link
+          (and increment count for habit links); ✕ removes. "expand" toggle
+          only appears when >5 links to keep the row tight. */}
       {(due.links || []).length > 0 && (
-        <div className="mt-2.5">
-          <button
-            onClick={() => setLinksCollapsed(c => !c)}
-            className="flex items-center gap-1.5 text-[12px] font-medium text-foreground/70 hover:text-foreground transition-colors mb-1.5"
-          >
-            <Link size={12} strokeWidth={2.1} />
-            <span>{due.links.length} link{due.links.length > 1 ? 's' : ''}</span>
-            {linksCollapsed ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
-          </button>
-        </div>
-      )}
-      {(due.links || []).length > 0 && !linksCollapsed && (
-        <div className="space-y-2">
-          {isHabit ? (
-            (due.links || []).map((link, i) => (
-              <div key={`${link.url}-${i}`} className="space-y-2">
-                <LinkPreviewCard
-                  preview={{
-                    url: link.url,
-                    title: link.title || link.label,
-                    description: link.description,
-                    image: link.image,
-                    siteName: link.siteName,
-                  }}
-                  compact
-                  onCardClick={() => incrementHabitLinkCount(i)}
-                  onRemove={() => handleRemoveLink(i)}
-                />
-                <div className="flex items-center gap-2 pl-1">
-                  {editingLinkCountIndex === i ? (
-                    <input
-                      value={linkCountDraft}
-                      onChange={e => setLinkCountDraft(e.target.value.replace(/[^\d]/g, ''))}
-                      onBlur={() => {
-                        updateHabitLinkCount(i, Number(linkCountDraft || 0));
-                        setEditingLinkCountIndex(null);
-                      }}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') {
-                          updateHabitLinkCount(i, Number(linkCountDraft || 0));
-                          setEditingLinkCountIndex(null);
-                        }
-                        if (e.key === 'Escape') {
-                          setEditingLinkCountIndex(null);
-                          setLinkCountDraft(String(link.count || 0));
-                        }
-                      }}
-                      className="h-7 w-16 rounded-lg bg-secondary px-2 text-[12px] font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                      autoFocus
-                    />
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => incrementHabitLinkCount(i)}
-                        className="h-7 px-2.5 rounded-lg text-[12px] font-medium bg-secondary hover:bg-secondary/80 text-foreground transition-colors"
-                      >
-                        {link.count || 0} times
-                      </button>
-                      <button
-                        onClick={() => {
-                          setEditingLinkCountIndex(i);
-                          setLinkCountDraft(String(link.count || 0));
-                        }}
-                        className="h-7 w-7 rounded-lg bg-secondary hover:bg-secondary/80 text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
-                      >
-                        <Pencil size={12} />
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            ))
-          ) : (
-            (due.links || []).map((link, i) => (
-              <LightweightLinkItem
-                key={`${link.url}-${i}`}
-                link={link}
-                compact
-                onRemove={() => handleRemoveLink(i)}
-                onRename={(nextLabel) => updateLinkLabel(i, nextLabel)}
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          {(due.links || []).slice(0, linksCollapsed ? 5 : undefined).map((link, i) => (
+            <a
+              key={`${link.url}-${i}`}
+              href={link.url}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => {
+                if (isHabit) {
+                  e.preventDefault();
+                  incrementHabitLinkCount(i);
+                  window.open(link.url, '_blank', 'noreferrer');
+                }
+              }}
+              className="group/lp inline-flex max-w-[200px] items-center gap-1.5 rounded-md border border-border/55 bg-[hsl(var(--surface-soft))] px-2 py-1 text-[12px] text-foreground/85 transition-colors hover:border-border hover:text-foreground"
+            >
+              <img
+                src={`https://www.google.com/s2/favicons?sz=64&domain_url=${encodeURIComponent(link.url)}`}
+                alt=""
+                className="h-3.5 w-3.5 flex-shrink-0 rounded-sm"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
               />
-            ))
+              <span className="truncate">{link.label || link.title || getSiteFallback(link.url)}</span>
+              {isHabit && (
+                <span className="text-[11px] tabular-nums text-muted-foreground/65">{link.count || 0}</span>
+              )}
+              <button
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleRemoveLink(i); }}
+                aria-label="Remove link"
+                className="text-muted-foreground/40 opacity-0 transition-opacity hover:text-destructive group-hover/lp:opacity-100"
+              >
+                <X size={10} />
+              </button>
+            </a>
+          ))}
+          {(due.links || []).length > 5 && (
+            <button
+              onClick={() => setLinksCollapsed(c => !c)}
+              className="text-[12px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+            >
+              {linksCollapsed ? `+${due.links.length - 5} more` : 'Show less'}
+            </button>
           )}
         </div>
       )}

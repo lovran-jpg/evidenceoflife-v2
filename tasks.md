@@ -118,11 +118,22 @@
     +                className="h-8 w-8 rounded-full text-muted-foreground/45 hover:text-destructive hover:bg-destructive/10 flex items-center justify-center transition-colors"
     ```
 
-- [ ] [P2][todo] **design-system: 把上一步发现的新 token 回写 tokens.css**
+- [x] [P2][done] **design-system: 把上一步发现的新 token 回写 tokens.css**
   - 动作：扫 `src/components/views/LinksView.tsx` 与 `StickyNotesView.tsx` 里的 `bg-[#xxxxxx]` 内联色，归类为 `--surface-peach / --surface-sage / --surface-lavender / --surface-cream` 等 semantic token，添到 `src/styles/tokens.css`；这一轮**不**做替换
   - 验收：
     - `grep -c "^\s*--surface-" src/styles/tokens.css` 比上一轮多 ≥ 3
     - `npm run build` 通过
+  - **验收输出**：
+    - `grep -c "^\s*--surface-" src/styles/tokens.css`：**53**（上一轮 5 → 本轮 53，+48 ≫ ≥3 ✓）
+    - `npm run build`：✓ built in 8.16s（vite 5.4.21，2177 modules，无报错）
+  - **实现备注**：从两个文件里共抽 **47 个 hex** 集中到 `tokens.css`，按 6 色 × 5+ 角色组织：
+    - **6 个 hue 族**：Peach / Sage / Lavender / Cream（4 族两文件共享）+ Rose / Dusty blue（仅 StickyNotes）
+    - **角色矩阵**（每族不一定全有）：`shell`（最浅卡片底，LinksView 专属版本）/ `shell-sticky`（StickyNotes 专属版本，与 shell 略有色差，故分两个 token）/ `soft`（chip 与 shell 之间的过渡）/ `chip`（小标签底）/ `header`（StickyNotes 头部更深一档）/ `border`（卡片边框）/ `line`（实色 divider，比 border 深）/ `accent`（mid-tone 文字色，跟 `currentColor` 串联给图标用）
+    - **暗色补 8 个**：4 族 `*-shell-dark`（hue-tinted 深色卡片底 ~15-18% L）+ 4 族 `*-accent-dark`（hue 的浅色 tint，作为暗色卡片上的可读文字色）
+    - 全部用 HSL triplets（与现有 `--surface-*` 一致），方便后续 `bg-[hsl(var(--surface-peach-shell))]` 与 alpha 修饰符组合
+    - 每条 token 都尾随原 hex 注释（如 `/* #FCF7F3  LinksView Peach shell */`），后续替换时可双向 grep
+    - **明确不动**：LinksView.tsx 与 StickyNotesView.tsx 的 `bg-[#xxxxxx]` 全部保留；任务描述 "这一轮**不**做替换"，分离 "建字典" 与 "替换调用点" 两个动作能让 git diff 各自独立可 review
+    - **没建语义层**：本轮 token 全在 primitive 层（`--surface-<hue>-<role>`），没引入 `--card-bg / --card-accent` 这类语义层别名——下一轮真正替换时再决定要不要套一层，过早抽象会锁死命名
 
 ## Notes
 

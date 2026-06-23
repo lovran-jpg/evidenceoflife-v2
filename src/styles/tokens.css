@@ -39,4 +39,93 @@
   --surface-soft-hover: 30 18% 95%;
   --surface-contrast: 0 0% 100%;
   --surface-inset: 30 16% 94%;
+
+  /* ─────────────────────────────────────────────
+     Card accent palettes (HSL triplets).
+     Source of truth for the hard-coded hex values
+     scattered in LinksView.tsx (ACCENT_STYLES) and
+     StickyNotesView.tsx (COLOR_PALETTES). This
+     round only DEFINES the tokens — call sites
+     keep their inline `bg-[#xxxxxx]` for now; the
+     follow-up task will swap them for
+     `bg-[hsl(var(--surface-<hue>-<role>))]`.
+
+     Six hues × five roles (shell / soft / chip /
+     header / line / border / accent text), plus
+     a dark-mode block at the bottom for the
+     surfaces that flip lightness on .dark.
+
+     Comments after each value preserve the
+     original hex so reviewers can grep both ways
+     during the migration.
+     ───────────────────────────────────────────── */
+
+  /* Peach (warm terracotta) */
+  --surface-peach-shell: 27 60% 97%;            /* #FCF7F3  LinksView Peach shell */
+  --surface-peach-shell-sticky: 26 73% 96%;     /* #FCF3EC  StickyNotes Peach bg  */
+  --surface-peach-soft: 25 54% 93%;             /* #F7ECE4 */
+  --surface-peach-chip: 25 59% 91%;             /* #F6E7DC */
+  --surface-peach-header: 29 62% 87%;           /* #F3DECB */
+  --surface-peach-border: 23 53% 83%;           /* #EBCFBE */
+  --surface-peach-line: 21 53% 79%;             /* #E6C2AE */
+  --surface-peach-accent: 19 44% 50%;           /* #B66A47 */
+
+  /* Sage (muted green) */
+  --surface-sage-shell: 140 43% 97%;            /* #F5FBF7  LinksView Sage shell  */
+  --surface-sage-shell-sticky: 130 27% 96%;     /* #F1F7F2  StickyNotes Sage bg   */
+  --surface-sage-soft: 147 35% 94%;             /* #EAF5EF */
+  --surface-sage-chip: 140 41% 93%;             /* #E5F4EA */
+  --surface-sage-header: 136 27% 89%;           /* #DCEBE0 */
+  --surface-sage-border: 148 25% 85%;           /* #CFE2D8 */
+  --surface-sage-line: 149 28% 79%;             /* #BCD9CA */
+  --surface-sage-accent: 148 28% 43%;           /* #4E8B6A */
+
+  /* Lavender (cool violet) */
+  --surface-lavender-shell: 250 60% 98%;        /* #F8F7FD  LinksView Lavender shell */
+  --surface-lavender-shell-sticky: 255 50% 97%; /* #F5F3FB  StickyNotes Lavender bg  */
+  --surface-lavender-soft: 256 65% 95%;         /* #F0ECFB */
+  --surface-lavender-chip: 254 68% 95%;         /* #EEEAFB */
+  --surface-lavender-header: 253 49% 92%;       /* #E6E2F5 */
+  --surface-lavender-border: 248 38% 88%;       /* #D8D5EC */
+  --surface-lavender-line: 251 47% 84%;         /* #C9C2E9 */
+  --surface-lavender-accent: 252 34% 55%;       /* #7565B3 */
+
+  /* Cream (warm yellow-beige) */
+  --surface-cream-shell: 44 100% 98%;           /* #FFFCF4  LinksView Cream shell */
+  --surface-cream-shell-sticky: 43 69% 95%;     /* #FBF6E9  StickyNotes Cream bg  */
+  --surface-cream-soft: 46 65% 92%;             /* #F8F2DE */
+  --surface-cream-chip: 46 65% 91%;             /* #F7F0D9 */
+  --surface-cream-header: 43 55% 87%;           /* #F0E6CC */
+  --surface-cream-border: 43 39% 84%;           /* #E6DDC6 */
+  --surface-cream-line: 46 44% 76%;             /* #DDD0A7 */
+  --surface-cream-accent: 43 56% 42%;           /* #A8852F */
+
+  /* Rose (StickyNotes only; no LinksView equivalent yet) */
+  --surface-rose-shell-sticky: 0 58% 96%;       /* #FBF0F0 */
+  --surface-rose-header: 0 47% 91%;             /* #F3DEDE */
+  --surface-rose-border: 0 41% 87%;             /* #ECD2D2 */
+  --surface-rose-accent: 346 34% 56%;           /* #B5687A */
+
+  /* Dusty blue (StickyNotes only; no LinksView equivalent yet) */
+  --surface-dusty-blue-shell: 207 39% 95%;      /* #EFF4F8 */
+  --surface-dusty-blue-header: 207 40% 90%;     /* #DCE7F0 */
+  --surface-dusty-blue-border: 207 37% 86%;     /* #CDDCE8 */
+  --surface-dusty-blue-accent: 204 33% 46%;     /* #4E7C9B */
+
+  /* ─────────────────────────────────────────────
+     Dark-mode counterparts (LinksView only — the
+     `dark:bg-[#...]` halves of ACCENT_STYLES.
+     Shell flips to a deep hue-tinted surface,
+     accent text flips to a light tint of the
+     same hue so it reads against the dark card.
+     ───────────────────────────────────────────── */
+  --surface-peach-shell-dark: 20 26% 18%;       /* #3A2A22 */
+  --surface-sage-shell-dark: 150 18% 15%;       /* #1F2D26 */
+  --surface-lavender-shell-dark: 245 23% 18%;   /* #26243A */
+  --surface-cream-shell-dark: 47 30% 17%;       /* #3A341F */
+
+  --surface-peach-accent-dark: 24 67% 82%;      /* #F0CCB4 */
+  --surface-sage-accent-dark: 143 35% 79%;      /* #B8DDC6 */
+  --surface-lavender-accent-dark: 251 53% 86%;  /* #CFC8EE */
+  --surface-cream-accent-dark: 47 66% 76%;      /* #EAD89A */
 }
