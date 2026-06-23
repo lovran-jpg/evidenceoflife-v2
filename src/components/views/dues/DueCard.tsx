@@ -287,18 +287,18 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
                 <span className="font-mono leading-none">{parsedDueDate ? formatDate(parsedDueDate, 'HH:mm') : ''}</span>
               </button>
 
-              <div className="inline-flex items-center gap-1.5 rounded-full border border-border/45 bg-secondary/25 px-2.5 py-1 text-left">
+              <div className="inline-flex items-center gap-1.5 px-1 py-1 text-left">
                 {timeLeft && (
                   <span className={cn(
                     "font-medium leading-none",
-                    timeLeft.overdue ? "text-destructive" : "text-muted-foreground"
+                    timeLeft.overdue ? "text-destructive" : "text-muted-foreground/80"
                   )}>
                     {timeLeft.text}
                   </span>
                 )}
                 {timeStr && (
-                  <span className="leading-none text-muted-foreground/65">
-                    {timeStr} tracked
+                  <span className="leading-none text-muted-foreground/55">
+                    · {timeStr} tracked
                   </span>
                 )}
               </div>
@@ -401,7 +401,7 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
                   )}
                 </div>
                 {/* Right: label */}
-                <div className={cn("flex items-center gap-2 flex-1 min-w-0", !isLast && "pb-2")}>
+                <div className={cn("flex items-center gap-2.5 flex-1 min-w-0", !isLast && "pb-2")}>
                   <span className={cn(
                     "min-w-0 flex-1 truncate text-[13px] leading-snug",
                     isCompleted ? "text-muted-foreground/40 line-through" : "text-foreground/75"
@@ -424,10 +424,10 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
                       <button
                         type="button"
                         className={cn(
-                          "rounded-full p-1 transition-all flex-shrink-0",
+                          "rounded-full p-1.5 transition-all flex-shrink-0",
                           hasStepReminder
                             ? "text-primary bg-primary/10"
-                            : "text-muted-foreground/25 opacity-0 group-hover/step:opacity-100 hover:bg-secondary hover:text-primary"
+                            : "text-muted-foreground/30 opacity-0 group-hover/step:opacity-100 hover:bg-secondary hover:text-primary"
                         )}
                         title="Step reminder"
                       >
@@ -486,7 +486,7 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
                   </Popover>
                   <button
                     onClick={() => onDeleteStep(step.id)}
-                    className="opacity-0 group-hover/step:opacity-100 text-muted-foreground/25 hover:text-destructive transition-opacity p-0.5 flex-shrink-0"
+                    className="opacity-0 group-hover/step:opacity-100 text-muted-foreground/30 hover:text-destructive transition-opacity p-1 flex-shrink-0"
                   >
                     <X size={10} />
                   </button>
@@ -911,7 +911,7 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
               (just opacity-30 ghosted icons). Hover/focus brings them up to
               full visibility. This is the iOS / macOS Finder pattern —
               secondary actions exist but never compete with the primary CTA. */}
-          <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+          <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
             {confirmDelete ? (
               <div className="flex items-center gap-1.5 opacity-100">
                 <span className="text-[12px] text-destructive/70">Delete?</span>
@@ -1022,7 +1022,7 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
                 <button
                   onClick={() => setConfirmDelete(true)}
                   aria-label="Delete"
-                  className="h-8 w-8 rounded-full text-muted-foreground/45 hover:text-destructive hover:bg-destructive/8 flex items-center justify-center transition-colors"
+                  className="h-8 w-8 rounded-full text-muted-foreground/45 hover:text-destructive hover:bg-destructive/10 flex items-center justify-center transition-colors"
                 >
                   <Trash2 size={14} />
                 </button>

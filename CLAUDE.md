@@ -6,7 +6,7 @@
 
 ## 项目一句话
 
-Vite + React 18 + TypeScript + shadcn/ui + Tailwind + Supabase 的个人生活记录 SPA（Today / Recap / Dues / Map / Calendar / Year / Notes / Links）。单人开发，仓库无 git remote，本地优先。
+Vite + React 18 + TypeScript + shadcn/ui + Tailwind + Supabase 的个人生活记录 SPA（Today / Recap / Dues / Map / Calendar / Year / Notes / Links）。单人开发，远端 `origin = github.com/Cyriellewu/evidenceoflife-v2`（private），本地优先。
 
 ## 目录地图
 
@@ -26,7 +26,7 @@ supabase/
 
 ## 硬约束（违反即停）
 
-- **不准 `git push`**——仓库无 remote，push 没意义且可能配错指向
+- **`git push` 只能推到 `origin/main`**，由 `loop.sh` 自动负责；**绝不**用 `--force` / `--force-with-lease`
 - **不准修改 `.env*`**（除 `.env.example`），不准把任何 `key|secret|token` 类内容写进 commit
 - **不准 `rm -rf`**、不准动 `node_modules/`、不准动 `dist/`
 - **不准操作仓库外文件**——所有 `Bash` 调用必须 `cd` 在 `C:\Users\t-youwu\repo\evidenceoflife-006dea11-main` 或其子目录
