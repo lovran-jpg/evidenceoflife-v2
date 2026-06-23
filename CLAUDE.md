@@ -70,6 +70,6 @@ supabase/
 
 <!-- 每轮 agent 在这里覆写。格式：3 行 markdown。 -->
 
-- **做了啥**：完成 P1 design-system tokens.css 首步——新建 `src/styles/tokens.css`（13 个 spacing + 5 个 surface token，共 18 个 `--` 声明），`src/main.tsx` import 一行（放在 index.css 之前，本轮不改变运行时行为）。`npm run build` ✓ 8.51s 通过。
-- **卡在哪**：没卡。本轮严格遵守"只新建文件 + 改 main.tsx 一行 import"的范围限制；index.css 里的 surface token 重复声明保留，等后续任务再做 thin-down。
-- **下一步**：tasks.md 队列下一条是 `[P1][todo] ui-styling: MapView.tsx 的 6 个 <button> 迁到 shadcn Button`——动 `src/components/views/MapView.tsx` 一个文件，替换 6 处原生 `<button>` 为 `@/components/ui/button` 的 `<Button>`，保留 className 并用 variant/size 表达。
+- **做了啥**：完成 P1 ui-styling 第一步——把 `src/components/views/MapView.tsx` 里 6 个原生 `<button>` 全部迁到 shadcn `<Button>`（5 个用 `variant="ghost" size="icon"` + className 自定义 h/w/rounded；1 个 category chip 用 `variant="ghost"` + `h-auto` 让 twMerge 吃掉 cva 默认 `h-10/rounded-md/gap-2`，保留 aria-pressed 与 inline style）。验收：`grep -c "<button" src/components/views/MapView.tsx` = **0**，vitest **51/51 pass**（2.11s），build ✓ **7.64s**，lint **215 errors / 67 warnings**（与 baseline 持平，MapView.tsx 仅原有 any/empty-block/hook-deps 报错，未触碰）。
+- **卡在哪**：没卡。注意到 cva 的 `[&_svg]:size-4` 理论上会把 lucide 图标钉到 16px，但仓库里既有 `<Button>` 调用方（AddMomentDialog `<X size={18}>`）也接受了这个事实——本轮保持一致，没有额外加 size 覆盖，沿用原 lucide `size={...}` props。
+- **下一步**：tasks.md 队列下一条 `[P1][todo] ui-styling: DayDetailSheet.tsx 的 6 个 <button> 迁到 shadcn Button`——文件换成 `src/components/DayDetail/DayDetailSheet.tsx`，照本轮的 ghost/icon 套路替换并跑相同的三条验收（grep == 0 / lint ≤ baseline / vitest pass）。

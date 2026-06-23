@@ -20,13 +20,19 @@
     - `grep -c "^\s*--" src/styles/tokens.css`：**18**（≥ 10 ✓）
   - **实现备注**：tokens.css 在 `main.tsx` 里 import 在 `index.css` **之前**，所以本轮不改变现有 surface 值的运行时行为（index.css 的 :root/.dark 块仍然胜出），只把 13 个 spacing token + 5 个 surface 镜像 token 集中到单一文件作为后续迁移的源。下一轮 tokens 扩展时按需替换 index.css 里同名声明。
 
-- [ ] [P1][todo] **ui-styling: MapView.tsx 的 6 个 `<button>` 迁到 shadcn Button**
+- [x] [P1][done] **ui-styling: MapView.tsx 的 6 个 `<button>` 迁到 shadcn Button**
   - 动作：`src/components/views/MapView.tsx` 里所有 `<button>` 替换为 `@/components/ui/button` 的 `<Button>`；保留原有 className 行为；用 `variant`/`size` props 表达样式
   - 验收：
     - `grep -c "<button" src/components/views/MapView.tsx` == 0
     - lint 错误数 ≤ baseline（由 loop.sh 自动比较）
     - vitest 仍 pass
   - 范围限制：只动这一个文件，不要顺手改其他视图
+  - **验收输出**：
+    - `grep -c "<button" src/components/views/MapView.tsx`：**0**（== 0 ✓）
+    - `npm run lint`：**215 errors / 67 warnings**（与上一轮 baseline 持平；MapView.tsx 的所有报错均是预存的 `any` / `no-empty` / hook-deps，未触碰到本次改动行）
+    - `npx vitest run`：**9 files / 51 tests passed**（2.11s）
+    - `npm run build`：✓ built in 7.64s（vite 5.4.21，无报错）
+  - **实现备注**：6 处替换全部用 `variant="ghost"`。其中 5 处用 `size="icon"`（详情头部返回 / city 头部返回 / 关闭搜索 / 搜索触发器 / 地点详情返回），并在 className 里给出 `h-7..h-8 w-7..w-8 rounded-xl/rounded-full` 等精确尺寸覆盖原本的 `p-1`/`p-1.5` 内边距方案，hover 走 ghost 自带的 `accent` 高亮。第 6 处（category chip pill）保留全部自定义 pill 样式，靠 `variant="ghost"` + `h-auto` + twMerge 让 cva base 的 `gap-2`/`rounded-md`/`h-10` 被 className 里的 `gap-1.5`/`rounded-full`/`h-auto` 覆盖，原 `aria-pressed` / inline style 全部保留。
 
 - [ ] [P1][todo] **ui-styling: DayDetailSheet.tsx 的 6 个 `<button>` 迁到 shadcn Button**
   - 同上规则，文件换成 `src/components/DayDetail/DayDetailSheet.tsx`

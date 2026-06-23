@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { useLanguage } from '@/hooks/useLanguage';
 import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Button } from '@/components/ui/button';
 
 import { CityWithPlaces } from '@/hooks/usePlaces';
 
@@ -240,9 +241,9 @@ class MapDetailErrorBoundary extends Component<
       return (
         <div className="fixed inset-0 z-50 bg-background flex flex-col overflow-hidden">
           <div className="flex items-center gap-3 px-4 py-3 border-b border-border/40 flex-shrink-0 bg-background/95 backdrop-blur-sm">
-            <button onClick={this.props.onClose} className="p-1.5 hover:bg-secondary rounded-xl transition-colors">
+            <Button variant="ghost" size="icon" onClick={this.props.onClose} className="h-8 w-8 rounded-xl">
               <ChevronLeft size={20} />
-            </button>
+            </Button>
             <div className="flex-1 min-w-0">
               <h2 className="font-semibold text-sm truncate">
                 {this.props.lang === 'zh' ? '地点详情' : 'Place details'}
@@ -1487,13 +1488,15 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
       {viewMode === 'city' ? (
         <PageHeader
           leading={
-            <button
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => { setViewMode('world'); }}
               aria-label="Back to world view"
-              className="mt-1 -ml-1 rounded-xl p-1 transition-colors hover:bg-secondary"
+              className="mt-1 -ml-1 h-8 w-8 rounded-xl"
             >
               <ChevronLeft size={22} />
-            </button>
+            </Button>
           }
           title={currentCity?.cityName || t('map.places')}
           right={
@@ -1554,16 +1557,18 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                     }
                   }}
                 />
-                <button
+                <Button
+                  variant="ghost"
+                  size="icon"
                   onClick={() => {
                     setPlaceQuery('');
                     setSearchExpanded(false);
                   }}
-                  className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground/70 hover:bg-secondary hover:text-foreground transition-colors"
+                  className="h-7 w-7 flex-shrink-0 rounded-full text-muted-foreground/70 hover:text-foreground"
                   aria-label={lang === 'zh' ? '关闭搜索' : 'Close search'}
                 >
                   <X size={14} />
-                </button>
+                </Button>
               </div>
             ) : (
               <>
@@ -1575,12 +1580,13 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                       const isActive = activeCategory === id;
                       const accent = chipAccents[id] ?? chipAccents.other;
                       return (
-                        <button
+                        <Button
                           key={id}
+                          variant="ghost"
                           onClick={() => setActiveCategory(id)}
                           aria-pressed={isActive}
                           className={cn(
-                            'inline-flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+                            'inline-flex h-auto flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
                             !isActive && 'border-border/55 bg-transparent text-muted-foreground hover:text-foreground',
                           )}
                           style={
@@ -1608,19 +1614,21 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                           >
                             {count}
                           </span>
-                        </button>
+                        </Button>
                       );
                     })}
                 </div>
                 {cityPlaces.length > 4 && (
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon"
                     onClick={() => setSearchExpanded(true)}
                     aria-label={lang === 'zh' ? '搜索地点' : 'Search places'}
-                    className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-border/55 text-muted-foreground/75 transition-colors hover:border-primary/40 hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                    className="h-8 w-8 flex-shrink-0 rounded-full border border-border/55 text-muted-foreground/75 hover:border-primary/40 hover:text-foreground focus-visible:ring-primary/40"
                   >
                     <Search size={14} strokeWidth={2.1} />
-                  </button>
+                  </Button>
                 )}
               </>
             )}
@@ -1883,9 +1891,9 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
               <>
                 <div className="fixed inset-0 z-50 bg-background flex flex-col overflow-hidden">
                   <div className="flex items-center gap-3 px-4 py-3 border-b border-border/40 flex-shrink-0 bg-background/95 backdrop-blur-sm">
-                    <button onClick={() => { setShowPlaceDetail(null); setSelectedPlace(null); }} className="p-1.5 hover:bg-secondary rounded-xl transition-colors">
+                    <Button variant="ghost" size="icon" onClick={() => { setShowPlaceDetail(null); setSelectedPlace(null); }} className="h-8 w-8 rounded-xl">
                       <ChevronLeft size={20} />
-                    </button>
+                    </Button>
                     <div className="flex-1 min-w-0">
                       <h2 className="font-semibold text-sm truncate">{showPlaceDetail.name}</h2>
                       <p className="text-[11px] text-muted-foreground/60">
