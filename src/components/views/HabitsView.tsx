@@ -88,7 +88,7 @@ export function HabitsView() {
             }
           />
         ) : (
-          <ul className="divide-y divide-border/45 px-5">
+          <ul className="divide-y divide-border/35 px-4">
             {habits.map(habit => (
               <HabitRow
                 key={habit.id}
@@ -109,6 +109,7 @@ export function HabitsView() {
                   expandedId === habit.id ? (
                     <DueCard
                       due={habit}
+                      bare
                       onUpdate={updateDue}
                       onDelete={(id) => {
                         setExpandedId(null);
@@ -132,9 +133,9 @@ export function HabitsView() {
           </ul>
         )}
 
-        <div className="mt-2 flex items-center gap-2.5 px-5 pb-6 pt-3">
-          <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-[hsl(var(--surface-soft))] text-muted-foreground/60">
-            <Plus size={16} />
+        <div className="mt-2 flex items-center gap-2.5 px-4 pb-6 pt-3">
+          <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[hsl(var(--surface-soft))] text-muted-foreground/60">
+            <Plus size={14} />
           </span>
           <input
             ref={draftRef}
@@ -148,7 +149,7 @@ export function HabitsView() {
               }
             }}
             placeholder={lang === 'zh' ? '新习惯…' : 'New habit…'}
-            className="min-w-0 flex-1 bg-transparent text-[15px] font-medium text-foreground placeholder:text-muted-foreground/45 focus:outline-none"
+            className="min-w-0 flex-1 bg-transparent text-[14px] font-medium text-foreground placeholder:text-muted-foreground/45 focus:outline-none"
           />
         </div>
       </div>
@@ -193,18 +194,18 @@ function HabitRow({
 
   return (
     <li className="group/row">
-      <div className="flex items-center gap-3 py-3.5">
+      <div className="flex items-center gap-3 py-2.5">
         <button
           type="button"
           onClick={onToggleExpand}
           aria-label={expanded ? 'Collapse' : 'Expand'}
           className={cn(
-            'flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground/45 transition-all hover:bg-[hsl(var(--surface-soft-hover))] hover:text-foreground',
+            'flex h-7 w-7 flex-shrink-0 items-center justify-center text-muted-foreground/55 transition-all hover:text-foreground',
             expanded && 'text-foreground',
           )}
         >
           <ChevronDown
-            size={14}
+            size={13}
             className={cn('transition-transform', expanded && 'rotate-180')}
           />
         </button>
@@ -227,7 +228,7 @@ function HabitRow({
                   setIsEditing(false);
                 }
               }}
-              className="w-full bg-transparent text-[16px] font-medium leading-snug text-foreground focus:outline-none"
+              className="w-full bg-transparent text-[15px] font-normal leading-tight text-foreground focus:outline-none"
             />
           ) : (
             <button
@@ -237,7 +238,7 @@ function HabitRow({
             >
               <p
                 className={cn(
-                  'truncate text-[16px] font-medium leading-snug text-foreground transition-colors',
+                  'truncate text-[15px] font-normal leading-tight text-foreground transition-colors',
                   met && 'text-foreground/55',
                 )}
               >
@@ -277,7 +278,7 @@ function HabitRow({
       </div>
 
       {expanded && detail && (
-        <div className="pb-4">{detail}</div>
+        <div className="pb-3 pl-10 pr-1">{detail}</div>
       )}
     </li>
   );
@@ -288,7 +289,7 @@ function CheckinRing({
   target,
   onIncrement,
   ariaLabel,
-  size = 40,
+  size = 30,
 }: {
   count: number;
   target: number;
@@ -296,7 +297,7 @@ function CheckinRing({
   ariaLabel?: string;
   size?: number;
 }) {
-  const stroke = 3;
+  const stroke = 2.5;
   const radius = (size - stroke) / 2;
   const circ = 2 * Math.PI * radius;
   const ratio = Math.min(1, count / Math.max(1, target));

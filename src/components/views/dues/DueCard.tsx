@@ -20,7 +20,7 @@ import { getTimeLeft, formatDuration, HabitPunchCard } from '@/components/views/
 import { toast } from 'sonner';
 
 /* ── Due Card (Redesigned) ── */
-export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueReminders, onUpsertReminder, onRemoveReminder, onAddStep, onToggleStep, onDeleteStep, onIncrementHabitCount, onSetHabitCount }: {
+export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueReminders, onUpsertReminder, onRemoveReminder, onAddStep, onToggleStep, onDeleteStep, onIncrementHabitCount, onSetHabitCount, bare = false }: {
   due: DueWithStats;
   onUpdate: (id: string, updates: { title?: string; due_date?: string | null; links?: DueLink[]; is_completed?: boolean; photos?: string[]; habit_category?: string | null; show_in_recap_daily?: boolean }) => void;
   onDelete: (id: string) => void;
@@ -34,6 +34,7 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
   onDeleteStep: (stepId: string) => void;
   onIncrementHabitCount: (masterId: string) => void;
   onSetHabitCount: (masterId: string, nextCount: number) => void;
+  bare?: boolean;
 }) {
   const { user } = useAuth();
   const { t } = useLanguage();
@@ -227,9 +228,11 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
 
   return (
     <div id={`due-card-${due.id}`} tabIndex={0} onPaste={handleCardPaste} className={cn(
-      "bg-card rounded-2xl p-4 group relative transition-shadow hover:shadow-[0_8px_28px_-14px_rgba(0,0,0,0.18)]",
+      bare
+        ? "group relative bg-transparent p-0 pt-1"
+        : "bg-card rounded-2xl p-4 group relative transition-shadow hover:shadow-[0_8px_28px_-14px_rgba(0,0,0,0.18)]",
       due.is_completed && "opacity-55"
-    )} style={{ 
+    )} style={bare ? undefined : {
       boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
       border: `1px solid ${timeLeft?.overdue ? 'hsl(var(--destructive) / 0.22)' : accentBorder}`,
     }}>
