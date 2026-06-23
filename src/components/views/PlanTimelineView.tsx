@@ -2072,10 +2072,14 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
         handleMouseUp(e.clientX, e.clientY);
       }}
     >
-      {/* Timeline area */}
+      {/* Timeline area. The maxHeight used to be a flat 600px which, on
+          common laptop windows (~800px tall), often cut tasks off mid-block
+          even though there was empty space below. Switching to a viewport-
+          aware clamp lets the timeline grow with the window but still caps
+          on huge monitors so it doesn't eat the entire screen. */}
       <div
         className="relative flex flex-1 overflow-y-auto scrollbar-slim"
-        style={{ maxHeight: 600, backgroundColor: timelineCanvasBg }}
+        style={{ maxHeight: 'min(820px, calc(100vh - 220px))', minHeight: 360, backgroundColor: timelineCanvasBg }}
         ref={containerRef}
         onDragOver={handleTimelineDragOver}
         onDrop={handleTimelineDrop}

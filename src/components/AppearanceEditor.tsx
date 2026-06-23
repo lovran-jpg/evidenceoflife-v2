@@ -1,4 +1,4 @@
-import { ChangeEvent, useRef } from 'react';
+import { ChangeEvent, useEffect, useRef, useState } from 'react';
 import { Camera, Check, Monitor, Moon, RotateCcw, Sun } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTheme, ThemeMode } from '@/hooks/useTheme';
@@ -23,6 +23,24 @@ export function AppearanceEditor({ lang, homepageImageUrl, uploading, onUploadIm
   const { accentId, setAccentId, options: accentOptions } = useAccentColor();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Auto-save feedback. Theme/accent persist instantly (localStorage write
+  // happens inside the hook setter), but without a visual cue the user can't
+  // tell whether the click did anything — especially on a setting that
+  // visibly changes only a thin --primary thread through the UI. We bump a
+  // counter on each change and show a 1.4s "Saved" pill anchored to the
+  // section header, then fade it.
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const initialMount = useRef(true);
+  useEffect(() => {
+    if (initialMount.current) {
+      initialMount.current = false;
+      return;
+    }
+    setSavedAt(Date.now());
+    const handle = window.setTimeout(() => setSavedAt(null), 1400);
+    return () => window.clearTimeout(handle);
+  }, [mode, accentId]);
+
   return (
     <div className="rounded-[24px] border border-border/55 bg-card/72 p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -31,8 +49,20 @@ export function AppearanceEditor({ lang, homepageImageUrl, uploading, onUploadIm
             {lang === 'zh' ? '外观' : 'Appearance'}
           </p>
           <p className="mt-1 text-[12px] text-muted-foreground/58">
-            {lang === 'zh' ? '主题、品牌色与主页氛围图。' : 'Theme, brand color, and home image.'}
+            {lang === 'zh' ? '主题、品牌色与主页氛围图,改动会自动保存。' : 'Theme, brand color, and home image. Changes save automatically.'}
           </p>
+        </div>
+        {/* Saved pill — appears for ~1.4s after the user toggles theme or
+            accent so they can see the change was registered, then fades. */}
+        <div
+          aria-live="polite"
+          className={cn(
+            "flex items-center gap-1 rounded-full bg-primary/12 px-2.5 py-1 text-[11px] font-semibold text-primary transition-opacity duration-300",
+            savedAt ? "opacity-100" : "opacity-0 pointer-events-none"
+          )}
+        >
+          <Check size={11} strokeWidth={2.4} />
+          {lang === 'zh' ? '已保存' : 'Saved'}
         </div>
       </div>
 
@@ -77,19 +107,24 @@ export function AppearanceEditor({ lang, homepageImageUrl, uploading, onUploadIm
                   aria-label={`${opt.labelEn} accent`}
                   aria-pressed={selected}
                   className={cn(
-                    'relative h-8 w-8 rounded-full transition-transform hover:scale-105 focus:outline-none',
-                    selected ? 'scale-105' : 'ring-1 ring-border/50',
+                    'relative h-9 w-9 rounded-full transition-transform hover:scale-110 focus:outline-none',
+                    selected ? 'scale-110' : 'ring-1 ring-border/50',
                   )}
                   style={{
                     backgroundColor: `hsl(${opt.hsl})`,
                     ...(selected ? { boxShadow: `0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(${opt.hsl})` } : {}),
                   }}
                 >
-                  {selected && <Check size={14} className="absolute inset-0 m-auto text-white drop-shadow" />}
+                  {selected && <Check size={15} strokeWidth={2.6} className="absolute inset-0 m-auto text-white drop-shadow" />}
                 </button>
               );
             })}
           </div>
+          <p className="mt-2 text-[11px] text-muted-foreground/55">
+            {lang === 'zh'
+              ? '主题色会立即应用到链接、按钮高亮和提醒标记上。'
+              : 'The accent color updates links, button highlights, and reminder dots instantly.'}
+          </p>
         </div>
 
         <div>

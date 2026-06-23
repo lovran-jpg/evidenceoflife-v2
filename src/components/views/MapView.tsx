@@ -1514,28 +1514,44 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
         />
       )}
 
-      {/* Toolbar — search first (primary), category filter chips below as a quieter strip.
-          City view only. The search row only renders when there are enough places to need filtering. */}
+      {/* Toolbar — search first (primary), category filter chips below as a
+          quieter strip. The search field now reads as a polished hero pill:
+          larger touch target, surface-soft background instead of see-through
+          secondary, focus ring tied to the accent — so it stops looking like
+          a placeholder strip glued to the bottom of the map and starts feeling
+          like an intentional control. */}
       {viewMode === 'city' && (
-        <div className="space-y-2 px-5 pb-3">
+        <div className="space-y-2.5 px-5 pb-3">
           {cityPlaces.length > 4 && (
-            <div className="flex items-center gap-2 rounded-full bg-secondary/50 px-3.5 py-2">
-              <Search size={14} className="flex-shrink-0 text-muted-foreground/60" />
+            <div
+              className={cn(
+                "flex items-center gap-2.5 rounded-2xl border bg-[hsl(var(--surface-soft))] px-4 py-2.5 transition-[box-shadow,border-color] focus-within:border-primary/45 focus-within:shadow-[0_0_0_3px_hsl(var(--primary)/0.10)]",
+                placeQuery ? "border-primary/35" : "border-border/55"
+              )}
+            >
+              <Search size={16} strokeWidth={2.1} className={cn(
+                "flex-shrink-0 transition-colors",
+                placeQuery ? "text-primary" : "text-muted-foreground/70"
+              )} />
               <input
                 value={placeQuery}
                 onChange={(e) => setPlaceQuery(e.target.value)}
                 placeholder={lang === 'zh' ? '搜索地点…' : 'Search places…'}
-                className="min-w-0 flex-1 bg-transparent text-sm placeholder:text-muted-foreground/50 focus:outline-none"
+                className="min-w-0 flex-1 bg-transparent text-[14px] text-foreground placeholder:text-muted-foreground/55 focus:outline-none"
                 aria-label={lang === 'zh' ? '搜索地点' : 'Search places'}
               />
-              {placeQuery && (
+              {placeQuery ? (
                 <button
                   onClick={() => setPlaceQuery('')}
-                  className="flex-shrink-0 text-muted-foreground/60 hover:text-foreground"
+                  className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-muted-foreground/70 hover:bg-secondary hover:text-foreground transition-colors"
                   aria-label={lang === 'zh' ? '清除' : 'Clear'}
                 >
                   <X size={14} />
                 </button>
+              ) : (
+                <span className="hidden sm:inline-flex flex-shrink-0 items-center gap-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/45">
+                  {cityPlaces.length} {lang === 'zh' ? '个地点' : 'places'}
+                </span>
               )}
             </div>
           )}
@@ -1559,8 +1575,8 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
                     style={
                       isActive
                         ? {
-                            backgroundColor: `${accent}1f`, // ~12% tint
-                            borderColor: `${accent}73`,     // ~45% border
+                            backgroundColor: `${accent}1f`,
+                            borderColor: `${accent}73`,
                             color: accent,
                           }
                         : undefined
