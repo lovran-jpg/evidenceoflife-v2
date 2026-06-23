@@ -7,13 +7,18 @@
 
 ## Queue
 
-- [ ] [P1][todo] **design-system: 建 tokens.css 抽 spacing/color 基础 token**
+- [x] [P1][done] **design-system: 建 tokens.css 抽 spacing/color 基础 token**
   - 动作：新建 `src/styles/tokens.css`；从 `tailwind.config.ts` 与 `src/index.css` 里抽出 spacing scale（4/8/12/16/24/32...）与已存在的 `--surface-*` 系列色 token，集中到一处；在 `src/main.tsx` 入口 import 一次
   - 验收：
     - `npm run build` 通过
     - `ls src/styles/tokens.css` 存在
     - `grep -c "^\s*--" src/styles/tokens.css` ≥ 10
   - 范围限制：**只新建文件 + 改 main.tsx 一行 import**。不准这一轮里去全仓搜索替换硬编码值（那是下一条的活）
+  - **验收输出**：
+    - `npm run build`：✓ built in 8.51s（vite 5.4.21，2177 modules transformed，无报错）
+    - `ls src/styles/tokens.css`：`src/styles/tokens.css`（存在）
+    - `grep -c "^\s*--" src/styles/tokens.css`：**18**（≥ 10 ✓）
+  - **实现备注**：tokens.css 在 `main.tsx` 里 import 在 `index.css` **之前**，所以本轮不改变现有 surface 值的运行时行为（index.css 的 :root/.dark 块仍然胜出），只把 13 个 spacing token + 5 个 surface 镜像 token 集中到单一文件作为后续迁移的源。下一轮 tokens 扩展时按需替换 index.css 里同名声明。
 
 - [ ] [P1][todo] **ui-styling: MapView.tsx 的 6 个 `<button>` 迁到 shadcn Button**
   - 动作：`src/components/views/MapView.tsx` 里所有 `<button>` 替换为 `@/components/ui/button` 的 `<Button>`；保留原有 className 行为；用 `variant`/`size` props 表达样式

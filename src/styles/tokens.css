@@ -1,0 +1,42 @@
+/* Evidence of Life — design tokens (single source of truth).
+   Imported once at app entry, BEFORE index.css. index.css's :root block
+   still wins for any token it also defines (kept for backwards-compat
+   during the migration); over time we'll thin index.css down to scoped
+   component rules and let this file own the token layer. */
+
+:root {
+  /* ─────────────────────────────────────────────
+     Spacing scale (px). Mirrors Tailwind's default
+     4-based ramp so design specs in either system
+     line up. Values are bare numbers + 'px' so they
+     can be used in calc() and inline style.
+     ───────────────────────────────────────────── */
+  --space-0: 0px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+
+  /* ─────────────────────────────────────────────
+     Surface color tokens (HSL triplets — consume
+     with hsl(var(--surface-soft))). Mirror the
+     values in src/index.css :root so this file can
+     be read as the canonical token list. If you
+     change a value here, mirror it in index.css's
+     :root and dark blocks until that file is
+     thinned down.
+     ───────────────────────────────────────────── */
+  --surface-elevated: 0 0% 100%;
+  --surface-soft: 30 20% 98%;
+  --surface-soft-hover: 30 18% 95%;
+  --surface-contrast: 0 0% 100%;
+  --surface-inset: 30 16% 94%;
+}
