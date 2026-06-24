@@ -224,10 +224,11 @@
 }
 
 @layer base {
-  /* Root font-size at browser default. All rem-based Tailwind classes
-     and arbitrary text-[Xpx] values render at their literal sizes. */
+  /* Root font-size slightly above browser default so the warm, iOS-style
+     density still reads comfortably without the prior 18px "magnifier" that
+     was pushing every text-[Xpx] up by 12.5%. */
   html {
-    font-size: 16px;
+    font-size: 17px;
   }
 
   * {
