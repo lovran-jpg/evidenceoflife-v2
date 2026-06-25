@@ -2630,7 +2630,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
       <div className="pointer-events-none absolute right-12 top-3 z-30 flex items-start gap-1">
         <button
           onClick={handleRestToggle}
-          className="pointer-events-auto flex items-center gap-1 px-2 py-[2px] text-[9px] font-medium rounded-full transition-all backdrop-blur-md shadow-[0_4px_12px_hsl(var(--foreground)/0.05)]"
+          className="pointer-events-auto flex items-center gap-1 px-2.5 py-[3px] text-[12px] font-medium rounded-full transition-all backdrop-blur-md shadow-[0_4px_12px_hsl(var(--foreground)/0.05)]"
           style={{
             background: restStartMin !== null
               ? `color-mix(in srgb, hsl(var(--surface-contrast)) 80%, ${REST_COLOR} 20%)`
@@ -2652,7 +2652,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
           )}
         </button>
         {selectedRange && (
-          <span className="text-[9px] text-muted-foreground bg-[hsl(var(--surface-contrast)/0.9)] backdrop-blur-md border border-border/50 rounded-full px-2 py-0.5 shadow-[0_4px_12px_hsl(var(--foreground)/0.06)] pointer-events-auto">
+          <span className="text-[12px] text-muted-foreground bg-[hsl(var(--surface-contrast)/0.9)] backdrop-blur-md border border-border/50 rounded-full px-2.5 py-1 shadow-[0_4px_12px_hsl(var(--foreground)/0.06)] pointer-events-auto">
             {t('plan.selected')} <span className="font-semibold text-foreground">
               {Math.max(0, Math.round(selectedRange.endMin - selectedRange.startMin))}
             </span> {t('plan.minutes')}
@@ -2664,7 +2664,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
               key={mode}
               onClick={() => setDisplayMode(mode)}
               className={cn(
-                "px-2 py-[1px] text-[9px] font-medium rounded-full transition-all",
+                "px-2.5 py-[3px] text-[12px] font-medium rounded-full transition-all",
                 displayMode === mode
                   ? "bg-[hsl(var(--surface-soft))] text-foreground shadow-sm"
                   : "text-muted-foreground/85 hover:text-foreground"
