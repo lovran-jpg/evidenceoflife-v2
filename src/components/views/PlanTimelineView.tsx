@@ -2100,7 +2100,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
                 style={{ top }}
               >
                 <span
-                  className="font-sans text-[11px] font-medium tabular-nums leading-none tracking-tight"
+                  className="font-sans text-[12px] font-medium tabular-nums leading-none tracking-tight"
                   style={{ color: timelineRailLabelColor }}
                 >
                   {hourLabel(h)}
@@ -2467,23 +2467,23 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
               style={{ top: minToY(Math.max(WAKE_TOTAL_MIN + 90, Math.min(nowMin, BED_TOTAL_MIN - 120))) }}
             >
               <div className="w-[min(360px,calc(100%-32px))] rounded-2xl border border-dashed border-border/45 bg-[hsl(var(--surface-contrast)/0.8)] px-4 py-4 text-center shadow-[0_12px_30px_hsl(var(--foreground)/0.04)] backdrop-blur-sm">
-                <p className="text-[13px] font-medium text-foreground/85">
+                <p className="text-[15px] font-semibold text-foreground/90">
                   {tOr('plan.dragHere', 'Drag a task here to schedule it')}
                 </p>
-                <p className="mt-1 text-[11px] leading-5 text-muted-foreground/65">
+                <p className="mt-1.5 text-[13px] leading-snug text-muted-foreground/75">
                   {tOr('plan.dragHereHint', 'Left side is your task list. This side becomes today’s plan.')}
                 </p>
-                <div className="mt-3 rounded-[16px] border-2 border-dashed border-[hsl(var(--primary)/0.24)] bg-[hsl(var(--primary)/0.05)] px-3 py-2 text-left">
+                <div className="mt-3 rounded-[16px] border-2 border-dashed border-[hsl(var(--primary)/0.24)] bg-[hsl(var(--primary)/0.05)] px-3 py-2.5 text-left">
                   <div className="flex items-center gap-2">
-                    <span className="rounded-[7px] bg-background/80 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.08em] text-muted-foreground/80">
+                    <span className="rounded-[7px] bg-background/80 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
                       Plan
                     </span>
-                    <span className="truncate text-[12px] font-medium text-foreground/82">
+                    <span className="truncate text-[14px] font-medium text-foreground/85">
                       {tOr('plan.sampleBlock', 'Example task')}
                     </span>
                   </div>
-                  <div className="mt-1 font-mono tabular-nums text-[10px] text-muted-foreground/70">
-                    {tOr('plan.sampleTimeRange', '09:00 → 10:00')} <span className="text-muted-foreground/45">• 1h</span>
+                  <div className="mt-1 font-mono tabular-nums text-[12px] text-muted-foreground/75">
+                    {tOr('plan.sampleTimeRange', '09:00 → 10:00')} <span className="text-muted-foreground/50">• 1h</span>
                   </div>
                 </div>
               </div>

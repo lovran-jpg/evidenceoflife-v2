@@ -83,7 +83,7 @@ export function TimelineIntervalPill({
     <div
       className={cn(
         'inline-flex max-w-[min(100%,280px)] items-center justify-center truncate rounded-full font-mono font-medium tabular-nums tracking-tight',
-        subtle ? 'px-2 py-px text-[10px]' : 'px-2.5 py-[3px] text-[11px] sm:text-[12px]',
+        subtle ? 'px-2 py-px text-[11px]' : 'px-2.5 py-[3px] text-[12px] sm:text-[13px]',
         className,
       )}
       style={{

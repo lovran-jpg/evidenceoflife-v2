@@ -168,14 +168,13 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
   }, [landingDemoMode, demoFixedDate]);
 
   useEffect(() => {
-    if (landingDemoMode || !autoFollowToday) return;
+    if (landingDemoMode) return;
 
     const syncSelectedDateToToday = () => {
       const now = new Date();
       setSelectedDate(prev => (isSameDay(prev, now) ? prev : now));
+      setAutoFollowToday(true);
     };
-
-    syncSelectedDateToToday();
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') syncSelectedDateToToday();
@@ -185,12 +184,18 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
       syncSelectedDateToToday();
     };
 
-    const intervalId = window.setInterval(syncSelectedDateToToday, 60_000);
+    if (autoFollowToday) {
+      syncSelectedDateToToday();
+    }
+
+    const intervalId = autoFollowToday
+      ? window.setInterval(syncSelectedDateToToday, 60_000)
+      : null;
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleWindowFocus);
 
     return () => {
-      window.clearInterval(intervalId);
+      if (intervalId != null) window.clearInterval(intervalId);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleWindowFocus);
     };
@@ -512,6 +517,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
             onViewDues={openDues}
             initialDate={selectedDate}
             forcedViewMode={landingDemoMode && forcedDemoStep === 'calendar' ? 'week' : undefined}
+            onSelectDate={handleSelectedDateChange}
           />
           )}
 

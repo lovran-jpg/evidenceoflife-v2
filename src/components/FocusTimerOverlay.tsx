@@ -636,8 +636,9 @@ export function FocusTimerOverlay({
           )}
 
           {looksForgotten && suggestedEndLabel && onFinishAt && (
-            <div className="mt-4 rounded-[20px] border border-amber-200/55 bg-amber-50/65 px-3.5 py-3 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
-              <p className="text-[12px] font-semibold tracking-[-0.01em] text-amber-900/80">
+            <div className="mt-4 rounded-2xl border border-border/55 bg-[hsl(var(--surface-soft))] px-3.5 py-3 text-left">
+              <p className="flex items-center gap-2 text-[12px] font-semibold tracking-[-0.01em] text-foreground/85">
+                <span aria-hidden className="inline-block h-1.5 w-1.5 rounded-full bg-destructive/70" />
                 {lang === 'zh'
                   ? dayOffsetLabel
                     ? `可能从${dayOffsetLabel}起忘了结束`
@@ -647,12 +648,12 @@ export function FocusTimerOverlay({
                     : 'Maybe left running'}
               </p>
               <div
-                className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] leading-5 text-amber-900/72"
+                className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] leading-5 text-muted-foreground"
                 onClick={e => e.stopPropagation()}
               >
                 <span>{lang === 'zh' ? '结束于' : 'End at'}</span>
                 {dayOffsetLabel && (
-                  <span className="rounded-full bg-amber-900/10 px-2 py-[1px] text-[10px] font-semibold uppercase tracking-[0.04em] text-amber-900/72 dark:bg-amber-200/15 dark:text-amber-100/80">
+                  <span className="rounded-full bg-secondary px-2 py-[1px] text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
                     {dayOffsetLabel}
                   </span>
                 )}
@@ -660,16 +661,16 @@ export function FocusTimerOverlay({
                   type="time"
                   value={forgottenEndInput}
                   onChange={e => setForgottenEndInput(e.target.value)}
-                  className="font-mono text-[12px] tabular-nums bg-white/70 border border-amber-300/60 rounded-lg px-2 py-0.5 text-amber-900 focus:outline-none focus:ring-1 focus:ring-amber-500/40 dark:bg-white/[0.08] dark:text-amber-100 dark:border-amber-200/30"
+                  className="font-mono text-[12px] tabular-nums bg-[hsl(var(--surface-contrast))] border border-border/55 rounded-lg px-2 py-0.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
                 />
               </div>
-              <p className="mt-1 text-[11px] leading-5 text-amber-900/58">
+              <p className="mt-1 text-[11px] leading-5 text-muted-foreground/65">
                 {lang === 'zh' ? '也可以继续计时。' : 'Or keep it running.'}
               </p>
               <div className="mt-2 grid grid-cols-2 gap-2">
                 <button
                   onClick={() => handleFinishAtSuggestion(false)}
-                  className="h-8 rounded-full bg-white/75 px-3 text-[11px] font-semibold text-amber-900/72 shadow-[inset_0_0_0_1px_rgba(146,64,14,0.12)] transition-colors hover:bg-white dark:bg-white/[0.06] dark:text-amber-200/85 dark:shadow-[inset_0_0_0_1px_rgba(252,211,77,0.18)] dark:hover:bg-white/[0.10]"
+                  className="h-8 rounded-full bg-[hsl(var(--surface-contrast))] px-3 text-[11px] font-semibold text-foreground/80 border border-border/55 transition-colors hover:bg-[hsl(var(--surface-soft-hover))]"
                 >
                   {lang === 'zh'
                     ? `收在 ${dayOffsetLabel ? dayOffsetLabel + ' ' : ''}${forgottenEndInput || suggestedEndLabel}`
@@ -677,7 +678,7 @@ export function FocusTimerOverlay({
                 </button>
                 <button
                   onClick={() => handleFinishAtSuggestion(true)}
-                  className="h-8 rounded-full bg-amber-900/10 px-3 text-[11px] font-semibold text-amber-900/78 transition-colors hover:bg-amber-900/14 dark:bg-amber-200/10 dark:text-amber-200/85 dark:hover:bg-amber-200/15"
+                  className="h-8 rounded-full bg-primary px-3 text-[11px] font-semibold text-primary-foreground transition-colors hover:brightness-105"
                 >
                   {lang === 'zh' ? '完成任务' : 'Complete'}
                 </button>

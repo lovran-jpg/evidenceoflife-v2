@@ -13,9 +13,11 @@ import {
   CalendarDays,
   Camera,
   Check,
+  ChevronLeft,
   ChevronRight,
   Clock3,
   Download,
+  Images,
   Pencil,
   RefreshCw,
   Settings,
@@ -86,6 +88,13 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
   const [reflectionOpen, setReflectionOpen] = useState(false);
   const [showAllEvidence, setShowAllEvidence] = useState(false);
   const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
+  const [albumOpen, setAlbumOpen] = useState(false);
+  const photoStripRef = useRef<HTMLDivElement | null>(null);
+  const scrollStrip = (dir: -1 | 1) => {
+    const el = photoStripRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir * Math.max(240, el.clientWidth * 0.7), behavior: 'smooth' });
+  };
   const fileInputRef = useRef<HTMLInputElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
@@ -478,8 +487,36 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
                   {lang === 'zh' ? `共 ${recentPhotos.length} 张` : `${recentPhotos.length} captured`}
                 </h2>
               </div>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => scrollStrip(-1)}
+                  aria-label={lang === 'zh' ? '上一张' : 'Scroll left'}
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-border/55 text-muted-foreground transition-colors hover:bg-secondary/50 hover:text-foreground"
+                >
+                  <ChevronLeft size={15} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => scrollStrip(1)}
+                  aria-label={lang === 'zh' ? '下一张' : 'Scroll right'}
+                  className="flex h-8 w-8 items-center justify-center rounded-full border border-border/55 text-muted-foreground transition-colors hover:bg-secondary/50 hover:text-foreground"
+                >
+                  <ChevronRight size={15} />
+                </button>
+                {recentPhotos.length > 12 && (
+                  <button
+                    type="button"
+                    onClick={() => setAlbumOpen(true)}
+                    className="ml-1 inline-flex items-center gap-1.5 rounded-full border border-border/55 px-3 py-1.5 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-secondary/50 hover:text-foreground"
+                  >
+                    <Images size={13} />
+                    {lang === 'zh' ? '看全部' : 'View all'}
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="-mx-1 overflow-x-auto px-1 pb-1 no-scrollbar">
+            <div ref={photoStripRef} className="-mx-1 overflow-x-auto scroll-smooth px-1 pb-1 no-scrollbar">
               <div className="flex gap-2">
                 {recentPhotos.slice(0, 40).map(photo => (
                   <button
@@ -664,6 +701,47 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
             <X size={24} />
           </button>
           <img src={lightboxPhoto} alt="" className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain" onClick={e => e.stopPropagation()} />
+        </div>
+      )}
+
+      {albumOpen && (
+        <div className="fixed inset-0 z-[55] flex flex-col bg-background/97 backdrop-blur-sm animate-fade-in">
+          <div className="flex items-center justify-between border-b border-border/45 px-5 py-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/55">
+                {lang === 'zh' ? '相册' : 'Album'}
+              </p>
+              <h2 className="mt-0.5 text-[17px] font-semibold tracking-[-0.03em] text-foreground">
+                {lang === 'zh' ? `共 ${recentPhotos.length} 张` : `${recentPhotos.length} captured`}
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAlbumOpen(false)}
+              aria-label={lang === 'zh' ? '关闭' : 'Close'}
+              className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto px-5 py-4">
+            <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+              {recentPhotos.map(photo => (
+                <button
+                  key={photo.url}
+                  type="button"
+                  onClick={() => setLightboxPhoto(photo.url)}
+                  title={`${shortDate(photo.date)}${photo.momentText ? ' · ' + photo.momentText : ''}`}
+                  className="group relative aspect-square overflow-hidden rounded-[10px] border border-border/45 bg-secondary/30 transition-transform hover:scale-[1.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                >
+                  <img src={photo.url} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                  <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 via-black/0 to-transparent px-2 pb-1 pt-4 text-left text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100">
+                    {shortDate(photo.date)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>

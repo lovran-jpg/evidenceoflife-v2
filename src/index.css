@@ -224,11 +224,13 @@
 }
 
 @layer base {
-  /* Root font-size slightly above browser default so the warm, iOS-style
-     density still reads comfortably without the prior 18px "magnifier" that
-     was pushing every text-[Xpx] up by 12.5%. */
+  /* Root font-size bumped up from browser default so rem-based Tailwind
+     classes (text-base, text-sm, padding/margin) feel comfortable, but the
+     prior text-[Xpx] !important multiplier table is kept removed, so
+     arbitrary px values still render literally. Net result: comfortable
+     reading without the "everything is shouting" effect. */
   html {
-    font-size: 17px;
+    font-size: 18px;
   }
 
   * {

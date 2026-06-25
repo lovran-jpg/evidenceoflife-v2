@@ -61,6 +61,7 @@ interface CalendarViewProps {
   onViewDues?: () => void;
   initialDate?: Date;
   forcedViewMode?: ViewMode;
+  onSelectDate?: (date: Date) => void;
 }
 
 const weekDays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -69,7 +70,7 @@ const MONTH_NAMES_CN = ['一月', '二月', '三月', '四月', '五月', '六�
 
 type ViewMode = 'day' | 'week' | 'month' | 'year';
 
-export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEditMoment, onDeleteMoment, onUpdateTodo, onDeleteTodo, todos = [], onViewDues, initialDate, forcedViewMode }: CalendarViewProps) {
+export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEditMoment, onDeleteMoment, onUpdateTodo, onDeleteTodo, todos = [], onViewDues, initialDate, forcedViewMode, onSelectDate }: CalendarViewProps) {
   const { formatDate } = useDateLocale();
   const { lang } = useLanguage();
   const isDarkMode = useIsDarkMode();
@@ -304,11 +305,13 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
     setShowDayDetail(true);
+    onSelectDate?.(date);
   };
 
   const handleMonthSelect = (month: Date) => {
     setCurrentDate(month);
     setViewMode('month');
+    onSelectDate?.(month);
   };
 
   const momentsForSelectedDate = selectedDate 
