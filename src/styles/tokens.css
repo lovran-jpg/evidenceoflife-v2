@@ -128,4 +128,51 @@
   --surface-sage-accent-dark: 143 35% 79%;      /* #B8DDC6 */
   --surface-lavender-accent-dark: 251 53% 86%;  /* #CFC8EE */
   --surface-cream-accent-dark: 47 66% 76%;      /* #EAD89A */
+
+  /* ─────────────────────────────────────────────
+     Landing page (src/pages/Landing.tsx) — FIXED
+     warm marketing palette. This page deliberately
+     never follows dark mode, so it CANNOT use the
+     themeable --primary / --foreground tokens
+     (those flip on .dark). These --lp-* tokens
+     capture the page's previously hard-coded
+     hex / rgba() values verbatim, as space-separated
+     RGB channels so call sites can do BOTH solid
+     `rgb(var(--lp-x))` and alpha `rgb(var(--lp-x)/0.25)`.
+     Channels (not HSL) keep this a lossless 1:1
+     copy of the original hex — no color drift.
+     Trailing comment = original hex for grep.
+     ───────────────────────────────────────────── */
+  --lp-cream:             248 241 232;  /* #f8f1e8  page bg / on-dark text     */
+  --lp-warm-white:        255 250 244;  /* #fffaf4  warm-white panels           */
+  --lp-ink:               45 34 29;     /* #2d221d  headings + dark panels + shadow */
+  --lp-ink-strong:        52 40 33;     /* #342821  strong body text            */
+  --lp-brown-700:         93 73 61;     /* #5d493d  outline-btn / tab-hover text */
+  --lp-brown-650:         111 86 70;    /* #6f5646  wordmark + outline-btn border */
+  --lp-brown-600:         109 89 77;    /* #6d594d  body text                    */
+  --lp-brown-550:         120 100 87;   /* #786457  caption / pillar body        */
+  --lp-brown-500:         123 103 90;   /* #7b675a  nav / inactive tab           */
+  --lp-brown-400:         141 117 100;  /* #8d7564  sign-in link                 */
+  --lp-brown-300:         154 132 115;  /* #9a8473  muted / tagline / footer     */
+  --lp-terracotta:        212 135 95;   /* #d4875f  brand accent + glows         */
+  --lp-terracotta-light:  224 152 112;  /* #e09870  hero gradient start          */
+  --lp-terracotta-dark:   184 106 63;   /* #b86a3f  hero gradient end            */
+  --lp-terracotta-accent: 201 120 78;   /* #c9784e  link hover / accent icon     */
+  --lp-terracotta-soft:   223 154 118;  /* #df9a76  badge border on dark         */
+  --lp-cta:               176 96 46;    /* #b0602e  primary button (WCAG AA)     */
+  --lp-cta-hover:         156 82 31;    /* #9c521f  primary button hover         */
+  --lp-sage:              143 168 131;  /* #8fa883  sage glow                    */
+  --lp-cream-100:         243 231 219;  /* #f3e7db  on-dark button text          */
+  --lp-cream-200:         244 223 209;  /* #f4dfd1  on-dark badge text           */
+  --lp-cream-muted:       216 198 184;  /* #d8c6b8  on-dark muted text           */
+  --lp-border:            124 82 56;    /* #7c5238  hairline borders             */
+  --lp-border-dark:       49 36 31;     /* #31241f  dark browser-frame border    */
+  --lp-mockup-bg:         27 21 18;     /* #1b1512  browser-mock bg              */
+  --lp-mockup-bar:        35 27 23;     /* #231b17  browser-mock toolbar         */
+  --lp-mockup-input:      58 48 42;     /* #3a302a  browser-mock url pill        */
+  --lp-mockup-viewport:   23 18 16;     /* #171210  browser-mock viewport + dark badge bg */
+  --lp-mockup-url:        205 188 174;  /* #cdbcae  browser-mock url text        */
+  /* macOS traffic-light dots (#ff5f57 / #febc2e / #28c840) are intentionally
+     left as literal hex in Landing.tsx — they are universal OS chrome, not
+     brand colors, so they are deliberately NOT tokenized here. */
 }

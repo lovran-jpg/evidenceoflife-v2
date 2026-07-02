@@ -144,29 +144,29 @@ export default function Landing() {
   };
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#f8f1e8] text-[#2d221d] antialiased selection:bg-[#d4875f]/25 selection:text-[#2d221d]">
-      <header className="sticky top-0 z-30 border-b border-[rgba(124,82,56,0.08)] bg-[rgba(248,241,232,0.82)] backdrop-blur-xl">
+    <div className="min-h-screen overflow-x-hidden bg-[rgb(var(--lp-cream))] text-[rgb(var(--lp-ink))] antialiased selection:bg-[rgb(var(--lp-terracotta)/0.25)] selection:text-[rgb(var(--lp-ink))]">
+      <header className="sticky top-0 z-30 border-b border-[rgb(var(--lp-border)/0.08)] bg-[rgb(var(--lp-cream)/0.82)] backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3.5 lg:px-8">
           <button
             type="button"
-            className="flex items-center gap-3 rounded-full text-left transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4875f]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f8f1e8]"
+            className="flex items-center gap-3 rounded-full text-left transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--lp-terracotta)/0.4)] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(var(--lp-cream))]"
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
           >
             <BrandLogo alt="Evidence of Life" className="h-10 w-10" />
             <div className="leading-tight">
-              <div className="font-brand text-[22px] text-[#6f5646]">Evidence of life</div>
-              <div className="text-xs text-[#9a8473]">{t('landing.tagline')}</div>
+              <div className="font-brand text-[22px] text-[rgb(var(--lp-brown-650))]">Evidence of life</div>
+              <div className="text-xs text-[rgb(var(--lp-brown-300))]">{t('landing.tagline')}</div>
             </div>
           </button>
 
-          <nav className="hidden items-center gap-7 text-sm font-medium text-[#7b675a] md:flex">
-            <a className="transition-colors hover:text-[#c9784e]" href="#product">{t('landing.nav.product')}</a>
+          <nav className="hidden items-center gap-7 text-sm font-medium text-[rgb(var(--lp-brown-500))] md:flex">
+            <a className="transition-colors hover:text-[rgb(var(--lp-terracotta-accent))]" href="#product">{t('landing.nav.product')}</a>
           </nav>
 
           <button
             type="button"
             onClick={() => navigate('/auth')}
-            className="text-sm font-medium text-[#8d7564] transition-colors hover:text-[#c9784e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4875f]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f8f1e8]"
+            className="text-sm font-medium text-[rgb(var(--lp-brown-400))] transition-colors hover:text-[rgb(var(--lp-terracotta-accent))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--lp-terracotta)/0.4)] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(var(--lp-cream))]"
           >
             {t('landing.cta.signIn')}
           </button>
@@ -176,31 +176,31 @@ export default function Landing() {
       <main>
         {/* ── 1. Hero + live demo (the entire opener) ──────────────── */}
         <section className="relative mx-auto max-w-6xl px-6 pb-20 pt-16 text-center lg:px-8 lg:pt-24">
-          <div className="pointer-events-none absolute left-1/2 top-[-12%] -z-0 h-[520px] w-[760px] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(212,135,95,0.22),transparent)] blur-2xl" />
-          <div className="pointer-events-none absolute left-[12%] top-[18%] -z-0 hidden h-[200px] w-[200px] rounded-full bg-[radial-gradient(closest-side,rgba(143,168,131,0.18),transparent)] blur-2xl lg:block" />
+          <div className="pointer-events-none absolute left-1/2 top-[-12%] -z-0 h-[520px] w-[760px] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgb(var(--lp-terracotta)/0.22),transparent)] blur-2xl" />
+          <div className="pointer-events-none absolute left-[12%] top-[18%] -z-0 hidden h-[200px] w-[200px] rounded-full bg-[radial-gradient(closest-side,rgb(var(--lp-sage)/0.18),transparent)] blur-2xl lg:block" />
 
           <Reveal className="relative mx-auto flex max-w-3xl flex-col items-center">
-            <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(212,135,95,0.22)] bg-[rgba(255,250,244,0.92)] px-3.5 py-1.5 text-sm font-medium text-[#c9784e] shadow-[0_4px_14px_-6px_rgba(212,135,95,0.4)]">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[rgb(var(--lp-terracotta)/0.22)] bg-[rgb(var(--lp-warm-white)/0.92)] px-3.5 py-1.5 text-sm font-medium text-[rgb(var(--lp-terracotta-accent))] shadow-[0_4px_14px_-6px_rgb(var(--lp-terracotta)/0.4)]">
               <Sparkles size={14} />
               {t('landing.eyebrow')}
             </div>
 
-            <h1 className="mt-7 text-balance text-4xl font-semibold leading-[1.04] tracking-[-0.04em] text-[#2d221d] sm:text-6xl">
+            <h1 className="mt-7 text-balance text-4xl font-semibold leading-[1.04] tracking-[-0.04em] text-[rgb(var(--lp-ink))] sm:text-6xl">
               {t('landing.heroTitle1')}
               <br />
-              <span className="bg-gradient-to-br from-[#e09870] via-[#d4875f] to-[#b86a3f] bg-clip-text text-transparent">
+              <span className="bg-gradient-to-br from-[rgb(var(--lp-terracotta-light))] via-[rgb(var(--lp-terracotta))] to-[rgb(var(--lp-terracotta-dark))] bg-clip-text text-transparent">
                 {t('landing.heroTitle2')}
               </span>
             </h1>
 
-            <p className="mt-6 max-w-2xl text-pretty text-lg leading-8 text-[#6d594d]">
+            <p className="mt-6 max-w-2xl text-pretty text-lg leading-8 text-[rgb(var(--lp-brown-600))]">
               {t('landing.heroSub')}
             </p>
 
             <div className="mt-9 flex w-full flex-col items-center justify-center gap-3 sm:flex-row">
               <Button
                 size="lg"
-                className="group h-12 w-full rounded-full bg-[#b0602e] px-7 text-base text-white shadow-[0_16px_32px_-14px_rgba(176,96,46,0.9)] transition-transform hover:bg-[#9c521f] active:scale-[0.985] sm:w-auto"
+                className="group h-12 w-full rounded-full bg-[rgb(var(--lp-cta))] px-7 text-base text-white shadow-[0_16px_32px_-14px_rgb(var(--lp-cta)/0.9)] transition-transform hover:bg-[rgb(var(--lp-cta-hover))] active:scale-[0.985] sm:w-auto"
                 onClick={handleStart}
               >
                 {t('landing.cta.createAccount')}
@@ -209,7 +209,7 @@ export default function Landing() {
               <Button
                 size="lg"
                 variant="outline"
-                className="h-12 w-full rounded-full border-[rgba(111,86,70,0.22)] bg-white/80 px-7 text-base text-[#5d493d] hover:bg-white sm:w-auto"
+                className="h-12 w-full rounded-full border-[rgb(var(--lp-brown-650)/0.22)] bg-white/80 px-7 text-base text-[rgb(var(--lp-brown-700))] hover:bg-white sm:w-auto"
                 onClick={handleDemo}
               >
                 <PlayCircle />
@@ -217,7 +217,7 @@ export default function Landing() {
               </Button>
             </div>
 
-            <p className="mt-4 text-sm text-[#9a8473]">
+            <p className="mt-4 text-sm text-[rgb(var(--lp-brown-300))]">
               {t('landing.hero.note')}
             </p>
           </Reveal>
@@ -225,22 +225,22 @@ export default function Landing() {
           {/* Live demo frame — this IS the "how it works" content (each tab is a phase) */}
           <Reveal delay={120} className="relative mx-auto mt-14 max-w-4xl">
             <div
-              className="overflow-hidden rounded-2xl border border-[rgba(49,36,31,0.12)] bg-[#1b1512] shadow-[0_44px_88px_-36px_rgba(45,34,29,0.6)]"
+              className="overflow-hidden rounded-2xl border border-[rgb(var(--lp-border-dark)/0.12)] bg-[rgb(var(--lp-mockup-bg))] shadow-[0_44px_88px_-36px_rgb(var(--lp-ink)/0.6)]"
               onMouseEnter={() => setAutoplay(false)}
             >
-              <div className="flex items-center gap-2 border-b border-white/5 bg-[#231b17] px-4 py-2.5">
+              <div className="flex items-center gap-2 border-b border-white/5 bg-[rgb(var(--lp-mockup-bar))] px-4 py-2.5">
                 <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
                 <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
                 <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
-                <div className="ml-3 flex-1 truncate rounded-full bg-[#3a302a] px-4 py-1 text-center text-[11px] text-[#cdbcae]">
+                <div className="ml-3 flex-1 truncate rounded-full bg-[rgb(var(--lp-mockup-input))] px-4 py-1 text-center text-[11px] text-[rgb(var(--lp-mockup-url))]">
                   evidenceoflife.app/demo
                 </div>
               </div>
 
-              <div className="relative aspect-[16/10] overflow-hidden bg-[#171210]">
-                <div className="absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-full border border-[rgba(223,154,118,0.24)] bg-[rgba(23,18,16,0.82)] px-3 py-1.5 text-[11px] font-medium text-[#f4dfd1] backdrop-blur-sm">
-                  <span className="text-[#d4875f]">{activeStep.number}</span>
-                  <span className="h-1 w-1 rounded-full bg-[#9a8473]/60" />
+              <div className="relative aspect-[16/10] overflow-hidden bg-[rgb(var(--lp-mockup-viewport))]">
+                <div className="absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-full border border-[rgb(var(--lp-terracotta-soft)/0.24)] bg-[rgb(var(--lp-mockup-viewport)/0.82)] px-3 py-1.5 text-[11px] font-medium text-[rgb(var(--lp-cream-200))] backdrop-blur-sm">
+                  <span className="text-[rgb(var(--lp-terracotta))]">{activeStep.number}</span>
+                  <span className="h-1 w-1 rounded-full bg-[rgb(var(--lp-brown-300)/0.6)]" />
                   {t(activeStep.labelKey)}
                 </div>
                 <iframe
@@ -255,7 +255,7 @@ export default function Landing() {
                     transformOrigin: 'top left',
                   }}
                 />
-                <div className="pointer-events-none absolute bottom-4 left-4 z-10 rounded-full border border-[rgba(223,154,118,0.18)] bg-[rgba(23,18,16,0.82)] px-3 py-1 text-[10px] font-medium text-[#f4dfd1] backdrop-blur-sm">
+                <div className="pointer-events-none absolute bottom-4 left-4 z-10 rounded-full border border-[rgb(var(--lp-terracotta-soft)/0.18)] bg-[rgb(var(--lp-mockup-viewport)/0.82)] px-3 py-1 text-[10px] font-medium text-[rgb(var(--lp-cream-200))] backdrop-blur-sm">
                   {t('landing.demo.caption')}
                 </div>
               </div>
@@ -277,14 +277,14 @@ export default function Landing() {
                     aria-controls="demo-step-caption"
                     onClick={() => selectStep(index)}
                     className={cn(
-                      'relative overflow-hidden rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4875f]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f8f1e8]',
+                      'relative overflow-hidden rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--lp-terracotta)/0.4)] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgb(var(--lp-cream))]',
                       isActive
-                        ? 'bg-[#b0602e] text-white shadow-[0_10px_22px_-12px_rgba(176,96,46,0.9)]'
-                        : 'border border-[rgba(124,82,56,0.14)] bg-white/70 text-[#7b675a] hover:bg-white hover:text-[#5d493d]',
+                        ? 'bg-[rgb(var(--lp-cta))] text-white shadow-[0_10px_22px_-12px_rgb(var(--lp-cta)/0.9)]'
+                        : 'border border-[rgb(var(--lp-border)/0.14)] bg-white/70 text-[rgb(var(--lp-brown-500))] hover:bg-white hover:text-[rgb(var(--lp-brown-700))]',
                     )}
                   >
                     <span className="relative z-10 inline-flex items-center gap-1.5">
-                      <span className={cn('text-[10px] font-semibold tracking-[0.1em]', isActive ? 'text-white/80' : 'text-[#9a8473]')}>
+                      <span className={cn('text-[10px] font-semibold tracking-[0.1em]', isActive ? 'text-white/80' : 'text-[rgb(var(--lp-brown-300))]')}>
                         {step.number}
                       </span>
                       {t(step.labelKey)}
@@ -301,21 +301,21 @@ export default function Landing() {
               })}
             </div>
 
-            <p id="demo-step-caption" className="mt-3 text-center text-[15px] leading-7 text-[#786457]">
-              <span className="font-semibold text-[#342821]">{t(activeStep.titleKey)}.</span>{' '}
+            <p id="demo-step-caption" className="mt-3 text-center text-[15px] leading-7 text-[rgb(var(--lp-brown-550))]">
+              <span className="font-semibold text-[rgb(var(--lp-ink-strong))]">{t(activeStep.titleKey)}.</span>{' '}
               {t(activeStep.bodyKey)}
             </p>
           </Reveal>
         </section>
 
         {/* ── 2. Product — 3 pillars + 6 modules (one combined section) ── */}
-        <section id="product" className="border-t border-[rgba(124,82,56,0.08)] bg-[rgba(255,250,244,0.55)]">
+        <section id="product" className="border-t border-[rgb(var(--lp-border)/0.08)] bg-[rgb(var(--lp-warm-white)/0.55)]">
           <div className="mx-auto max-w-6xl px-6 py-24 lg:px-8">
             <Reveal className="mx-auto max-w-2xl text-center">
-              <h2 className="text-3xl font-semibold tracking-[-0.03em] text-[#2d221d] sm:text-4xl">
+              <h2 className="text-3xl font-semibold tracking-[-0.03em] text-[rgb(var(--lp-ink))] sm:text-4xl">
                 {t('landing.product.h2')}
               </h2>
-              <p className="mt-4 text-lg leading-8 text-[#6d594d]">
+              <p className="mt-4 text-lg leading-8 text-[rgb(var(--lp-brown-600))]">
                 {t('landing.product.body')}
               </p>
             </Reveal>
@@ -324,12 +324,12 @@ export default function Landing() {
             <div className="mt-12 grid gap-4 sm:grid-cols-3">
               {featurePillars.map((feature, i) => (
                 <Reveal key={feature.titleKey} delay={i * 80}>
-                  <div className="flex h-full flex-col rounded-2xl border border-[rgba(124,82,56,0.1)] bg-[rgba(255,250,244,0.82)] p-5 shadow-[0_20px_48px_-34px_rgba(45,34,29,0.45)] transition-shadow duration-300 hover:shadow-[0_28px_56px_-30px_rgba(45,34,29,0.55)]">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[rgba(212,135,95,0.22)] to-[rgba(212,135,95,0.08)] text-[#c9784e]">
+                  <div className="flex h-full flex-col rounded-2xl border border-[rgb(var(--lp-border)/0.1)] bg-[rgb(var(--lp-warm-white)/0.82)] p-5 shadow-[0_20px_48px_-34px_rgb(var(--lp-ink)/0.45)] transition-shadow duration-300 hover:shadow-[0_28px_56px_-30px_rgb(var(--lp-ink)/0.55)]">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[rgb(var(--lp-terracotta)/0.22)] to-[rgb(var(--lp-terracotta)/0.08)] text-[rgb(var(--lp-terracotta-accent))]">
                       <feature.icon size={19} />
                     </div>
-                    <h3 className="mt-4 text-base font-semibold text-[#342821]">{t(feature.titleKey)}</h3>
-                    <p className="mt-2 text-sm leading-6 text-[#786457]">{t(feature.bodyKey)}</p>
+                    <h3 className="mt-4 text-base font-semibold text-[rgb(var(--lp-ink-strong))]">{t(feature.titleKey)}</h3>
+                    <p className="mt-2 text-sm leading-6 text-[rgb(var(--lp-brown-550))]">{t(feature.bodyKey)}</p>
                   </div>
                 </Reveal>
               ))}
@@ -339,15 +339,15 @@ export default function Landing() {
 
         {/* ── 3. Positioning — 3 angles only ───────────────────────── */}
         {/* ── 4. Promise — dark outcomes block (kept private-by-default inline as footnote) ── */}
-        <section className="border-y border-[rgba(124,82,56,0.08)] bg-[rgba(255,250,244,0.58)]">
+        <section className="border-y border-[rgb(var(--lp-border)/0.08)] bg-[rgb(var(--lp-warm-white)/0.58)]">
           <div className="mx-auto max-w-5xl px-6 py-24 lg:px-8">
             <Reveal>
-              <div className="relative overflow-hidden rounded-3xl border border-[rgba(124,82,56,0.12)] bg-[#2d221d] p-8 text-[#f8f1e8] shadow-[0_40px_80px_-40px_rgba(45,34,29,0.75)] sm:p-10">
-                <div className="pointer-events-none absolute -left-px top-8 h-24 w-1 rounded-r bg-gradient-to-b from-[#d4875f] to-transparent" />
-                <div className="pointer-events-none absolute right-[-15%] top-[-30%] h-[320px] w-[320px] rounded-full bg-[radial-gradient(closest-side,rgba(212,135,95,0.28),transparent)] blur-2xl" />
+              <div className="relative overflow-hidden rounded-3xl border border-[rgb(var(--lp-border)/0.12)] bg-[rgb(var(--lp-ink))] p-8 text-[rgb(var(--lp-cream))] shadow-[0_40px_80px_-40px_rgb(var(--lp-ink)/0.75)] sm:p-10">
+                <div className="pointer-events-none absolute -left-px top-8 h-24 w-1 rounded-r bg-gradient-to-b from-[rgb(var(--lp-terracotta))] to-transparent" />
+                <div className="pointer-events-none absolute right-[-15%] top-[-30%] h-[320px] w-[320px] rounded-full bg-[radial-gradient(closest-side,rgb(var(--lp-terracotta)/0.28),transparent)] blur-2xl" />
 
                 <div className="relative">
-                  <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#d4875f]">{t('landing.promise.eyebrow')}</p>
+                  <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[rgb(var(--lp-terracotta))]">{t('landing.promise.eyebrow')}</p>
                   <h3 className="mt-4 text-2xl font-semibold tracking-[-0.02em] sm:text-3xl">
                     {t('landing.promise.h3')}
                   </h3>
@@ -358,18 +358,18 @@ export default function Landing() {
                         key={titleKey}
                         className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 transition-colors hover:bg-white/[0.07]"
                       >
-                        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-[#d4875f]/40 bg-[#d4875f]/10 text-xs font-semibold text-[#f4dfd1]">
+                        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-[rgb(var(--lp-terracotta)/0.4)] bg-[rgb(var(--lp-terracotta)/0.1)] text-xs font-semibold text-[rgb(var(--lp-cream-200))]">
                           {String(i + 1).padStart(2, '0')}
                         </span>
                         <h4 className="mt-3 font-semibold text-white">{t(titleKey)}</h4>
-                        <p className="mt-2 text-sm leading-6 text-[#d8c6b8]">{t(bodyKey)}</p>
+                        <p className="mt-2 text-sm leading-6 text-[rgb(var(--lp-cream-muted))]">{t(bodyKey)}</p>
                       </li>
                     ))}
                   </ol>
 
                   {/* Private-by-default folded in as a quiet footnote */}
-                  <div className="mt-7 flex items-start gap-3 border-t border-white/10 pt-5 text-sm leading-6 text-[#d8c6b8]">
-                    <ShieldCheck size={16} className="mt-0.5 flex-shrink-0 text-[#d4875f]" />
+                  <div className="mt-7 flex items-start gap-3 border-t border-white/10 pt-5 text-sm leading-6 text-[rgb(var(--lp-cream-muted))]">
+                    <ShieldCheck size={16} className="mt-0.5 flex-shrink-0 text-[rgb(var(--lp-terracotta))]" />
                     <p>
                       <span className="font-semibold text-white">{t('landing.private.title')}.</span>{' '}
                       {t('landing.private.body')}
@@ -384,24 +384,24 @@ export default function Landing() {
         {/* ── 5. Final CTA (narrative quote folded in as lead-in) ──── */}
         <section className="mx-auto max-w-6xl px-6 py-24 lg:px-8">
           <Reveal>
-            <div className="relative overflow-hidden rounded-3xl bg-[#2d221d] px-8 py-14 text-center shadow-[0_44px_88px_-44px_rgba(45,34,29,0.75)] sm:px-16 sm:py-16">
-              <div className="pointer-events-none absolute left-1/2 top-0 h-[320px] w-[560px] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(212,135,95,0.38),transparent)] blur-2xl" />
-              <div className="pointer-events-none absolute bottom-[-30%] right-[-10%] h-[260px] w-[260px] rounded-full bg-[radial-gradient(closest-side,rgba(143,168,131,0.22),transparent)] blur-2xl" />
+            <div className="relative overflow-hidden rounded-3xl bg-[rgb(var(--lp-ink))] px-8 py-14 text-center shadow-[0_44px_88px_-44px_rgb(var(--lp-ink)/0.75)] sm:px-16 sm:py-16">
+              <div className="pointer-events-none absolute left-1/2 top-0 h-[320px] w-[560px] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgb(var(--lp-terracotta)/0.38),transparent)] blur-2xl" />
+              <div className="pointer-events-none absolute bottom-[-30%] right-[-10%] h-[260px] w-[260px] rounded-full bg-[radial-gradient(closest-side,rgb(var(--lp-sage)/0.22),transparent)] blur-2xl" />
               <div className="relative mx-auto max-w-2xl">
-                <blockquote className="text-pretty font-serif text-xl italic leading-[1.55] text-[#d8c6b8] sm:text-2xl">
+                <blockquote className="text-pretty font-serif text-xl italic leading-[1.55] text-[rgb(var(--lp-cream-muted))] sm:text-2xl">
                   {t('landing.narrative')}
                 </blockquote>
-                <div className="mx-auto mt-7 h-px w-12 bg-[#d4875f]/40" />
-                <h2 className="mt-7 text-3xl font-semibold tracking-[-0.03em] text-[#f8f1e8] sm:text-4xl">
+                <div className="mx-auto mt-7 h-px w-12 bg-[rgb(var(--lp-terracotta)/0.4)]" />
+                <h2 className="mt-7 text-3xl font-semibold tracking-[-0.03em] text-[rgb(var(--lp-cream))] sm:text-4xl">
                   {t('landing.final.h2')}
                 </h2>
-                <p className="mt-4 text-lg leading-8 text-[#d8c6b8]">
+                <p className="mt-4 text-lg leading-8 text-[rgb(var(--lp-cream-muted))]">
                   {t('landing.final.body')}
                 </p>
                 <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
                   <Button
                     size="lg"
-                    className="group h-12 w-full rounded-full bg-[#b0602e] px-7 text-base text-white shadow-[0_16px_32px_-14px_rgba(176,96,46,0.9)] hover:bg-[#9c521f] active:scale-[0.985] sm:w-auto"
+                    className="group h-12 w-full rounded-full bg-[rgb(var(--lp-cta))] px-7 text-base text-white shadow-[0_16px_32px_-14px_rgb(var(--lp-cta)/0.9)] hover:bg-[rgb(var(--lp-cta-hover))] active:scale-[0.985] sm:w-auto"
                     onClick={handleStart}
                   >
                     {t('landing.cta.createAccount')}
@@ -410,7 +410,7 @@ export default function Landing() {
                   <Button
                     size="lg"
                     variant="outline"
-                    className="h-12 w-full rounded-full border-white/25 bg-transparent px-7 text-base text-[#f3e7db] hover:bg-white/10 hover:text-white sm:w-auto"
+                    className="h-12 w-full rounded-full border-white/25 bg-transparent px-7 text-base text-[rgb(var(--lp-cream-100))] hover:bg-white/10 hover:text-white sm:w-auto"
                     onClick={handleDemo}
                   >
                     <PlayCircle />
@@ -423,13 +423,13 @@ export default function Landing() {
         </section>
       </main>
 
-      <footer className="border-t border-[rgba(124,82,56,0.1)]">
+      <footer className="border-t border-[rgb(var(--lp-border)/0.1)]">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-8 sm:flex-row lg:px-8">
           <div className="flex items-center gap-3">
             <BrandLogo alt="Evidence of Life" className="h-8 w-8" />
-            <span className="font-brand text-lg text-[#6f5646]">Evidence of life</span>
+            <span className="font-brand text-lg text-[rgb(var(--lp-brown-650))]">Evidence of life</span>
           </div>
-          <p className="text-sm text-[#9a8473]">© {new Date().getFullYear()} Evidence of Life</p>
+          <p className="text-sm text-[rgb(var(--lp-brown-300))]">© {new Date().getFullYear()} Evidence of Life</p>
         </div>
       </footer>
 

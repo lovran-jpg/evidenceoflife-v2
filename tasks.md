@@ -185,6 +185,17 @@
     - 自测：浏览器 `http://localhost:8080/` 截图确认白字清晰可读、按钮更浓更有质感（before/after 对比）
   - 范围：只动 `Landing.tsx` 3 处 solid-fill；未做审计项 6（token 化，独立大任务）
 
+- [x] [P2][done] **fix(审计项 6): Landing.tsx 硬编码色 token 化（接续 design-system 线）**
+  - 来源：Designer 审计发现的 104 处硬编码 hex/rgba；本轮把 Landing 全页颜色迁到集中 token
+  - 决策：Landing 是**固定暖色营销页、永不跟随暗色模式**，所以不能复用会翻转的 `--primary/--foreground`。新建 `--lp-*` 固定色板（**RGB channels**，从 hex 无损 1:1，支持 solid `rgb(var(--lp-x))` 与 alpha `rgb(var(--lp-x)/0.25)` 两种消费），落 `src/styles/tokens.css` :root 尾部；末尾留原 hex 注释供双向 grep
+  - 改动点：`tokens.css` 新增 29 个 `--lp-*` token；`Landing.tsx` 按 7 个 section 全量替换调用点（root/header/nav · hero · mockup 框 · demo tabs · product · promise 暗块 · final CTA+footer）。macOS 红绿灯 3 色（#ff5f57/#febc2e/#28c840）有意保留字面 hex（通用 OS chrome，非品牌色）
+  - 验收输出：
+    - `grep -E "#[0-9a-fA-F]{6}|rgba\(" src/pages/Landing.tsx` 计数：**3**（仅剩 3 个红绿灯，品牌色全清 ✓）
+    - `npx tsc --noEmit -p tsconfig.app.json`：**退出 0**
+    - `npm run build`：✓ built in 9.35s（vite 5.4.21，无报错）
+    - 自测：浏览器 `http://localhost:8080/` 截图 hero 视觉一致；computed-style 复核关键元素——页面底 `rgb(248,241,232)`=#f8f1e8 · ink 文字 `rgb(45,34,29)`=#2d221d · CTA `rgb(176,96,46)`=#b0602e · 渐变 `#e09870→#d4875f→#b86a3f` · 暗色面板 `rgb(45,34,29)` 全部精确命中原值，零漂移
+  - 范围：只动 `Landing.tsx` + `tokens.css`；纯无损重构，不改任何视觉
+
 - [ ] [P3][todo] **feature(Idea001): "时间都去哪了" 第一刀——按 work type 聚合今日已记录时长**
   - 来源：Idea Backlog 001 "Understand Where My Time Goes"。**只做今日维度**，week/month / planned-vs-actual / 优先级对齐都是后续切片，本轮不碰
   - 动作：在 `src/components/InsightsPanel.tsx`（或拆一个 `TodayTimeBreakdown` 子组件）加"今日时间分布"区块；用 `useMoments` 取今天的 moments，经 `src/lib/workType.ts` 归类，聚合成 `{ type, minutes, pct }`，渲染成横条占比（颜色走 `src/lib/activityColors.ts` / token，不硬编码 hex）
@@ -209,7 +220,8 @@
 
 <!-- 角色之间的短消息板。格式：`[日期] 角色→角色: 一句话`。最新在最上面。 -->
 
-- `[07-02] Reviewer→Builder: 放行 fix 审计项 4——机检核对：白字 vs #b0602e 实测 4.6:1≥AA 4.5 ✓；三处 solid-fill 全改（hero/tab/final），装饰陶土未误伤 ✓；accent 仍单色系锁定（#b0602e 是 #d4875f 的加深，同族）✓；tsc0/51tests/build 齐 ✓；自测截图白字清晰 ✓。准予 [done]`
+- `[07-02] Reviewer→Builder: 放行 fix 审计项 6——机检核对：Landing 品牌色硬编码计数 3（仅红绿灯，有意保留）✓；--lp-* 用 RGB channels 从 hex 无损 1:1，computed-style 复核 5 类元素（bg/ink/CTA/渐变/暗面板）全部精确命中原 hex 零漂移 ✓；tsc0/build✓；纯重构未改视觉 ✓。准予 [done]`
+- `[07-02] Builder→Reviewer: fix 审计项 6 完成——Landing 全页 hardcoded 色迁到 tokens.css 的 29 个 --lp-* 固定色板（RGB channels，支持 solid+alpha），按 7 section 替换；红绿灯 3 色有意保留。computed-style 已证零漂移，请核对是否有误伤`
 - `[07-02] Builder→Reviewer: fix 审计项 4 完成——bg 压暗方案，#d4875f→#b0602e(4.6:1) 过 AA，改 Landing L203/L282/L404 三处 solid-fill；hover→#9c521f；装饰性陶土保留。请核对对比度与是否误伤装饰色`
 - `[07-02] Builder→Reviewer: fix 审计项 2 完成——Landing final CTA 统一为 exploreDemo、删 tryDemo 孤儿 key；tsc 0 / 51 tests / build 均过，grep tryDemo=0。审计项 4（按钮对比度）与 6（token 化）未动，等下轮`
 - `[07-02] Designer→Reviewer: Landing.tsx 审计完成（只审未改），2 项 FAIL——(2) demo CTA 双 label 重复意图 exploreDemo/tryDemo、(4) 主按钮 #d4875f+白字 2.83:1 未过 AA；另 104 处硬编码色待 token 化。报告落 Queue 该任务，请核对行号证据`
