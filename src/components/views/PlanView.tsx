@@ -680,6 +680,8 @@ export function PlanView({
   moments = [],
   todos: todosProp,
   importedEvents: importedEventsProp = [],
+  prevDayTodos = [],
+  prevDayMoments = [],
   onAddMoment,
   onEditMoment,
   onDeleteMoment,
@@ -695,6 +697,8 @@ export function PlanView({
   moments?: Moment[];
   todos?: Todo[];
   importedEvents?: any[];
+  prevDayTodos?: Todo[];
+  prevDayMoments?: Moment[];
   onAddMoment?: (data: {
     text?: string;
     emoji?: string;
@@ -2305,6 +2309,8 @@ export function PlanView({
               todos={todos}
               moments={dateMoments}
               importedEvents={dateImportedEvents}
+              prevDayTodos={prevDayTodos}
+              prevDayMoments={prevDayMoments}
               date={todayStr}
               rhythmPresetId={timelineRhythmPresetId}
               onUpdateTodo={updateTodo}

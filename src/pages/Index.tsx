@@ -6,7 +6,7 @@ import { DueNotifications } from '@/components/DueNotifications';
 import { usePlaces } from '@/hooks/usePlaces';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/hooks/useLanguage';
-import { format, isSameDay, parseISO } from 'date-fns';
+import { format, isSameDay, parseISO, subDays } from 'date-fns';
 import { SideNav } from '@/components/SideNav';
 import { TodayView } from '@/components/views/TodayView';
 import { PlanView } from '@/components/views/PlanView';
@@ -22,6 +22,7 @@ import { VoiceInputSheet } from '@/components/VoiceInputSheet';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useMoments } from '@/hooks/useMoments';
 import { useTodos } from '@/hooks/useTodos';
+import { usePrevDayTodos } from '@/hooks/usePrevDayTodos';
 import { useImportedEvents } from '@/hooks/useImportedEvents';
 import { useProfile } from '@/hooks/useProfile';
 import { Moment, TabType, TodayMode } from '@/types';
@@ -143,7 +144,9 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
     getStats,
   } = useMoments();
   const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
+  const prevDateStr = format(subDays(selectedDate, 1), 'yyyy-MM-dd');
   const { todos, updateTodo, addTodo, deleteTodo, refetch: refetchTodos } = useTodos(selectedDateStr);
+  const prevDayTodos = usePrevDayTodos(prevDateStr);
   const { events: importedEvents, updateEvent: updateImportedEvent } = useImportedEvents();
   const { profile } = useProfile();
   const { addDue, dues } = useDues();
@@ -313,6 +316,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
   const todosTotal = todos.length;
   const completedTodos = useMemo(() => todos.filter(t => t.is_completed), [todos]);
   const dateMoments = useMemo(() => getMomentsForDate(selectedDateStr), [getMomentsForDate, selectedDateStr]);
+  const prevDayMoments = useMemo(() => getMomentsForDate(prevDateStr), [getMomentsForDate, prevDateStr]);
 
   // Filter imported events for selected date (compare in local time, not UTC)
   const recordedDates = useMemo(() => new Set<string>(Array.from(dayRecords.keys())), [dayRecords]);
@@ -489,6 +493,8 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
                 date={selectedDateStr}
                 todos={todos}
                 importedEvents={dateImportedEvents}
+                prevDayTodos={prevDayTodos}
+                prevDayMoments={prevDayMoments}
                 onViewDues={openDues}
                 onOpenVoiceSheet={() => setVoiceSheetOpen(true)}
                 voiceSheetOpen={voiceSheetOpen}

@@ -414,7 +414,7 @@ export default function Landing() {
                     onClick={handleDemo}
                   >
                     <PlayCircle />
-                    {t('landing.cta.tryDemo')}
+                    {t('landing.cta.exploreDemo')}
                   </Button>
                 </div>
               </div>

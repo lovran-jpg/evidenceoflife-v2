@@ -6,8 +6,75 @@ import { ImportedEvent } from '@/hooks/useImportedEvents';
 import { PLAN_TIMELINE_WAKE_TOTAL_MIN as WAKE_TOTAL_MIN } from '@/lib/planTimelineDayBounds';
 import { TimeBlock, getTagIcon } from './planTimelinePrimitives';
 
-/** Build the timeline blocks from todos, imported events and moments. Pure. */
+const DAY_MIN = 1440; // 24:00 — end of a calendar day on the timeline axis
+
+/** A session may run past midnight (endMin > 1440 via the +1440 wrap below).
+ *  On the day it started, clamp its end to 00:00 so nothing spills below the
+ *  axis; the remainder is shown as a tail on the next day (see makeTail). */
+function clampToMidnight(b: TimeBlock): TimeBlock {
+  const crosses =
+    b.endMin > DAY_MIN ||
+    (b.planEndMin ?? 0) > DAY_MIN ||
+    (b.actualEndMin ?? 0) > DAY_MIN;
+  if (!crosses) return b;
+  return {
+    ...b,
+    endMin: Math.min(b.endMin, DAY_MIN),
+    planEndMin: b.planEndMin != null ? Math.min(b.planEndMin, DAY_MIN) : undefined,
+    actualEndMin: b.actualEndMin != null ? Math.min(b.actualEndMin, DAY_MIN) : undefined,
+    continuesNextDay: true,
+  };
+}
+
+/** If a previous-day block crosses midnight, return its post-midnight portion
+ *  remapped onto the current day (0 -> end-1440) as a read-only tail block. */
+function makeTail(b: TimeBlock): TimeBlock | null {
+  if (b.endMin <= DAY_MIN) return null; // did not cross midnight
+  const planCrosses = b.planEndMin != null && b.planEndMin > DAY_MIN;
+  const actualCrosses = b.actualEndMin != null && b.actualEndMin > DAY_MIN;
+  return {
+    ...b,
+    id: `tail-${b.id}`,
+    startMin: 0,
+    endMin: Math.max(5, b.endMin - DAY_MIN),
+    planStartMin: planCrosses ? 0 : undefined,
+    planEndMin: planCrosses ? b.planEndMin! - DAY_MIN : undefined,
+    actualStartMin: actualCrosses ? 0 : undefined,
+    actualEndMin: actualCrosses ? b.actualEndMin! - DAY_MIN : undefined,
+    hasActual: actualCrosses ? b.hasActual : false,
+    sessionGroupKey: undefined, // don't connect the tail to same-session gap chrome
+    continuedFromPrevDay: true,
+    readOnly: true,
+  };
+}
+
+/** Build the timeline blocks for a single calendar day. Cross-midnight sessions
+ *  are clamped to 00:00; the previous day's cross-midnight remainder is folded
+ *  in as early-morning tail blocks. Pure. */
 export function buildPlanBlocks(
+  todos: Todo[],
+  importedEvents: ImportedEvent[] | undefined,
+  moments: Moment[],
+  activeTimerIds: Set<string> | undefined,
+  getTimerElapsed: ((todoId: string) => number) | undefined,
+  prevDay?: { todos: Todo[]; moments: Moment[]; importedEvents?: ImportedEvent[] },
+): TimeBlock[] {
+  const dayBlocks = buildRawBlocks(todos, importedEvents, moments, activeTimerIds, getTimerElapsed)
+    .map(clampToMidnight);
+  if (!prevDay) return dayBlocks;
+
+  const prevRaw = buildRawBlocks(prevDay.todos, prevDay.importedEvents, prevDay.moments, activeTimerIds, getTimerElapsed);
+  const tails: TimeBlock[] = [];
+  prevRaw.forEach(b => {
+    const tail = makeTail(b);
+    if (tail) tails.push(tail);
+  });
+  return [...tails, ...dayBlocks];
+}
+
+/** Build raw blocks from a day's records (wall-clock minutes, cross-midnight
+ *  ends carried as +1440). Not day-clamped — see buildPlanBlocks. */
+function buildRawBlocks(
   todos: Todo[],
   importedEvents: ImportedEvent[] | undefined,
   moments: Moment[],
@@ -27,7 +94,9 @@ export function buildPlanBlocks(
         planStartMin = pd.getHours() * 60 + pd.getMinutes();
         if (t.plan_ended_at) {
           const pe = parseISO(t.plan_ended_at);
-          planEndMin = pe.getHours() * 60 + pe.getMinutes();
+          let rawPlanEnd = pe.getHours() * 60 + pe.getMinutes();
+          if (rawPlanEnd <= planStartMin) rawPlanEnd += 1440;
+          planEndMin = rawPlanEnd;
         }
       }
 
@@ -50,7 +119,10 @@ export function buildPlanBlocks(
           endMin = actualStartMin + Math.ceil(liveElapsedSec / 60);
         } else if (t.timer_ended_at) {
           const e = parseISO(t.timer_ended_at);
-          endMin = e.getHours() * 60 + e.getMinutes();
+          let rawEnd = e.getHours() * 60 + e.getMinutes();
+          // Cross-midnight: end wrapped to next day, shift to continuous minutes
+          if (rawEnd <= actualStartMin) rawEnd += 1440;
+          endMin = rawEnd;
         } else if (t.timer_seconds && t.timer_seconds > 0) {
           endMin = actualStartMin + Math.ceil(t.timer_seconds / 60);
         }
@@ -100,7 +172,9 @@ export function buildPlanBlocks(
         planStartMin = pd.getHours() * 60 + pd.getMinutes();
         if (t.plan_ended_at) {
           const pe = parseISO(t.plan_ended_at);
-          planEndMin = pe.getHours() * 60 + pe.getMinutes();
+          let rawPlanEnd = pe.getHours() * 60 + pe.getMinutes();
+          if (rawPlanEnd <= planStartMin) rawPlanEnd += 1440;
+          planEndMin = rawPlanEnd;
         }
       }
 
@@ -133,7 +207,9 @@ export function buildPlanBlocks(
       let endMin = startMin + 5;
       if (t.timer_ended_at) {
         const e = parseISO(t.timer_ended_at);
-        endMin = e.getHours() * 60 + e.getMinutes();
+        let rawEnd = e.getHours() * 60 + e.getMinutes();
+        if (rawEnd <= startMin) rawEnd += 1440;
+        endMin = rawEnd;
       } else if (t.timer_seconds && t.timer_seconds > 0) {
         endMin = startMin + Math.ceil(t.timer_seconds / 60);
       }
@@ -180,7 +256,9 @@ export function buildPlanBlocks(
     let endMin = startMin + 60;
     if (ev.end_time) {
       const e = new Date(ev.end_time);
-      endMin = e.getHours() * 60 + e.getMinutes();
+      let rawEnd = e.getHours() * 60 + e.getMinutes();
+      if (rawEnd <= startMin) rawEnd += 1440;
+      endMin = rawEnd;
     }
     blocks.push({
       id: `imported-${ev.id}`,
@@ -205,7 +283,9 @@ export function buildPlanBlocks(
     let endMin = startMin + 5;
     if (m.timer_ended_at) {
       const e = parseISO(m.timer_ended_at);
-      endMin = e.getHours() * 60 + e.getMinutes();
+      let rawEnd = e.getHours() * 60 + e.getMinutes();
+      if (rawEnd <= startMin) rawEnd += 1440;
+      endMin = rawEnd;
     }
     const sessionGroupKey = m.tags?.find(tag => tag.startsWith('todo-session:'));
     const isFocusSession = !!m.tags?.includes('focus-session');

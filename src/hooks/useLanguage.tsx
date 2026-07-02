@@ -361,7 +361,6 @@ const translations: Record<string, Record<Lang, string>> = {
   'landing.cta.startFree': { zh: '免费开始', en: 'Start free' },
   'landing.cta.createAccount': { zh: '创建免费账号', en: 'Create free account' },
   'landing.cta.exploreDemo': { zh: '体验实时演示', en: 'Explore live demo' },
-  'landing.cta.tryDemo': { zh: '先看看演示', en: 'Try the demo first' },
   'landing.cta.liveDemo': { zh: '实时演示', en: 'Live demo' },
   'landing.hero.note': { zh: '免费开始 · 没有社交动态 · 演示使用示例数据', en: 'Free to start. No social feed. Live demo with sample data.' },
   'landing.demo.caption': { zh: '公开演示 · 示例数据', en: 'Public demo. Sample data.' },

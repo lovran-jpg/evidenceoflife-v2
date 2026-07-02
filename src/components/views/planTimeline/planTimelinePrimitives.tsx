@@ -205,21 +205,21 @@ export function TimelineSpineBranch({
 }
 
 export function hourLabel(h: number): string {
-  return `${String(h).padStart(2, '0')}:00`;
+  const normalizedHour = ((h % 24) + 24) % 24;
+  return `${String(normalizedHour).padStart(2, '0')}:00`;
 }
 
 export function fmtTime(totalMin: number): string {
-  const h = Math.floor(totalMin / 60);
-  const m = totalMin % 60;
+  const normalized = ((totalMin % 1440) + 1440) % 1440;
+  const h = Math.floor(normalized / 60);
+  const m = normalized % 60;
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
 export function localMinuteToISOString(dayStr: string, totalMin: number): string {
-  const hours = Math.floor(totalMin / 60);
-  const minutes = totalMin % 60;
-  return new Date(
-    `${dayStr}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`
-  ).toISOString();
+  const base = new Date(`${dayStr}T00:00:00`);
+  base.setMinutes(totalMin, 0, 0);
+  return base.toISOString();
 }
 
 export function snapMinute(totalMin: number, step = DRAG_SNAP_MIN): number {
@@ -257,6 +257,12 @@ export interface TimeBlock {
   actualEndMin?: number; // set when pomodoro ended
   hasActual?: boolean; // whether actual execution has started
   sessionGroupKey?: string;
+  /** This block's session crosses midnight and continues on the next day. */
+  continuesNextDay?: boolean;
+  /** This block is the early-morning tail of a session that started yesterday. */
+  continuedFromPrevDay?: boolean;
+  /** Read-only (e.g. a previous-day tail) — no drag / resize / edit. */
+  readOnly?: boolean;
 }
 
 /* Tag color palette — fixed category colors for clear differentiation */

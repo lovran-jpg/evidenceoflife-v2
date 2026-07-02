@@ -10,11 +10,12 @@ import { useWorkTypes } from '@/hooks/useWorkTypes';
 import { WORK_TYPE_META } from '@/lib/workType';
 import { getActivityAccentColor } from '@/lib/activityColors';
 import {
-  PLAN_TIMELINE_WAKE_HOUR as WAKE_HOUR,
+  PLAN_TIMELINE_AXIS_START_HOUR as WAKE_HOUR,
   PLAN_TIMELINE_BEDTIME_HOUR as BEDTIME_HOUR,
   PLAN_TIMELINE_BEDTIME_MINUTE as BEDTIME_MINUTE,
-  PLAN_TIMELINE_WAKE_TOTAL_MIN as WAKE_TOTAL_MIN,
-  PLAN_TIMELINE_BED_TOTAL_MIN as BED_TOTAL_MIN,
+  PLAN_TIMELINE_AXIS_START_MIN as WAKE_TOTAL_MIN,
+  PLAN_TIMELINE_END_TOTAL_MIN as END_TOTAL_MIN,
+  PLAN_TIMELINE_END_HOUR_CONTINUOUS as END_HOUR_CONTINUOUS,
 } from '@/lib/planTimelineDayBounds';
 import {
   DEFAULT_PLAN_TIMELINE_RHYTHM_PRESET_ID,
@@ -65,6 +66,11 @@ interface PlanTimelineViewProps {
   todos: Todo[];
   moments: Moment[];
   importedEvents?: ImportedEvent[];
+  /** Previous day's todos — used only to render early-morning tails of sessions
+   *  that crossed midnight. Read-only. */
+  prevDayTodos?: Todo[];
+  /** Previous day's moments — same purpose as prevDayTodos. */
+  prevDayMoments?: Moment[];
   date?: string; // yyyy-MM-dd, used to determine if viewing today or a past/future day
   onUpdateTodo: (id: string, updates: Partial<Todo>) => void;
   onAddTodo: (title: string, timeSegment: string) => Promise<any>;
@@ -83,7 +89,7 @@ interface PlanTimelineViewProps {
   rhythmPresetId?: string;
 }
 
-export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdateTodo, onAddTodo, onDropTodo, onUnscheduleTodo, onDeleteTodo, onRenameTodo, onStartTimer, onUpdateMoment, onDeleteMoment, activeTimerIds, getTimerElapsed, rhythmPresetId }: PlanTimelineViewProps) {
+export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos, prevDayMoments, date, onUpdateTodo, onAddTodo, onDropTodo, onUnscheduleTodo, onDeleteTodo, onRenameTodo, onStartTimer, onUpdateMoment, onDeleteMoment, activeTimerIds, getTimerElapsed, rhythmPresetId }: PlanTimelineViewProps) {
   const { t, lang } = useLanguage();
   const { getWorkType } = useWorkTypes();
   const tOr = useCallback((key: string, fallback: string) => {
@@ -153,7 +159,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
   const justDraggedRef = useRef(false);
   // For past/future days, treat the entire day as "past" (nowMin = end of day)
   const [nowMin, setNowMin] = useState(() => {
-    if (!isViewingToday) return BED_TOTAL_MIN;
+    if (!isViewingToday) return END_TOTAL_MIN;
     const n = new Date();
     return n.getHours() * 60 + n.getMinutes();
   });
@@ -238,7 +244,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
 
   useEffect(() => {
     if (!isViewingToday) {
-      setNowMin(BED_TOTAL_MIN);
+      setNowMin(END_TOTAL_MIN);
       return;
     }
     const timer = setInterval(() => {
@@ -250,8 +256,13 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
   }, [isViewingToday]);
 
   const planBlocks = useMemo<TimeBlock[]>(
-    () => buildPlanBlocks(todos, importedEvents, moments, activeTimerIds, getTimerElapsed),
-    [todos, importedEvents, moments, activeTimerIds, getTimerElapsed],
+    () => buildPlanBlocks(
+      todos, importedEvents, moments, activeTimerIds, getTimerElapsed,
+      (prevDayTodos?.length || prevDayMoments?.length)
+        ? { todos: prevDayTodos ?? [], moments: prevDayMoments ?? [] }
+        : undefined,
+    ),
+    [todos, importedEvents, moments, activeTimerIds, getTimerElapsed, prevDayTodos, prevDayMoments],
   );
 
   const positioned = useMemo(() => assignColumns(planBlocks), [planBlocks]);
@@ -265,10 +276,11 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
     : null;
 
   const hours: number[] = [];
-  for (let h = WAKE_HOUR; h <= BEDTIME_HOUR; h++) hours.push(h);
+  // Extend axis to 04:00 next day (continuous hour 28) for night-owls
+  for (let h = WAKE_HOUR; h <= END_HOUR_CONTINUOUS; h++) hours.push(h);
 
   const minToY = useCallback((minute: number) => {
-    const m = Math.max(WAKE_TOTAL_MIN, Math.min(minute, BED_TOTAL_MIN));
+    const m = Math.max(WAKE_TOTAL_MIN, Math.min(minute, END_TOTAL_MIN));
     return (m - WAKE_TOTAL_MIN) * PX_PER_MIN;
   }, []);
 
@@ -276,7 +288,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
     return Math.round(WAKE_TOTAL_MIN + y / PX_PER_MIN);
   }, []);
 
-  const totalHeight = minToY(BED_TOTAL_MIN);
+  const totalHeight = minToY(END_TOTAL_MIN);
 
   const sessionContinuationMap = useMemo(() => {
     const grouped = new Map<string, Array<{
@@ -320,9 +332,9 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
 
   const allSlots = useMemo(() => {
     const slots: { key: SlotKey; h: number; half: 0 | 30; startMin: number; endMin: number }[] = [];
-    for (let h = WAKE_HOUR; h <= BEDTIME_HOUR; h++) {
+    for (let h = WAKE_HOUR; h <= END_HOUR_CONTINUOUS; h++) {
       slots.push({ key: slotKey(h, 0), h, half: 0, startMin: h * 60, endMin: h * 60 + 30 });
-      if (h < BEDTIME_HOUR || BEDTIME_MINUTE >= 30) {
+      if (h < END_HOUR_CONTINUOUS) {
         slots.push({ key: slotKey(h, 30), h, half: 30, startMin: h * 60 + 30, endMin: h * 60 + 60 });
       }
     }
@@ -362,8 +374,8 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
   }, [!!selectedRange]);
 
   const clampSelectionRange = useCallback((start: number, end: number) => {
-    const safeStart = Math.max(WAKE_TOTAL_MIN, Math.min(start, BED_TOTAL_MIN - 10));
-    const safeEnd = Math.max(safeStart + 10, Math.min(end, BED_TOTAL_MIN));
+    const safeStart = Math.max(WAKE_TOTAL_MIN, Math.min(start, END_TOTAL_MIN - 10));
+    const safeEnd = Math.max(safeStart + 10, Math.min(end, END_TOTAL_MIN));
     return { startMin: safeStart, endMin: safeEnd };
   }, []);
 
@@ -458,8 +470,8 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
       const delta = currentMin - dragging.startMin;
       newStart = Math.max(WAKE_TOTAL_MIN, dragging.origStart + delta);
       newEnd = newStart + (dragging.origEnd - dragging.origStart);
-      if (newEnd > BED_TOTAL_MIN) {
-        newEnd = BED_TOTAL_MIN;
+      if (newEnd > END_TOTAL_MIN) {
+        newEnd = END_TOTAL_MIN;
         newStart = newEnd - (dragging.origEnd - dragging.origStart);
       }
     } else if (dragging.edge === 'top') {
@@ -467,7 +479,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
       newStart = Math.max(WAKE_TOTAL_MIN, Math.min(snapMinute(dragging.origStart + deltaMin), dragging.origEnd - MIN_BLOCK_MIN));
     } else {
       const deltaMin = (clientY - dragging.startY) / PX_PER_MIN;
-      newEnd = Math.max(dragging.origStart + MIN_BLOCK_MIN, Math.min(snapMinute(dragging.origEnd + deltaMin), BED_TOTAL_MIN));
+      newEnd = Math.max(dragging.origStart + MIN_BLOCK_MIN, Math.min(snapMinute(dragging.origEnd + deltaMin), END_TOTAL_MIN));
     }
 
     setDragPreview({
@@ -561,8 +573,8 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
     const parsedStart = parseHHMM(startInput);
     const parsedEnd = parseHHMM(endInput);
     if (parsedStart == null || parsedEnd == null) return;
-    const clampedStart = Math.max(WAKE_TOTAL_MIN, Math.min(parsedStart, BED_TOTAL_MIN - 10));
-    const clampedEnd = Math.max(clampedStart + 10, Math.min(parsedEnd, BED_TOTAL_MIN));
+    const clampedStart = Math.max(WAKE_TOTAL_MIN, Math.min(parsedStart, END_TOTAL_MIN - 10));
+    const clampedEnd = Math.max(clampedStart + 10, Math.min(parsedEnd, END_TOTAL_MIN));
     setCustomRange({ startMin: clampedStart, endMin: clampedEnd });
     const nextSlots = new Set<SlotKey>();
     allSlots.forEach(slot => {
@@ -643,7 +655,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
     if (edgeDragging === 'top') {
       newStartMin = Math.max(WAKE_TOTAL_MIN, Math.min(snapMinute(currentMin), base.endMin - MIN_BLOCK_MIN));
     } else {
-      newEndMin = Math.min(BED_TOTAL_MIN, Math.max(snapMinute(currentMin), base.startMin + MIN_BLOCK_MIN));
+      newEndMin = Math.min(END_TOTAL_MIN, Math.max(snapMinute(currentMin), base.startMin + MIN_BLOCK_MIN));
     }
     setCustomRange({ startMin: newStartMin, endMin: newEndMin });
     const nextSlots = new Set<SlotKey>();
@@ -738,7 +750,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
       const duration = getSmartDuration(todo?.title || '', todo?.tags);
       const min = clientYToMin(e.clientY);
       const snapped = snapMinute(min);
-      const clamped = Math.max(WAKE_TOTAL_MIN, Math.min(snapped, BED_TOTAL_MIN - duration));
+      const clamped = Math.max(WAKE_TOTAL_MIN, Math.min(snapped, END_TOTAL_MIN - duration));
       // Past slots (before now) → log as done; future slots → schedule as plan
       const logAsDone = displayMode === 'actual' || clamped < nowMin;
       if (logAsDone) {
@@ -854,7 +866,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
       (blockTodoForTimer.progress ?? 0) < 100
     );
     const editTarget = getBlockEditTarget(block, displayMode, !!isTimerActive);
-    const isEditable = !isImported && (isMoment ? !!onUpdateMoment : !!editTarget);
+    const isEditable = !isImported && !block.readOnly && (isMoment ? !!onUpdateMoment : !!editTarget);
     const isEditingThis = editingBlockId === block.id;
     const showLiveBadge = isTimerActive && !block.isCompleted;
     const tagIcon = getTagIcon(block.tags, block.title);
@@ -988,17 +1000,17 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
     else if (displayMode === 'both' && editTarget === 'actual' && !hasPlan) { visibleStart = actualStart; visibleEnd = actualEnd; }
 
     const clampedStart = Math.max(visibleStart, WAKE_TOTAL_MIN);
-    const clampedEnd = Math.min(visibleEnd, BED_TOTAL_MIN);
+    const clampedEnd = Math.min(visibleEnd, END_TOTAL_MIN);
     const rawTop = minToY(clampedStart);
     const rawHeight = Math.max(minToY(clampedEnd) - rawTop, 1);
     /** Keep plan/actual strip heights close to timeline scale (~20m ≈ px) instead of forcing 20px+ */
     const MIN_PLAN_ACT_BOX_PX = 12;
     const planSegH = Math.max(
-      minToY(Math.min(planEnd, BED_TOTAL_MIN)) - minToY(Math.max(planStart, WAKE_TOTAL_MIN)),
+      minToY(Math.min(planEnd, END_TOTAL_MIN)) - minToY(Math.max(planStart, WAKE_TOTAL_MIN)),
       MIN_PLAN_ACT_BOX_PX,
     );
     const actSegH = Math.max(
-      minToY(Math.min(actualEnd, BED_TOTAL_MIN)) - minToY(Math.max(actualStart, WAKE_TOTAL_MIN)),
+      minToY(Math.min(actualEnd, END_TOTAL_MIN)) - minToY(Math.max(actualStart, WAKE_TOTAL_MIN)),
       MIN_PLAN_ACT_BOX_PX,
     );
     /** Todo outer shell was min 40px + thick handles; keep short tasks closer to true timeline height */
@@ -1109,7 +1121,8 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
           title={hideTitleTooNarrow ? block.title : undefined}
           className={cn(
             "absolute overflow-hidden transition-shadow group/block",
-            block.photos?.length ? "cursor-zoom-in" : "cursor-default"
+            block.photos?.length ? "cursor-zoom-in" : "cursor-default",
+            block.continuedFromPrevDay && "opacity-80"
           )}
           onClick={(e) => {
             if (!block.photos?.length) return;
@@ -1213,6 +1226,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
         className={cn(
           "absolute overflow-visible transition-shadow group/block",
           isEditable ? "cursor-grab" : "cursor-default",
+          block.continuedFromPrevDay && "opacity-80",
           isDraggingThis && !dragOutside && "shadow-lg ring-2 ring-primary/40 z-30 opacity-60",
           isDraggingThis && dragOutside && "shadow-lg ring-2 ring-destructive/40 z-30 opacity-30 scale-95 transition-transform",
           isEditingThis && "z-30",
@@ -2093,6 +2107,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
         >
           {hours.map(h => {
             const top = minToY(h * 60);
+            const isMidnight = h === 24; // continuous hour 24 = 00:00 next day
             return (
               <div
                 key={h}
@@ -2100,8 +2115,14 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
                 style={{ top }}
               >
                 <span
-                  className="font-sans text-[12px] font-medium tabular-nums leading-none tracking-tight"
-                  style={{ color: timelineRailLabelColor }}
+                  className="font-sans tabular-nums leading-none tracking-tight"
+                  style={{
+                    fontSize: isMidnight ? '10px' : '12px',
+                    fontWeight: isMidnight ? 600 : 500,
+                    color: isMidnight
+                      ? isDarkMode ? 'hsl(214 60% 68% / 0.55)' : 'hsl(214 50% 48% / 0.55)'
+                      : timelineRailLabelColor,
+                  }}
                 >
                   {hourLabel(h)}
                 </span>
@@ -2141,7 +2162,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
             <div
               className="absolute left-0 right-0 top-0 pointer-events-none"
               style={{
-                height: minToY(Math.min(nowPreciseMin, BED_TOTAL_MIN)),
+                height: minToY(Math.min(nowPreciseMin, END_TOTAL_MIN)),
                 ...(timelinePastTint
                   ? { backgroundColor: timelinePastTint }
                   : { backgroundColor: 'hsl(var(--muted) / 0.16)' }),
@@ -2157,7 +2178,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
           {positioned.map(({ block, col }) => {
             if (col !== 0) return null;
             const startMinForBranch = block.actualStartMin ?? block.startMin;
-            const blockTop = minToY(Math.max(WAKE_TOTAL_MIN, Math.min(BED_TOTAL_MIN, startMinForBranch)));
+            const blockTop = minToY(Math.max(WAKE_TOTAL_MIN, Math.min(END_TOTAL_MIN, startMinForBranch)));
             const tagColor = getThemedTagColor(block.tags, block.title);
             const accentColor =
               tagColor
@@ -2181,6 +2202,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
           {allSlots.map(slot => {
             const top = minToY(slot.startMin);
             const isTopHalf = slot.half === 0;
+            const isMidnightHour = slot.startMin === 24 * 60; // 00:00 divider
             return (
               <div
                 key={`slot-${slot.key}`}
@@ -2188,9 +2210,11 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
                 style={{
                   top,
                   height: minToY(slot.endMin) - minToY(slot.startMin),
-                  borderTopWidth: 1,
-                  borderTopStyle: isTopHalf ? 'solid' : 'dashed',
-                  borderTopColor: isTopHalf ? timelineHourLineColor : timelineHalfHourLineColor,
+                  borderTopWidth: isMidnightHour ? 2 : 1,
+                  borderTopStyle: isMidnightHour ? 'solid' : (isTopHalf ? 'solid' : 'dashed'),
+                  borderTopColor: isMidnightHour
+                    ? isDarkMode ? 'hsl(214 60% 68% / 0.28)' : 'hsl(214 50% 48% / 0.22)'
+                    : (isTopHalf ? timelineHourLineColor : timelineHalfHourLineColor),
                 }}
               />
             );
@@ -2211,7 +2235,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
               return isPastDrop ? `rgba(75, 148, 120, ${alpha})` : `hsl(var(--primary) / ${alpha})`;
             };
             const previewDashColor = previewColorWithAlpha(isPastDrop ? 0.42 : 0.55);
-            const previewHeight = Math.max(minToY(Math.min(dropIndicatorMin + previewDur, BED_TOTAL_MIN)) - minToY(dropIndicatorMin), 28);
+            const previewHeight = Math.max(minToY(Math.min(dropIndicatorMin + previewDur, END_TOTAL_MIN)) - minToY(dropIndicatorMin), 28);
             const previewCompact = previewHeight < 46;
             return (
               <div
@@ -2238,7 +2262,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
                   </span>
                   {!previewCompact && (
                     <span className="flex-shrink-0 font-mono text-[10.5px] leading-none text-muted-foreground/55">
-                      {fmtTime(dropIndicatorMin)} → {fmtTime(Math.min(dropIndicatorMin + previewDur, BED_TOTAL_MIN))}
+                      {fmtTime(dropIndicatorMin)} → {fmtTime(Math.min(dropIndicatorMin + previewDur, END_TOTAL_MIN))}
                     </span>
                   )}
                   <span
@@ -2464,7 +2488,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
           {planBlocks.length === 0 && !selectedRange && (
             <div
               className="absolute left-0 right-0 z-[3] pointer-events-none flex items-center justify-center"
-              style={{ top: minToY(Math.max(WAKE_TOTAL_MIN + 90, Math.min(nowMin, BED_TOTAL_MIN - 120))) }}
+              style={{ top: minToY(Math.max(WAKE_TOTAL_MIN + 90, Math.min(nowMin, END_TOTAL_MIN - 120))) }}
             >
               <div className="w-[min(360px,calc(100%-32px))] rounded-2xl border border-dashed border-border/45 bg-[hsl(var(--surface-contrast)/0.8)] px-4 py-4 text-center shadow-[0_12px_30px_hsl(var(--foreground)/0.04)] backdrop-blur-sm">
                 <p className="text-[15px] font-semibold text-foreground/90">
@@ -2508,14 +2532,18 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
             }
             if (sortedPlanBlocks.length > 0) {
               const lastEnd = sortedPlanBlocks[sortedPlanBlocks.length - 1].endMin;
-              if (BED_TOTAL_MIN - lastEnd >= 30) gaps.push({ startMin: lastEnd, endMin: BED_TOTAL_MIN });
+              if (END_TOTAL_MIN - lastEnd >= 30) gaps.push({ startMin: lastEnd, endMin: END_TOTAL_MIN });
             }
             const elems: React.ReactNode[] = [];
             gaps.forEach((gap, i) => {
-              const isTrailingGap = gap.endMin === BED_TOTAL_MIN;
+              const isTrailingGap = gap.endMin === END_TOTAL_MIN;
               const gapPx = minToY(gap.endMin) - minToY(gap.startMin);
               if (gapPx < MIN_PX) return;
               if (isTrailingGap) return;
+              // On today, the "· left today" pill already labels the free stretch the
+              // now-line sits in — skip this gap's pill so the same duration isn't
+              // shown twice (avoids the duplicated remaining/gap time).
+              if (isViewingToday && nowMin >= gap.startMin && nowMin < gap.endMin) return;
               const centerY = (minToY(gap.startMin) + minToY(gap.endMin)) / 2;
               const diffMin = gap.endMin - gap.startMin;
               const useFullPill = diffMin >= FULL_PILL_MIN_MINUTES;
@@ -2536,7 +2564,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
           })()}
 
           {/* Current time indicator — NOW (only show on today) */}
-          {isViewingToday && nowMin >= WAKE_TOTAL_MIN && nowMin <= BED_TOTAL_MIN && (
+          {isViewingToday && nowMin >= WAKE_TOTAL_MIN && nowMin <= END_TOTAL_MIN && (
             <>
               {/* Past wash — a soft neutral tint over time that has already
                   elapsed. The future canvas stays clean white so it reads as
@@ -2598,18 +2626,18 @@ export function PlanTimelineView({ todos, moments, importedEvents, date, onUpdat
           )}
 
           {/* Today remaining — always tuck *below* the precise now line (not last block end alone, which can land on the line) */}
-          {isViewingToday && nowMin < BED_TOTAL_MIN - 5 && (() => {
+          {isViewingToday && nowMin < END_TOTAL_MIN - 5 && (() => {
             const GAP_AFTER_BLOCK_PX = 22;
             /** Clear the 1px now line + blur so the pill sits clearly in "future" */
             const CLEAR_BELOW_NOW_PX = 14;
             const bedMin = BEDTIME_HOUR * 60 + BEDTIME_MINUTE;
             const remainingMin = Math.max(0, bedMin - nowMin);
             const remainingFullPill = remainingMin >= 45;
-            const afterLastBlockY =
-              lastScheduledEndMin != null ? minToY(lastScheduledEndMin) + GAP_AFTER_BLOCK_PX : 0;
             const belowNowY = minToY(nowPreciseMin) + CLEAR_BELOW_NOW_PX;
-            const anchorY = Math.max(afterLastBlockY, belowNowY);
-            const maxTopBeforeBed = Math.max(0, minToY(BED_TOTAL_MIN) - 48);
+            // Anchor only to the live now-line. Following the last scheduled block
+            // can push this pill onto unrelated tasks near 23:00/00:00.
+            const anchorY = belowNowY;
+            const maxTopBeforeBed = Math.max(0, minToY(END_TOTAL_MIN) - 48);
             const topPx = Math.min(Math.max(GAP_AFTER_BLOCK_PX + minToY(WAKE_TOTAL_MIN), anchorY), maxTopBeforeBed);
             return (
               <div
