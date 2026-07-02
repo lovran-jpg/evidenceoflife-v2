@@ -75,12 +75,12 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
   const timeStr = formatDuration(due.totalSeconds);
   const parsedDueDate = hasDeadline ? parseISO(due.due_date!) : null;
 
-  // Color theming: deadline = warm terracotta sibling of --primary, habit = muted sage.
-  // Kept as hex constants because they flow through inline `style` rules below;
-  // values are tuned to match the --deadline and --habit CSS tokens in index.css.
+  // Color theming: deadline follows the user's Settings accent color (--primary,
+  // which useAccentColor overrides on <html> for both light and dark). Habit
+  // keeps its own muted sage so the two categories stay visually distinct.
+  // Kept as strings because they flow through inline `style` rules below.
   const isHabit = due.habit_category !== null;
-  const accentColor = !isHabit ? '#dc7a4d' : '#5fa48d';
-  const accentBorder = !isHabit ? 'rgba(220,122,77,0.25)' : 'rgba(95,164,141,0.25)';
+  const accentColor = !isHabit ? 'hsl(var(--primary))' : '#5fa48d';
   const trackedLinkCountTotal = (due.links || []).reduce((sum, link) => sum + (link.count || 0), 0);
   const hasPerLinkCounts = isHabit && (due.links || []).length > 0;
   const displayedHabitCount = optimisticHabitCount ?? (hasPerLinkCounts ? trackedLinkCountTotal : due.totalCount);
@@ -222,18 +222,17 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
     <div id={`due-card-${due.id}`} tabIndex={0} onPaste={handleCardPaste} className={cn(
       bare
         ? "group relative bg-transparent p-0 pt-1"
-        : "bg-card rounded-2xl p-4 group relative transition-shadow hover:shadow-[0_8px_28px_-14px_rgba(0,0,0,0.18)]",
+        : "bg-card rounded-xl p-4 group relative overflow-hidden transition-shadow hover:shadow-[0_8px_28px_-14px_rgba(0,0,0,0.20)]",
       due.is_completed && "opacity-55"
     )} style={bare ? undefined : {
-      boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-      border: `1px solid ${timeLeft?.overdue ? 'hsl(var(--destructive) / 0.22)' : accentBorder}`,
+      boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+      border: '1px solid hsl(var(--border) / 0.6)',
     }}>
       <input ref={photoInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoUpload} />
       
 
-      {/* Type indicator dot + Title */}
+      {/* Title */}
       <div className="flex items-start gap-2.5">
-        <div className="mt-[7px] h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: accentColor }} />
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
@@ -247,9 +246,9 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
                 }
                 if (e.key === 'Escape') { setEditTitle(due.title); setIsEditingTitle(false); }
               }}
-              className="text-[14px] font-semibold w-full bg-transparent border-b focus:outline-none" style={{ borderColor: accentColor }} autoFocus />
+              className="text-[15px] font-semibold w-full bg-transparent border-b focus:outline-none" style={{ borderColor: accentColor }} autoFocus />
           ) : (
-            <h3 className={cn("text-[14px] font-semibold text-foreground cursor-pointer line-clamp-2 leading-snug hover:opacity-70 transition-opacity", due.is_completed && "line-through")}
+            <h3 className={cn("text-[15px] font-semibold text-foreground cursor-pointer line-clamp-2 leading-snug hover:opacity-70 transition-opacity", due.is_completed && "line-through")}
               onClick={() => { setEditTitle(due.title); setIsEditingTitle(true); }}>
               {due.title}
             </h3>
@@ -286,7 +285,9 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
                 {timeLeft && (
                   <span className={cn(
                     "font-medium leading-none",
-                    timeLeft.overdue ? "text-destructive" : "text-muted-foreground/80"
+                    timeLeft.overdue
+                      ? "rounded-full bg-destructive/15 px-2 py-0.5 text-destructive"
+                      : "text-muted-foreground/80"
                   )}>
                     {timeLeft.text}
                   </span>
