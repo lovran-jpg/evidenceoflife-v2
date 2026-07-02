@@ -200,7 +200,7 @@ export default function Landing() {
             <div className="mt-9 flex w-full flex-col items-center justify-center gap-3 sm:flex-row">
               <Button
                 size="lg"
-                className="group h-12 w-full rounded-full bg-[#d4875f] px-7 text-base text-white shadow-[0_16px_32px_-14px_rgba(212,135,95,0.95)] transition-transform hover:bg-[#c9784e] active:scale-[0.985] sm:w-auto"
+                className="group h-12 w-full rounded-full bg-[#b0602e] px-7 text-base text-white shadow-[0_16px_32px_-14px_rgba(176,96,46,0.9)] transition-transform hover:bg-[#9c521f] active:scale-[0.985] sm:w-auto"
                 onClick={handleStart}
               >
                 {t('landing.cta.createAccount')}
@@ -279,7 +279,7 @@ export default function Landing() {
                     className={cn(
                       'relative overflow-hidden rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4875f]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f8f1e8]',
                       isActive
-                        ? 'bg-[#d4875f] text-white shadow-[0_10px_22px_-12px_rgba(212,135,95,0.9)]'
+                        ? 'bg-[#b0602e] text-white shadow-[0_10px_22px_-12px_rgba(176,96,46,0.9)]'
                         : 'border border-[rgba(124,82,56,0.14)] bg-white/70 text-[#7b675a] hover:bg-white hover:text-[#5d493d]',
                     )}
                   >
@@ -401,7 +401,7 @@ export default function Landing() {
                 <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
                   <Button
                     size="lg"
-                    className="group h-12 w-full rounded-full bg-[#d4875f] px-7 text-base text-white shadow-[0_16px_32px_-14px_rgba(212,135,95,0.95)] hover:bg-[#c9784e] active:scale-[0.985] sm:w-auto"
+                    className="group h-12 w-full rounded-full bg-[#b0602e] px-7 text-base text-white shadow-[0_16px_32px_-14px_rgba(176,96,46,0.9)] hover:bg-[#9c521f] active:scale-[0.985] sm:w-auto"
                     onClick={handleStart}
                   >
                     {t('landing.cta.createAccount')}

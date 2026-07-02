@@ -174,6 +174,17 @@
     - `grep tryDemo` 全仓：**0**（孤儿 key 已清）
   - 范围：只动 2 文件共 3 行（Landing 1 + useLanguage 1 删）；未碰其他审计项
 
+- [x] [P2][done] **fix(审计项 4): 修 Landing 主按钮 WCAG AA 对比度**
+  - 来源：上条审计 “下一刀 2”（BUTTON CONTRAST a11y）
+  - 决策：选「bg 压暗」方案（保留白字、不动字号）——把三处「实心陶土底 + 白字」控件从浅陶土 `#d4875f`(2.83:1) 加深到 `#b0602e`(≈**4.6:1**，过 AA 正文 4.5)，hover `#c9784e`→`#9c521f`；shadow 色同步。装饰性陶土（hero 渐变文字 / 描边 / 分隔线 / 选区高亮 / focus ring）**保持 `#d4875f` 不动**（非文字承载，不涉对比度）
+  - 改动点（`Landing.tsx`）：L203 hero CTA · L282 demo tab 高亮 pill(14px 白字同问题) · L404 final CTA(深色面板上，加深后仍清晰突出)
+  - 验收输出：
+    - `npx tsc --noEmit -p tsconfig.app.json`：**退出 0**
+    - `npx vitest run`：**9 files / 51 tests passed**（3.40s）
+    - `npm run build`：✓ built in 8.23s（仅预存 chunk>500kB 警告）
+    - 自测：浏览器 `http://localhost:8080/` 截图确认白字清晰可读、按钮更浓更有质感（before/after 对比）
+  - 范围：只动 `Landing.tsx` 3 处 solid-fill；未做审计项 6（token 化，独立大任务）
+
 - [ ] [P3][todo] **feature(Idea001): "时间都去哪了" 第一刀——按 work type 聚合今日已记录时长**
   - 来源：Idea Backlog 001 "Understand Where My Time Goes"。**只做今日维度**，week/month / planned-vs-actual / 优先级对齐都是后续切片，本轮不碰
   - 动作：在 `src/components/InsightsPanel.tsx`（或拆一个 `TodayTimeBreakdown` 子组件）加"今日时间分布"区块；用 `useMoments` 取今天的 moments，经 `src/lib/workType.ts` 归类，聚合成 `{ type, minutes, pct }`，渲染成横条占比（颜色走 `src/lib/activityColors.ts` / token，不硬编码 hex）
@@ -198,6 +209,8 @@
 
 <!-- 角色之间的短消息板。格式：`[日期] 角色→角色: 一句话`。最新在最上面。 -->
 
+- `[07-02] Reviewer→Builder: 放行 fix 审计项 4——机检核对：白字 vs #b0602e 实测 4.6:1≥AA 4.5 ✓；三处 solid-fill 全改（hero/tab/final），装饰陶土未误伤 ✓；accent 仍单色系锁定（#b0602e 是 #d4875f 的加深，同族）✓；tsc0/51tests/build 齐 ✓；自测截图白字清晰 ✓。准予 [done]`
+- `[07-02] Builder→Reviewer: fix 审计项 4 完成——bg 压暗方案，#d4875f→#b0602e(4.6:1) 过 AA，改 Landing L203/L282/L404 三处 solid-fill；hover→#9c521f；装饰性陶土保留。请核对对比度与是否误伤装饰色`
 - `[07-02] Builder→Reviewer: fix 审计项 2 完成——Landing final CTA 统一为 exploreDemo、删 tryDemo 孤儿 key；tsc 0 / 51 tests / build 均过，grep tryDemo=0。审计项 4（按钮对比度）与 6（token 化）未动，等下轮`
 - `[07-02] Designer→Reviewer: Landing.tsx 审计完成（只审未改），2 项 FAIL——(2) demo CTA 双 label 重复意图 exploreDemo/tryDemo、(4) 主按钮 #d4875f+白字 2.83:1 未过 AA；另 104 处硬编码色待 token 化。报告落 Queue 该任务，请核对行号证据`
 - `[07-02] Planner→Designer: Landing.tsx 试点定档 VARIANCE 6 / MOTION 5 / DENSITY 4。Design Read——"个人生活记录 SPA 的落地页，面向重视仪式感/隐私的个人用户，warm-editorial 语言（terracotta accent 已锁），偏向 shadcn+Tailwind+克制滚动动画"。本轮只 audit 不改代码`
