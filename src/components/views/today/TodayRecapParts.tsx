@@ -449,7 +449,7 @@ export function ImportedEventTimeEditor({ event, onUpdate }: { event: ImportedEv
 }
 
 /* ── Life Replay: AI-generated daily narrative ── */
-export function LifeReplay({ items, lang, dateKey }: { items: { type: string; time: Date; endTime?: Date; data: any }[]; lang: string; dateKey: string }) {
+export function LifeReplay({ items, lang, dateKey }: { items: { type: string; time: Date; endTime?: Date; isPlanOutline?: boolean; data: { title?: string; text?: string | null; emoji?: string | null } }[]; lang: string; dateKey: string }) {
   const { t } = useLanguage();
   const [story, setStory] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -468,12 +468,12 @@ export function LifeReplay({ items, lang, dateKey }: { items: { type: string; ti
   }, [dateKey]);
 
   const events = useMemo(() => {
-    return items.filter(i => !(i as any).isPlanOutline).map(item => {
+    return items.filter(i => !i.isPlanOutline).map(item => {
       const title = item.type === 'todo'
         ? item.data.title
         : item.type === 'imported'
           ? item.data.title
-        : (parseSubtitleDetail(item.data.text).subtitle || item.data.emoji || 'Moment');
+        : (parseSubtitleDetail(item.data.text ?? '').subtitle || item.data.emoji || 'Moment');
       const timeStr = format(item.time, 'HH:mm');
       let duration: string | undefined;
       if (item.endTime) {

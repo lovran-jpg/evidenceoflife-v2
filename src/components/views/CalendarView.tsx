@@ -147,7 +147,7 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
         return;
       }
 
-      const filtered = (data as any[]).filter(t => !(t.due_date && !t.parent_due_id)) as Todo[];
+      const filtered = data.filter(t => !(t.due_date && !t.parent_due_id)) as Todo[];
       setRangeTodos(filtered);
     };
 

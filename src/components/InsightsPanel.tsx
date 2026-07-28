@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Moment } from '@/types';
 import { Todo } from '@/hooks/useTodos';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/hooks/useLanguage';
 import { autoClassifyTag, TAG_CATEGORY_COLORS, TAG_CATEGORY_ICONS } from '@/lib/autoTag';
@@ -66,7 +67,7 @@ export function InsightsPanel({ moments, allMoments }: { moments: Moment[]; allM
   const { user } = useAuth();
   const { lang } = useLanguage();
   const { getWorkType } = useWorkTypes();
-  const [recentTodos, setRecentTodos] = useState<any[]>([]);
+  const [recentTodos, setRecentTodos] = useState<Database['public']['Tables']['todos']['Row'][]>([]);
   const [aiInsight, setAiInsight] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
 

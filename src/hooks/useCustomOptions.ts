@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import type { Json } from '@/integrations/supabase/types';
 
 const DEFAULT_PLAN_TAGS = [
   { key: 'ptag.gym', label: 'Gym' },
@@ -170,7 +171,7 @@ export function useCustomOptions() {
           lastSavedRef.current = JSON.stringify(local);
 
           const nextSettings = { ...settings, customOptions: local };
-          await supabase.from('profiles').update({ settings: nextSettings } as any).eq('user_id', user.id);
+          await supabase.from('profiles').update({ settings: nextSettings as unknown as Json }).eq('user_id', user.id);
           setProfileSettings(nextSettings);
           return;
         }
@@ -201,7 +202,7 @@ export function useCustomOptions() {
 
     const persist = async () => {
       const nextSettings = { ...profileSettings, customOptions: data };
-      const { error } = await supabase.from('profiles').update({ settings: nextSettings } as any).eq('user_id', user.id);
+      const { error } = await supabase.from('profiles').update({ settings: nextSettings as unknown as Json }).eq('user_id', user.id);
       if (!error) setProfileSettings(nextSettings);
     };
     void persist();

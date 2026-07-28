@@ -943,7 +943,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
         onTaskMove={async (taskId: string, newDate: string) => {
           const todo = allTodos?.find(t => t.id === taskId);
           if (!todo) {
-            await onUpdateTodo?.(taskId, { date: newDate } as any);
+            await onUpdateTodo?.(taskId, { date: newDate });
             return;
           }
 
@@ -953,7 +953,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
             plan_ended_at: moveIsoToDateKeepingLocalTime(todo.plan_ended_at, newDate),
             timer_started_at: moveIsoToDateKeepingLocalTime(todo.timer_started_at, newDate),
             timer_ended_at: moveIsoToDateKeepingLocalTime(todo.timer_ended_at, newDate),
-          } as any);
+          });
         }}
       />
 
@@ -1215,7 +1215,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
           const rhythmSegments: RhythmSegment[] = [];
           
           for (const item of timelineItems) {
-            if ((item as any).isPlanOutline) continue; // Skip plan outlines from rhythm
+            if (item.isPlanOutline) continue; // Skip plan outlines from rhythm
             const title = item.type === 'todo' ? item.data.title : item.type === 'imported' ? item.data.title : (parseSubtitleDetail(item.data.text).subtitle || '');
             const tags = item.type === 'todo' ? item.data.tags : item.type === 'imported' ? undefined : item.data.tags;
             const tag = tags?.[0]?.toLowerCase() || autoClassifyTag(title) || 'life';
@@ -1265,7 +1265,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
               const totalActiveMin = (() => {
                 const spans: { start: number; end: number }[] = [];
                 for (const item of timelineItems) {
-                  if ((item as any).isPlanOutline) continue;
+                  if (item.isPlanOutline) continue;
                   if (!item.endTime) continue;
                   const start = item.time.getTime();
                   const end = item.endTime.getTime();
@@ -1290,7 +1290,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                 const tagMinutes = new Map<string, { min: number; color: string }>();
                 
                 for (const item of timelineItems) {
-                  if ((item as any).isPlanOutline) continue;
+                  if (item.isPlanOutline) continue;
                   const itemStartMin = item.time.getHours() * 60 + item.time.getMinutes();
                   const itemEndMin = item.endTime 
                     ? item.endTime.getHours() * 60 + item.endTime.getMinutes()
@@ -1330,7 +1330,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
               }
 
               const maxDensity = Math.max(...landscapeBuckets.map(b => b.density), 0.1);
-              const realItemCount = timelineItems.filter(i => !(i as any).isPlanOutline).length;
+              const realItemCount = timelineItems.filter(i => !i.isPlanOutline).length;
 
               return (
             <>
@@ -1558,7 +1558,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                     value={inlineInsertText}
                                     onChange={e => setInlineInsertText(e.target.value)}
                                     onKeyDown={e => {
-                                      if (e.key === 'Enter' && !(e.nativeEvent as any).isComposing && inlineInsertText.trim()) {
+                                      if (e.key === 'Enter' && !e.nativeEvent.isComposing && inlineInsertText.trim()) {
                                         handleInlineInsert(midpointStr);
                                       }
                                       if (e.key === 'Escape') { setInlineInsertTime(null); setInlineInsertText(''); }
@@ -1649,7 +1649,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                         {/* Items */}
                         {thread.items.map((item, ii) => {
                           const timeStr = format(item.time, 'HH:mm');
-                          const isPlanOutline = !!(item as any).isPlanOutline;
+                          const isPlanOutline = !!item.isPlanOutline;
                           const isLastItem = gi === threads.length - 1 && ii === thread.items.length - 1;
 
                           if (item.type === 'todo') {
@@ -1678,7 +1678,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                         value={editingTodoTitle}
                                         onChange={e => setEditingTodoTitle(e.target.value)}
                                         onKeyDown={e => {
-                                          if (e.key === 'Enter' && !(e.nativeEvent as any).isComposing && editingTodoTitle.trim()) {
+                                          if (e.key === 'Enter' && !e.nativeEvent.isComposing && editingTodoTitle.trim()) {
                                             onUpdateTodo?.(todo.id, { title: editingTodoTitle.trim() });
                                             setEditingTodoId(null);
                                           }
@@ -1791,7 +1791,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                         value={editingImportedEventTitle}
                                         onChange={e => setEditingImportedEventTitle(e.target.value)}
                                         onKeyDown={e => {
-                                          if (e.key === 'Enter' && !(e.nativeEvent as any).isComposing && editingImportedEventTitle.trim()) {
+                                          if (e.key === 'Enter' && !e.nativeEvent.isComposing && editingImportedEventTitle.trim()) {
                                             onUpdateImportedEvent?.(event.id, { title: editingImportedEventTitle.trim() });
                                             setEditingImportedEventId(null);
                                           }
@@ -2149,7 +2149,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                                 value={inlineInsertText}
                                 onChange={e => setInlineInsertText(e.target.value)}
                                 onKeyDown={e => {
-                                  if (e.key === 'Enter' && !(e.nativeEvent as any).isComposing && inlineInsertText.trim()) {
+                                  if (e.key === 'Enter' && !e.nativeEvent.isComposing && inlineInsertText.trim()) {
                                     handleInlineInsert(nowTime);
                                   }
                                   if (e.key === 'Escape') { setInlineInsertTime(null); setInlineInsertText(''); }

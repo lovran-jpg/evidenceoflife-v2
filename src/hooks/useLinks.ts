@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import type { Json } from '@/integrations/supabase/types';
 
 export interface LinkItem {
   id: string;
@@ -187,7 +188,7 @@ export function useLinks() {
           };
           const { error: updateError } = await supabase
             .from('profiles')
-            .update({ settings: nextSettings } as any)
+            .update({ settings: nextSettings as unknown as Json })
             .eq('user_id', user.id);
           if (!updateError) {
             setProfileSettings(nextSettings);
@@ -229,7 +230,7 @@ export function useLinks() {
 
       const { error } = await supabase
         .from('profiles')
-        .update({ settings: nextSettings } as any)
+        .update({ settings: nextSettings as unknown as Json })
         .eq('user_id', user.id);
 
       if (error) {

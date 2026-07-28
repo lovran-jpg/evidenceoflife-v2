@@ -11,16 +11,17 @@
 | Type check | `npx tsc --noEmit -p tsconfig.app.json` | **PASS** (exit 0) |
 | Test | `npm test` | **PASS** — 20 files, 176 tests |
 | Build | `npm run build` | **PASS** — built in ~10s |
-| Lint | `npm run lint` | **FAIL (baseline)** — improving: 273 → **195 errors** |
+| Lint | `npm run lint` | **FAIL (baseline)** — improving: 273 → **166 errors** |
 
 ## Lint baseline (pre-existing — NOT introduced by this work)
 
 Dominant rules (remaining):
-- `@typescript-eslint/no-explicit-any` — ~204, the large majority (needs real types; done incrementally, safest files first).
+- `@typescript-eslint/no-explicit-any` — **131 remaining, ALL in dirty WIP files**
+  (`PlanView` 32, `useTodos` 30, `PlanTimelineView` 27, `useDues` 17, `MapView` 9,
+  `useReminders` 6, `VoiceInputSheet` 5, `buildPlanBlocks` 4, `useLanguage` 1).
+  Every **non-WIP** file is now `any`-clean; the rest are deferred to land with
+  that in-progress work, not a lint PR.
 - `react-hooks/exhaustive-deps` — warnings.
-- Remaining `no-constant-binary-expression` / `no-unused-expressions` sit in
-  dirty WIP files (`PlanView`, `PlanTimelineView`, `MapView`, `buildPlanBlocks`)
-  and are deferred so they can land with that in-progress work, not a lint PR.
 
 ### Finding: stale generated Supabase types
 
@@ -59,8 +60,14 @@ Phase 2/3 task needing Supabase access; `types.ts` is also a WIP-modified file.
   so the `as any` casts on its payloads were unnecessary. `tsc` clean.
 - `SmartChatbot.tsx`: replaced all 5 `any` — added minimal `SpeechRecognitionLike`
   types for the (untyped) Web Speech API. `tsc` clean.
+- Final non-WIP sweep (11 files): `InputPlusMenu`, `CalendarView`, `usePrevDayTodos`,
+  `useProfile`, `InsightsPanel`, `Index`, `useCustomOptions`, `useLinks`,
+  `TodayRecapParts`, `TodayView` (11), `useSpeechRecognition` — removed needless
+  casts, typed geo/settings payloads (`Json`), added `SpeechRecognitionLike`,
+  used existing `isPlanOutline`/`Partial<Todo>`/`nativeEvent.isComposing` types.
 
-Net: **273 → 195 errors**, with `tsc`, `npm test` (176), and `npm run build` green.
+Net: **273 → 166 errors** (all remaining `any` are in WIP files), with `tsc`,
+`npm test` (176), and `npm run build` green.
 
 Because this is a pre-existing baseline, the CI draft (`.github/workflows/ci.yml`)
 marks the **lint step `continue-on-error: true`** so CI reflects real

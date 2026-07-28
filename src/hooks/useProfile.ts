@@ -81,7 +81,7 @@ export function useProfile() {
     }
     const { error } = await supabase
       .from('profiles')
-      .update(updates as any)
+      .update(updates)
       .eq('user_id', user.id);
     if (!error) {
       setProfile(prev => prev ? { ...prev, ...updates } : prev);

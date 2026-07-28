@@ -53,7 +53,7 @@ interface InputPlusMenuProps {
   onEmojiChange: (emoji: string | null) => void;
   // Location
   selectedLocation: { name: string; lat: number; lng: number; category: 'restaurant' | 'coffee' | 'grocery' | 'park' | 'museum' | 'other' } | null;
-  onLocationChange: (loc: any) => void;
+  onLocationChange: (loc: { name: string; lat: number; lng: number; category: 'restaurant' | 'coffee' | 'grocery' | 'park' | 'museum' | 'other' }) => void;
   // Tags
   availableTags: { key: string; label: string }[];
   selectedTags: string[];

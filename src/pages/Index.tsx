@@ -645,10 +645,10 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
               setPauseStateVersion(v => v + 1);
             }}
             onUpdateStartTime={async (newStartedAt) => {
-              await updateTodo(focusTodo.id, { timer_started_at: newStartedAt } as any);
+              await updateTodo(focusTodo.id, { timer_started_at: newStartedAt });
             }}
             onUpdateEndTime={async (newEndedAt) => {
-              await updateTodo(focusTodo.id, { plan_ended_at: newEndedAt } as any);
+              await updateTodo(focusTodo.id, { plan_ended_at: newEndedAt });
             }}
           />
         );
@@ -752,7 +752,7 @@ const Index = ({ publicDemo = false }: { publicDemo?: boolean }) => {
           open={voiceSheetOpen}
           onOpenChange={setVoiceSheetOpen}
           onAddMoment={handleAddMoment}
-          onAddTodo={(title, seg) => addTodo(title, seg as any)}
+          onAddTodo={(title, seg) => addTodo(title, seg as Parameters<typeof addTodo>[1])}
           onAddDue={(title, dueDate, _isHabit) => addDue(title, _isHabit ? undefined : dueDate)}
           selectedDate={selectedDateStr}
           todayEvents={[

@@ -25,7 +25,7 @@ export function usePrevDayTodos(dateStr: string | undefined): Todo[] {
         .order('sort_order', { ascending: true });
       if (cancelled) return;
       if (!error && data) {
-        const filtered = (data as any[]).filter(t => !(t.due_date && !t.parent_due_id));
+        const filtered = data.filter(t => !(t.due_date && !t.parent_due_id));
         setTodos(filtered as Todo[]);
       }
     })();
