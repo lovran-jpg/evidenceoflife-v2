@@ -62,6 +62,25 @@ interface SmartChatbotProps {
   todayEvents?: { time: string; title: string; duration?: string }[];
 }
 
+interface SpeechRecognitionResultLike {
+  isFinal: boolean;
+  0: { transcript: string };
+}
+interface SpeechRecognitionEventLike {
+  resultIndex: number;
+  results: ArrayLike<SpeechRecognitionResultLike>;
+}
+interface SpeechRecognitionLike {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onend: (() => void) | null;
+  onerror: ((event: { error: string }) => void) | null;
+  start: () => void;
+  stop: () => void;
+}
+
 export function SmartChatbot({ onAddMoment, onAddTodo, onAddDue, selectedDate, todayEvents }: SmartChatbotProps) {
   const { t } = useLanguage();
   const [active, setActive] = useState(false);
@@ -72,7 +91,7 @@ export function SmartChatbot({ onAddMoment, onAddTodo, onAddDue, selectedDate, t
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showOriginalId, setShowOriginalId] = useState<string | null>(null);
   const [dueDateDrafts, setDueDateDrafts] = useState<Record<string, string>>({});
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const accumulatedRef = useRef('');
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -199,8 +218,13 @@ export function SmartChatbot({ onAddMoment, onAddTodo, onAddDue, selectedDate, t
   const startListening = useCallback(() => {
     if (!isSupported) { toast.error('你的浏览器不支持语音识别'); return; }
 
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
+    const w = window as unknown as {
+      SpeechRecognition?: new () => SpeechRecognitionLike;
+      webkitSpeechRecognition?: new () => SpeechRecognitionLike;
+    };
+    const SpeechRecognitionCtor = w.SpeechRecognition || w.webkitSpeechRecognition;
+    if (!SpeechRecognitionCtor) return;
+    const recognition = new SpeechRecognitionCtor();
     recognition.lang = 'zh-CN';
     recognition.continuous = true;
     recognition.interimResults = true;
@@ -208,7 +232,7 @@ export function SmartChatbot({ onAddMoment, onAddTodo, onAddDue, selectedDate, t
 
     accumulatedRef.current = '';
 
-    recognition.onresult = (event: any) => {
+    recognition.onresult = (event: SpeechRecognitionEventLike) => {
       let interim = '';
       let finalText = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -254,7 +278,7 @@ export function SmartChatbot({ onAddMoment, onAddTodo, onAddDue, selectedDate, t
       recognitionRef.current = null;
     };
 
-    recognition.onerror = (e: any) => {
+    recognition.onerror = (e: { error: string }) => {
       // 'no-speech' is not fatal — just keep listening
       if (e.error === 'no-speech') return;
       setIsListening(false);

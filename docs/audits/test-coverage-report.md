@@ -11,7 +11,7 @@
 | Type check | `npx tsc --noEmit -p tsconfig.app.json` | **PASS** (exit 0) |
 | Test | `npm test` | **PASS** — 20 files, 176 tests |
 | Build | `npm run build` | **PASS** — built in ~10s |
-| Lint | `npm run lint` | **FAIL (baseline)** — improving: 273 → **205 errors** |
+| Lint | `npm run lint` | **FAIL (baseline)** — improving: 273 → **195 errors** |
 
 ## Lint baseline (pre-existing — NOT introduced by this work)
 
@@ -55,8 +55,12 @@ Phase 2/3 task needing Supabase access; `types.ts` is also a WIP-modified file.
 - `useImportedEvents.ts`: dropped all 5 `any` — `ImportedEvent` already declares
   `is_completed` so those casts were unnecessary; ICS accumulator typed
   `Record<string, string>`; `.update()` payloads typecheck without casts. `tsc` clean.
+- `ProfileView.tsx`: dropped all 5 `any` — `updateProfile` takes `Partial<Profile>`,
+  so the `as any` casts on its payloads were unnecessary. `tsc` clean.
+- `SmartChatbot.tsx`: replaced all 5 `any` — added minimal `SpeechRecognitionLike`
+  types for the (untyped) Web Speech API. `tsc` clean.
 
-Net: **273 → 205 errors**, with `tsc`, `npm test` (176), and `npm run build` green.
+Net: **273 → 195 errors**, with `tsc`, `npm test` (176), and `npm run build` green.
 
 Because this is a pre-existing baseline, the CI draft (`.github/workflows/ci.yml`)
 marks the **lint step `continue-on-error: true`** so CI reflects real

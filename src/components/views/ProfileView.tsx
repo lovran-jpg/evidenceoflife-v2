@@ -235,7 +235,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
       wake_minute: wakeMinute,
       bedtime_hour: bedtimeHour,
       bedtime_minute: bedtimeMinute,
-    } as any);
+    });
     toast.success(lang === 'zh' ? '已应用于所有天' : 'Applied to all days');
   };
 
@@ -252,7 +252,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
   const handleNameSave = async () => {
     setIsEditingName(false);
     if (displayName !== (profile?.display_name || '')) {
-      await updateProfile({ display_name: displayName || null } as any);
+      await updateProfile({ display_name: displayName || null });
       toast.success(lang === 'zh' ? '名称已更新' : 'Name updated');
     }
   };
@@ -263,7 +263,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
     setUploading(true);
     const url = await uploadHomepageImage(file);
     if (url) {
-      await updateProfile({ homepage_image_url: url } as any);
+      await updateProfile({ homepage_image_url: url });
       toast.success(lang === 'zh' ? '图片已更新' : 'Image updated');
     }
     setUploading(false);
@@ -276,7 +276,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
     setUploadingAvatar(true);
     const url = await uploadHomepageImage(file);
     if (url) {
-      await updateProfile({ avatar_url: url } as any);
+      await updateProfile({ avatar_url: url });
       toast.success(lang === 'zh' ? '头像已更新' : 'Avatar updated');
     }
     setUploadingAvatar(false);
@@ -284,7 +284,7 @@ export function ProfileView({ stats, moments, dayRecords, getMomentsForDate, tod
   };
 
   const handleResetHomepageImage = async () => {
-    await updateProfile({ homepage_image_url: null } as any);
+    await updateProfile({ homepage_image_url: null });
     toast.success(lang === 'zh' ? '已恢复默认' : 'Reset to default');
   };
 
