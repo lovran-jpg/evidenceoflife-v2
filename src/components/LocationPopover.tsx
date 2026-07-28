@@ -10,6 +10,9 @@ interface LocationResult {
   category?: string;
 }
 
+type LocationCategory = 'restaurant' | 'coffee' | 'grocery' | 'park' | 'museum' | 'other';
+type GeoBody = { type: string; q: string; limit: number; lat?: number; lng?: number };
+
 interface LocationPopoverProps {
   onSelect: (location: { name: string; lat: number; lng: number; category: 'restaurant' | 'coffee' | 'grocery' | 'park' | 'museum' | 'other' }) => void;
   onClose: () => void;
@@ -42,16 +45,16 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
       const handle = window.setTimeout(async () => {
         try {
           setIsSearching(true);
-          const body: any = { type: 'search', q, limit: 8 };
+          const body: GeoBody = { type: 'search', q, limit: 8 };
           const coords = coordsRef.current;
           if (coords) { body.lat = coords.lat; body.lng = coords.lng; }
           const { data, error } = await supabase.functions.invoke('geo', { body });
           if (error) throw error;
-          setResults((data?.results ?? []).map((r: any) => ({
+          setResults((data?.results ?? []).map((r: Record<string, unknown>) => ({
             name: String(r.name ?? ''),
             lat: Number(r.lat),
             lng: Number(r.lng),
-            category: r.category || 'other',
+            category: (r.category as string) || 'other',
           })));
         } catch {
           setResults([]);
@@ -89,7 +92,7 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
             const { latitude: lat, longitude: lng } = position.coords;
             coordsRef.current = { lat, lng };
             const result = await reverseGeocode(lat, lng);
-            onSelect({ name: result.name, lat, lng, category: result.category as any });
+            onSelect({ name: result.name, lat, lng, category: result.category as LocationCategory });
             setIsGettingLocation(false);
             onClose();
           },
@@ -104,20 +107,20 @@ export const LocationPopover = forwardRef<HTMLDivElement, LocationPopoverProps>(
     }, [autoLocateToken, handleGetCurrentLocation]);
 
     const handleSelectResult = useCallback((r: LocationResult) => {
-      onSelect({ name: r.name, lat: r.lat, lng: r.lng, category: (r.category || 'other') as any });
+      onSelect({ name: r.name, lat: r.lat, lng: r.lng, category: (r.category || 'other') as LocationCategory });
       onClose();
     }, [onSelect, onClose]);
 
     const handleAddManual = useCallback(async () => {
       if (!search.trim()) return;
       try {
-        const body: any = { type: 'search', q: search.trim(), limit: 1 };
+        const body: GeoBody = { type: 'search', q: search.trim(), limit: 1 };
         const coords = coordsRef.current;
         if (coords) { body.lat = coords.lat; body.lng = coords.lng; }
         const { data } = await supabase.functions.invoke('geo', { body });
         const first = data?.results?.[0];
         if (first?.lat && first?.lng) {
-          onSelect({ name: first.name || search.trim(), lat: Number(first.lat), lng: Number(first.lng), category: (first.category || 'other') as any });
+          onSelect({ name: first.name || search.trim(), lat: Number(first.lat), lng: Number(first.lng), category: (first.category || 'other') as LocationCategory });
           onClose();
           return;
         }

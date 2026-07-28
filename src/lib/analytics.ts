@@ -54,7 +54,7 @@ function ensureAmplitudeStub() {
   injectScript(AMPLITUDE_SCRIPT_ID, 'https://cdn.amplitude.com/script/2.41.0/amplitude.min.js');
 
   const attachReadyHandler = () => {
-    const amp = (window as Window & { amplitude?: any }).amplitude;
+    const amp = window.amplitude;
     if (!amp || typeof amp.init !== 'function' || !amp.track || amp.track === window.amplitude?.track) {
       window.setTimeout(attachReadyHandler, 150);
       return;

@@ -34,6 +34,9 @@ pnpm-lock.yaml
 *.sw?
 .cursor_renderblock_restore.txt
 
+# Supabase local CLI state (not part of the product)
+supabase/.temp/
+
 # Local reference / scratch docs (not part of the product)
 .workbuddy/
 openclaw-*.md

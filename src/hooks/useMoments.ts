@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { Moment, DayRecord } from '@/types';
+import { Moment, DayRecord, MomentLinkPreview } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { fetchAllMoments, isMissingMomentLinksColumn, uploadPhotos } from '@/hooks/moments/data';
@@ -12,6 +13,8 @@ import footprintLogoImage from '@/assets/footprint-logo.png';
 type MomentUpdates = Partial<Omit<Moment, 'location'>> & {
   location?: Moment['location'] | null;
 };
+
+type MomentUpdate = Database['public']['Tables']['moments']['Update'];
 
 function uniquePhotos(photos?: string[]): string[] {
   return Array.from(new Set((photos || []).filter(photo => typeof photo === 'string' && photo.trim().length > 0)));
@@ -251,8 +254,8 @@ export function useMoments() {
       timer_seconds: moment.timer_seconds || 0,
     };
 
-    let data: any = null;
-    let error: any = null;
+    let data: unknown = null;
+    let error: unknown = null;
 
     ({ data, error } = await supabase
       .from('moments')
@@ -272,12 +275,20 @@ export function useMoments() {
     }
 
     if (error) { console.error('Failed to add moment:', error); toast.error('Failed to save moment'); return; }
+    const row = data as {
+      id: string; date: string; text: string | null; emoji: string | null;
+      photos?: string[]; links?: MomentLinkPreview[]; tags?: string[];
+      location_name: string | null; location_lat: number | null; location_lng: number | null;
+      location_category: 'restaurant' | 'coffee' | 'grocery' | 'park' | 'museum' | 'other' | null;
+      is_special: boolean; created_at: string;
+      timer_started_at: string | null; timer_ended_at: string | null; timer_seconds: number | null;
+    };
     const newMoment: Moment = {
-      id: data.id, date: data.date, text: data.text ?? undefined, emoji: data.emoji ?? undefined,
-      photos: data.photos || [], links: (data as any).links || [], tags: (data as any).tags || [],
-      location: data.location_name ? { name: data.location_name, lat: data.location_lat!, lng: data.location_lng!, category: (data.location_category as any) || 'other' } : undefined,
-      isSpecial: data.is_special, createdAt: data.created_at,
-      timer_started_at: data.timer_started_at, timer_ended_at: data.timer_ended_at, timer_seconds: data.timer_seconds,
+      id: row.id, date: row.date, text: row.text ?? undefined, emoji: row.emoji ?? undefined,
+      photos: row.photos || [], links: row.links || [], tags: row.tags || [],
+      location: row.location_name ? { name: row.location_name, lat: row.location_lat!, lng: row.location_lng!, category: row.location_category || 'other' } : undefined,
+      isSpecial: row.is_special, createdAt: row.created_at,
+      timer_started_at: row.timer_started_at, timer_ended_at: row.timer_ended_at, timer_seconds: row.timer_seconds,
     };
     setMoments(prev => [newMoment, ...prev]);
 
@@ -302,7 +313,7 @@ export function useMoments() {
       return;
     }
 
-    const dbUpdates: any = {};
+    const dbUpdates: Record<string, unknown> = {};
     if (updates.text !== undefined) dbUpdates.text = updates.text || null;
     if (updates.emoji !== undefined) dbUpdates.emoji = updates.emoji || null;
     if (updates.photos !== undefined) {
@@ -324,16 +335,16 @@ export function useMoments() {
       dbUpdates.location_lng = updates.location?.lng || null;
       dbUpdates.location_category = updates.location?.category || null;
     }
-    let { error } = await supabase.from('moments').update(dbUpdates).eq('id', id);
+    let { error } = await supabase.from('moments').update(dbUpdates as MomentUpdate).eq('id', id);
     if (error && updates.links !== undefined && isMissingMomentLinksColumn(error)) {
       const { links, ...fallbackUpdates } = dbUpdates;
-      ({ error } = await supabase.from('moments').update(fallbackUpdates).eq('id', id));
+      ({ error } = await supabase.from('moments').update(fallbackUpdates as MomentUpdate).eq('id', id));
     }
     if (error) { console.error('Failed to edit moment:', error); return; }
     setMoments(prev => prev.map(m => {
       if (m.id !== id) return m;
       const next = { ...m, ...updates };
-      if (dbUpdates.photos !== undefined) next.photos = dbUpdates.photos;
+      if (dbUpdates.photos !== undefined) next.photos = dbUpdates.photos as string[];
       if (updates.location === null) delete next.location;
       return next;
     }));

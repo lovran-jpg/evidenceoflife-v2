@@ -278,7 +278,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
   const [editingImportedEventId, setEditingImportedEventId] = useState<string | null>(null);
   const [editingImportedEventTitle, setEditingImportedEventTitle] = useState('');
   const [expandedStreamIds, setExpandedStreamIds] = useState<Set<string>>(new Set());
-  const toggleStreamExpand = (id: string) => setExpandedStreamIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleStreamExpand = (id: string) => setExpandedStreamIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const [editText, setEditText] = useState('');
   const [editDetailText, setEditDetailText] = useState<string | null>(null);
   const [editEmoji, setEditEmoji] = useState<string | null>(null);

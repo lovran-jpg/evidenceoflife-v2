@@ -6,8 +6,29 @@ const MAX_DATA_URL_BYTES = 8 * 1024 * 1024;
 
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-export function isMissingMomentLinksColumn(error: any): boolean {
-  const message = String(error?.message || error?.details || error?.hint || '');
+/** Shape of a moments row across the full + fallback/lean SELECT variants. */
+interface MomentRow {
+  id: string;
+  date: string;
+  text?: string | null;
+  emoji?: string | null;
+  photos?: unknown;
+  links?: unknown;
+  tags?: string[] | null;
+  is_special?: boolean | null;
+  created_at: string;
+  timer_started_at?: string | null;
+  timer_ended_at?: string | null;
+  timer_seconds?: number | null;
+  location_name?: string | null;
+  location_lat?: number | null;
+  location_lng?: number | null;
+  location_category?: string | null;
+}
+
+export function isMissingMomentLinksColumn(error: unknown): boolean {
+  const e = error as { message?: unknown; details?: unknown; hint?: unknown } | null | undefined;
+  const message = String(e?.message || e?.details || e?.hint || '');
   return /column .*links.* does not exist|moments.*links/i.test(message);
 }
 
@@ -63,12 +84,12 @@ export async function uploadPhotos(userId: string, photos: string[]): Promise<st
 }
 
 async function fetchWithRetry<T>(
-  fn: () => PromiseLike<{ data: T | null; error: any }>,
+  fn: () => PromiseLike<{ data: T | null; error: unknown }>,
   retries = 3,
   delay = 1200
-): Promise<{ data: T | null; error: any }> {
+): Promise<{ data: T | null; error: unknown }> {
   for (let i = 0; i < retries; i++) {
-    let result: { data: T | null; error: any };
+    let result: { data: T | null; error: unknown };
     try {
       result = await fn();
     } catch (err) {
@@ -86,7 +107,7 @@ async function fetchWithRetry<T>(
   }
 }
 
-function mapMomentRow(row: any): Moment {
+function mapMomentRow(row: MomentRow): Moment {
   const safePhotos = ((row.photos || []) as unknown[])
     .filter((p): p is string => typeof p === 'string')
     .filter(p => !p.startsWith('data:') && p.length < 2000);
@@ -118,7 +139,7 @@ function mapMomentRow(row: any): Moment {
           name: row.location_name,
           lat: row.location_lat!,
           lng: row.location_lng!,
-          category: (row.location_category as any) || 'other',
+          category: (row.location_category as 'restaurant' | 'coffee' | 'grocery' | 'park' | 'museum' | 'other') || 'other',
         }
       : undefined,
     isSpecial: row.is_special,
@@ -129,13 +150,13 @@ function mapMomentRow(row: any): Moment {
   };
 }
 
-async function fetchPagedMoments(userId: string, locationsOnly: boolean): Promise<{ data: Moment[]; error: any }> {
-  const rows: any[] = [];
+async function fetchPagedMoments(userId: string, locationsOnly: boolean): Promise<{ data: Moment[]; error: unknown }> {
+  const rows: MomentRow[] = [];
   let from = 0;
 
   while (true) {
     const to = from + PAGE_SIZE - 1;
-    const { data, error } = await fetchWithRetry<any[]>(() => {
+    const { data, error } = await fetchWithRetry<MomentRow[]>(() => {
         let query = supabase
           .from('moments')
           .select('id, date, text, emoji, photos, links, tags, is_special, created_at, timer_started_at, timer_ended_at, timer_seconds, location_name, location_lat, location_lng, location_category')
@@ -147,7 +168,10 @@ async function fetchPagedMoments(userId: string, locationsOnly: boolean): Promis
         query = query.not('location_name', 'is', null);
       }
 
-      return query;
+      // Cast: committed types.ts is stale (missing moments.links), so a select
+      // naming `links` resolves to a Supabase SelectQueryError. Runtime is
+      // correct; narrow to the real row shape via unknown (not any).
+      return query as unknown as PromiseLike<{ data: MomentRow[] | null; error: unknown }>;
     });
 
     if (error) {
@@ -157,7 +181,7 @@ async function fetchPagedMoments(userId: string, locationsOnly: boolean): Promis
       }
 
       if (isMissingMomentLinksColumn(error)) {
-        const fallbackResult = await fetchWithRetry<any[]>(() => {
+        const fallbackResult = await fetchWithRetry<MomentRow[]>(() => {
           let fallbackQuery = supabase
             .from('moments')
             .select('id, date, text, emoji, photos, tags, is_special, created_at, timer_started_at, timer_ended_at, timer_seconds, location_name, location_lat, location_lng, location_category')
@@ -178,7 +202,7 @@ async function fetchPagedMoments(userId: string, locationsOnly: boolean): Promis
         }
       }
 
-      const leanResult = await fetchWithRetry<any[]>(() => {
+      const leanResult = await fetchWithRetry<MomentRow[]>(() => {
         let leanQuery = supabase
           .from('moments')
           .select('id, date, text, emoji, links, tags, is_special, created_at, timer_started_at, timer_ended_at, timer_seconds, location_name, location_lat, location_lng, location_category')
@@ -190,7 +214,7 @@ async function fetchPagedMoments(userId: string, locationsOnly: boolean): Promis
           leanQuery = leanQuery.not('location_name', 'is', null);
         }
 
-        return leanQuery;
+        return leanQuery as unknown as PromiseLike<{ data: MomentRow[] | null; error: unknown }>;
       });
 
       if (!leanResult.error && leanResult.data) {
@@ -213,6 +237,6 @@ async function fetchPagedMoments(userId: string, locationsOnly: boolean): Promis
   return { data: rows.map(mapMomentRow), error: null };
 }
 
-export async function fetchAllMoments(userId: string): Promise<{ data: Moment[]; error: any }> {
+export async function fetchAllMoments(userId: string): Promise<{ data: Moment[]; error: unknown }> {
   return fetchPagedMoments(userId, false);
 }

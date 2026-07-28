@@ -157,7 +157,7 @@ export function buildLocalSummary(text: string): { title: string; detail: string
   const cleaned = cleanDetailText(text);
   if (!cleaned) return { title: original, detail: null };
 
-  const withoutBullets = cleaned.replace(/^[\-*•\d.)\s]+/, '').trim();
+  const withoutBullets = cleaned.replace(/^[-*•\d.)\s]+/, '').trim();
   const chunks = withoutBullets
     .split(/(?<=[。！？.!?])\s+|(?<=;)\s+|\n+/)
     .map(part => part.trim())
@@ -249,7 +249,7 @@ export function cleanReplayTitle(rawTitle: string): string {
   let title = subtitle
     .replace(/\n+/g, ' ')
     .replace(/\s+/g, ' ')
-    .replace(/^[😀-🙏✨🌟⭐️🔥🎉💡📍⏱📝]+/u, '')
+    .replace(/^(?:[😀-🙏]|✨|🌟|⭐️|🔥|🎉|💡|📍|⏱|📝)+/u, '')
     .replace(/^(very|really|so|super|quite|pretty|interesting|nice|cool|fun|great|amazing|wow|honestly|basically|actually)\s*,?\s*/i, '')
     .replace(/^I\s+/i, '')
     .replace(/^I'm\s+/i, '')

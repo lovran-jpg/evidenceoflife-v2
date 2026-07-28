@@ -22,10 +22,10 @@ export function useDueReminders() {
   const fetchReminders = useCallback(async () => {
     if (!user) return;
     const { data } = await supabase
-      .from('due_reminders' as any)
+      .from('due_reminders')
       .select('*')
       .eq('user_id', user.id);
-    if (data) setReminders(data as any as DueReminder[]);
+    if (data) setReminders(data as DueReminder[]);
   }, [user]);
 
   useEffect(() => { fetchReminders(); }, [fetchReminders]);
@@ -40,26 +40,26 @@ export function useDueReminders() {
     const existing = reminders.find(r => r.due_id === dueId && r.reminder_type === type);
     if (existing) {
       await supabase
-        .from('due_reminders' as any)
-        .update({ remind_before_minutes: beforeMinutes, is_recurring: isRecurring, recurring_interval_days: intervalDays || null, is_active: true } as any)
+        .from('due_reminders')
+        .update({ remind_before_minutes: beforeMinutes, is_recurring: isRecurring, recurring_interval_days: intervalDays || null, is_active: true })
         .eq('id', existing.id);
     } else {
       await supabase
-        .from('due_reminders' as any)
-        .insert({ user_id: user.id, due_id: dueId, reminder_type: type, remind_before_minutes: beforeMinutes, is_recurring: isRecurring, recurring_interval_days: intervalDays || null } as any);
+        .from('due_reminders')
+        .insert({ user_id: user.id, due_id: dueId, reminder_type: type, remind_before_minutes: beforeMinutes, is_recurring: isRecurring, recurring_interval_days: intervalDays || null });
     }
     await fetchReminders();
   }, [user, reminders, fetchReminders]);
 
   const removeReminder = useCallback(async (reminderId: string) => {
-    await supabase.from('due_reminders' as any).delete().eq('id', reminderId);
+    await supabase.from('due_reminders').delete().eq('id', reminderId);
     setReminders(prev => prev.filter(r => r.id !== reminderId));
   }, []);
 
   const toggleReminder = useCallback(async (reminderId: string) => {
     const r = reminders.find(rem => rem.id === reminderId);
     if (!r) return;
-    await supabase.from('due_reminders' as any).update({ is_active: !r.is_active } as any).eq('id', reminderId);
+    await supabase.from('due_reminders').update({ is_active: !r.is_active }).eq('id', reminderId);
     setReminders(prev => prev.map(rem => rem.id === reminderId ? { ...rem, is_active: !rem.is_active } : rem));
   }, [reminders]);
 

@@ -44,7 +44,7 @@ function parseICS(text: string): { title: string; description?: string; start_ti
   const lines = text.replace(/\r\n /g, '').split(/\r?\n/);
   
   let inEvent = false;
-  let current: any = {};
+  let current: Record<string, string> = {};
 
   for (const line of lines) {
     if (line === 'BEGIN:VEVENT') {
@@ -199,7 +199,7 @@ export function useImportedEvents() {
 
   const updateEvent = useCallback(async (id: string, updates: ImportedEventUpdates) => {
     setEvents(prev => prev.map(e => e.id === id ? { ...e, ...updates } : e));
-    const { error } = await supabase.from('imported_events').update(updates as any).eq('id', id);
+    const { error } = await supabase.from('imported_events').update(updates).eq('id', id);
     if (error) {
       toast.error('Update event failed');
       await fetchEvents();
@@ -235,10 +235,10 @@ export function useImportedEvents() {
   const toggleComplete = useCallback(async (id: string) => {
     const event = events.find(e => e.id === id);
     if (!event) return;
-    const newVal = !(event as any).is_completed;
+    const newVal = !event.is_completed;
     // Optimistic update
-    setEvents(prev => prev.map(e => e.id === id ? { ...e, is_completed: newVal } as any : e));
-    const { error } = await supabase.from('imported_events').update({ is_completed: newVal } as any).eq('id', id);
+    setEvents(prev => prev.map(e => e.id === id ? { ...e, is_completed: newVal } : e));
+    const { error } = await supabase.from('imported_events').update({ is_completed: newVal }).eq('id', id);
     if (error) { toast.error('Update failed'); await fetchEvents(); return; }
     notifyImportedEventsChanged();
   }, [events, fetchEvents]);

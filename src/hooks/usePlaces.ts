@@ -66,17 +66,17 @@ export function usePlaces() {
         supabase.from('visits').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
       ]);
 
-      const rawCities = (citiesRes.data || []) as any[];
-      const rawPlaces = (placesRes.data || []) as any[];
-      const rawVisits = (visitsRes.data || []) as any[];
+      const rawCities = (citiesRes.data || []) as City[];
+      const rawPlaces = (placesRes.data || []) as Place[];
+      const rawVisits = (visitsRes.data || []) as Visit[];
 
-      const result: CityWithPlaces[] = rawCities.map((c: any) => {
+      const result: CityWithPlaces[] = rawCities.map((c) => {
         const cPlaces = rawPlaces
-          .filter((p: any) => p.city_id === c.id)
-          .map((p: any) => ({
+          .filter((p) => p.city_id === c.id)
+          .map((p) => ({
             ...p,
             cityName: c.name,
-            visits: rawVisits.filter((v: any) => v.place_id === p.id),
+            visits: rawVisits.filter((v) => v.place_id === p.id),
           }));
         return {
           ...c,
@@ -105,7 +105,7 @@ export function usePlaces() {
 
     const { data, error } = await supabase
       .from('cities')
-      .insert({ user_id: user.id, name: cityName, country: country || null, lat, lng } as any)
+      .insert({ user_id: user.id, name: cityName, country: country || null, lat, lng })
       .select()
       .single();
     if (error) {
@@ -134,7 +134,7 @@ export function usePlaces() {
       if (moved || existing.category !== category || existing.name !== name) {
         await supabase
           .from('places')
-          .update({ name, category, lat, lng } as any)
+          .update({ name, category, lat, lng })
           .eq('id', existing.id)
           .eq('user_id', user.id);
       }
@@ -146,13 +146,13 @@ export function usePlaces() {
       .select('id, name, lat, lng, category')
       .eq('user_id', user.id)
       .eq('city_id', cityId);
-    const existingFromDb = ((existingRows || []) as any[]).find(p => sameName(p.name, name));
+    const existingFromDb = ((existingRows || []) as Pick<Place, 'id' | 'name' | 'lat' | 'lng' | 'category'>[]).find(p => sameName(p.name, name));
     if (existingFromDb) {
       const moved = Math.abs(existingFromDb.lat - lat) > 0.00001 || Math.abs(existingFromDb.lng - lng) > 0.00001;
       if (moved || existingFromDb.category !== category || existingFromDb.name !== name) {
         await supabase
           .from('places')
-          .update({ name, category, lat, lng } as any)
+          .update({ name, category, lat, lng })
           .eq('id', existingFromDb.id)
           .eq('user_id', user.id);
       }
@@ -161,7 +161,7 @@ export function usePlaces() {
 
     const { data, error } = await supabase
       .from('places')
-      .insert({ user_id: user.id, city_id: cityId, name, category, lat, lng } as any)
+      .insert({ user_id: user.id, city_id: cityId, name, category, lat, lng })
       .select()
       .single();
     if (error) { console.error('Failed to create place:', error); return null; }
@@ -180,7 +180,7 @@ export function usePlaces() {
       date,
       note: note || null,
       photos: uniquePhotos(photos),
-    } as any;
+    };
 
     if (momentId) {
       const { data: existingVisits } = await supabase

@@ -1,0 +1,41 @@
+name: Bug report
+description: Report something that isn't working as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Please do not include real personal data,
+        secrets, or tokens in screenshots or logs.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug and what you expected instead.
+      placeholder: When I drag a task onto the timeline in the past, ...
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to Today
+        2. Drag a task to a past time slot
+        3. Return to the list ...
+    validations:
+      required: true
+  - type: input
+    id: area
+    attributes:
+      label: Area
+      description: Which view/feature (Today, Timeline, Calendar, Map, Dues, Habits, Notes, Links, Calendar sync)?
+    validations:
+      required: false
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser + OS, and whether self-hosted or the demo.
+    validations:
+      required: false
