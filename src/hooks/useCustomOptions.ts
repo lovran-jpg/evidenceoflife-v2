@@ -84,7 +84,9 @@ function saveLocal(data: CustomOptionsData) {
     localStorage.setItem('emoji-order', JSON.stringify(data.emojiOrder));
     localStorage.setItem('hidden-default-plan-tags', JSON.stringify(data.hiddenDefaultPlanTags));
     localStorage.setItem('hidden-default-recap-tags', JSON.stringify(data.hiddenDefaultRecapTags));
-  } catch {}
+  } catch {
+    return;
+  }
 }
 
 function hasLocalData(d: CustomOptionsData) {

@@ -73,7 +73,9 @@ export function SideNav({ activeTab, activeSheet, onTabChange }: SideNavProps) {
       if (Array.isArray(parsed) && validIds.every((id) => parsed.includes(id))) {
         return parsed as TabType[];
       }
-    } catch {}
+    } catch {
+      return tabConfig.map((tab) => tab.id);
+    }
     return tabConfig.map((tab) => tab.id);
   });
   const hoverTimeoutMs = 200;

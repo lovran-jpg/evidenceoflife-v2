@@ -123,7 +123,9 @@ function load(): LinkGroup[] {
 function save(groups: LinkGroup[]) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(groups));
-  } catch {}
+  } catch {
+    return;
+  }
 }
 
 function normalizeGroups(parsed: unknown): LinkGroup[] {

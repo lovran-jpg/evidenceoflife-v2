@@ -55,7 +55,7 @@ function pad(n: number) {
 function fmt12(h: number, m: number) {
   const hour12 = h % 12 === 0 ? 12 : h % 12;
   const ampm = h < 12 ? 'AM' : 'PM';
-  return `${hour12}:${pad(m)} ${ampm}`;
+  return `${hour12}:${pad(m)} ${ampm}`;
 }
 
 export function CircularTimeRing({

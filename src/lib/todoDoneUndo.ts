@@ -6,7 +6,7 @@ export interface TodoDoneUndoFields {
   timer_seconds: number | null;
 }
 
-export interface TodoDoneUndoSnapshot extends TodoDoneUndoFields {}
+export type TodoDoneUndoSnapshot = TodoDoneUndoFields;
 
 export function createTodoDoneUndoSnapshot(todo: TodoDoneUndoFields): TodoDoneUndoSnapshot {
   return {

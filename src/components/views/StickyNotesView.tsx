@@ -77,7 +77,9 @@ function loadTabs(): Tab[] {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) return parsed as Tab[];
     }
-  } catch {}
+  } catch {
+    return DEFAULT_TABS;
+  }
   return DEFAULT_TABS;
 }
 
@@ -419,7 +421,7 @@ function NoteCard({
                     <div className="grid min-w-0 gap-1.5">
                       {(item.links || []).map(link => {
                         let domain = '';
-                        try { domain = new URL(link.url).hostname.replace(/^www\./, ''); } catch {}
+                        try { domain = new URL(link.url).hostname.replace(/^www\./, ''); } catch { domain = ''; }
                         return (
                           <div key={link.url} className={cn('group/link flex min-w-0 max-w-full items-center gap-2 rounded-[11px] bg-current/[0.06] px-2 py-1.5 transition-colors hover:bg-current/[0.1]', config.text)}>
                             <img
@@ -546,7 +548,9 @@ function loadStickyCategoryOrder(): string[] {
     const raw = localStorage.getItem('sticky-note-category-order');
     const parsed = raw ? JSON.parse(raw) : null;
     if (Array.isArray(parsed) && parsed.length > 0) return parsed as string[];
-  } catch {}
+  } catch {
+    return [];
+  }
   return [];
 }
 

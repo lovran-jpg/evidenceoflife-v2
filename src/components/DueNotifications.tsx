@@ -40,7 +40,9 @@ function dismissId(id: string) {
     const parsed = raw ? JSON.parse(raw) : {};
     parsed[id] = Date.now();
     localStorage.setItem(DISMISSED_KEY, JSON.stringify(parsed));
-  } catch { }
+  } catch {
+    return;
+  }
 }
 
 export function DueNotifications({ dues, onNavigateToDues }: DueNotificationsProps) {

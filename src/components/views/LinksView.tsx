@@ -67,7 +67,9 @@ async function fetchPreview(url: string) {
     if (!error && data) {
       return { title: data.title || domain, description: data.description, siteName: data.siteName || domain, previewImage: data.image };
     }
-  } catch {}
+  } catch {
+    return { title: domain, siteName: domain };
+  }
   return { title: domain, siteName: domain };
 }
 
