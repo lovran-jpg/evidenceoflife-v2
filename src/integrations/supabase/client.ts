@@ -4,11 +4,19 @@
 
   const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
   const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const IS_TEST_MODE = import.meta.env.MODE === 'test';
+
+  const resolvedSupabaseUrl = SUPABASE_URL || (IS_TEST_MODE ? 'http://127.0.0.1:54321' : '');
+  const resolvedSupabaseKey = SUPABASE_PUBLISHABLE_KEY || (IS_TEST_MODE ? 'test-anon-key' : '');
+
+  if (!resolvedSupabaseUrl || !resolvedSupabaseKey) {
+    throw new Error('Missing Supabase environment variables: VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY.');
+  }
 
   // Import the supabase client like this:
   // import { supabase } from "@/integrations/supabase/client";
 
-  export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  export const supabase = createClient<Database>(resolvedSupabaseUrl, resolvedSupabaseKey, {
     auth: {
       storage: localStorage,
       persistSession: true,
