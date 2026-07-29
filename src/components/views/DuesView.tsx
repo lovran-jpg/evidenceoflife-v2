@@ -78,7 +78,9 @@ export function DuesView({
   }, [initialMode]);
 
   useEffect(() => {
-    const interval = setInterval(refetch, 5000);
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') refetch();
+    }, 60000);
     return () => clearInterval(interval);
   }, [refetch]);
 

@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database, Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
 import { format } from 'date-fns';
 import { Todo } from '@/hooks/useTodos';
@@ -49,13 +50,57 @@ export interface DueWithStats extends Todo {
   currentStreak: number;
 }
 
+type TodoRow = Database['public']['Tables']['todos']['Row'];
+type TodoInsert = Database['public']['Tables']['todos']['Insert'];
+type TodoUpdate = Database['public']['Tables']['todos']['Update'];
+
+function parseDueLinks(value: Json | null): DueLink[] {
+  if (!Array.isArray(value)) return [];
+  const links: DueLink[] = [];
+  value.forEach((item) => {
+    if (typeof item !== 'object' || item === null) return;
+    const candidate = item as {
+      url?: unknown;
+      label?: unknown;
+      title?: unknown;
+      description?: unknown;
+      image?: unknown;
+      siteName?: unknown;
+      count?: unknown;
+    };
+    if (typeof candidate.url !== 'string') return;
+    links.push({
+      url: candidate.url,
+      ...(typeof candidate.label === 'string' ? { label: candidate.label } : {}),
+      ...(typeof candidate.title === 'string' ? { title: candidate.title } : {}),
+      ...(typeof candidate.description === 'string' ? { description: candidate.description } : {}),
+      ...(typeof candidate.image === 'string' ? { image: candidate.image } : {}),
+      ...(typeof candidate.siteName === 'string' ? { siteName: candidate.siteName } : {}),
+      ...(typeof candidate.count === 'number' ? { count: candidate.count } : {}),
+    });
+  });
+  return links;
+}
+
+function serializeDueLinks(links: DueLink[]): Json {
+  return links.map((link) => ({
+    url: link.url,
+    ...(link.label ? { label: link.label } : {}),
+    ...(link.title ? { title: link.title } : {}),
+    ...(link.description ? { description: link.description } : {}),
+    ...(link.image ? { image: link.image } : {}),
+    ...(link.siteName ? { siteName: link.siteName } : {}),
+    ...(typeof link.count === 'number' ? { count: link.count } : {}),
+  }));
+}
+
 async function fetchWithRetry<T>(
-  fn: () => PromiseLike<{ data: T | null; error: any }>,
+  fn: () => PromiseLike<{ data: T | null; error: unknown }>,
   retries = 3,
   delay = 1500
-): Promise<{ data: T | null; error: any }> {
+): Promise<{ data: T | null; error: unknown }> {
   for (let i = 0; i < retries; i++) {
-    let result: { data: T | null; error: any };
+    let result: { data: T | null; error: unknown };
     try {
       result = await fn();
     } catch (err) {
@@ -102,7 +147,7 @@ export function useDues() {
         return;
       }
 
-      const todos = allTodos as (Todo & { parent_due_id?: string | null })[];
+      const todos = allTodos as Array<Todo & TodoRow>;
       const masters = todos
         .filter(t => !t.parent_due_id && t.date.startsWith('_due_'))
         .sort((a, b) => {
@@ -115,7 +160,7 @@ export function useDues() {
       const today = format(new Date(), 'yyyy-MM-dd');
 
       const duesWithStats: DueWithStats[] = masters.map(master => {
-        const myChildren = children.filter(c => (c as any).parent_due_id === master.id);
+        const myChildren = children.filter(c => c.parent_due_id === master.id);
         // Separate steps from daily habit entries
         const stepChildren = myChildren.filter(c => c.date === '_step_');
         const nonStepChildren = myChildren.filter(c => c.date !== '_step_');
@@ -137,7 +182,7 @@ export function useDues() {
             is_completed: s.is_completed,
             sort_order: s.sort_order,
             due_date: s.due_date,
-            completed_at: s.is_completed ? ((s as any).updated_at ?? null) : null,
+            completed_at: s.is_completed ? (s.updated_at ?? null) : null,
           }));
 
         // Progress: if steps exist, derive from steps completion
@@ -153,7 +198,7 @@ export function useDues() {
           acc[child.date] = (acc[child.date] || 0) + 1;
           return acc;
         }, {});
-        const showInRecapDaily = Boolean((master as any).show_in_recap_daily) || (master.tags || []).includes(RECAP_DAILY_TAG);
+        const showInRecapDaily = Boolean(master.show_in_recap_daily) || (master.tags || []).includes(RECAP_DAILY_TAG);
         const targetCount = master.habit_category !== null ? Math.max(1, master.progress || 1) : 0;
         let currentStreak = 0;
         if (master.habit_category !== null) {
@@ -185,11 +230,11 @@ export function useDues() {
           totalSeconds,
           maxProgress,
           todayChildId: todayChild?.id,
-          links: (master as any).links || [],
+          links: parseDueLinks(master.links),
           totalCount,
-          photos: (master as any).photos || [],
+          photos: master.photos || [],
           steps,
-          habit_category: (master as any).habit_category || null,
+          habit_category: master.habit_category || null,
           show_in_recap_daily: showInRecapDaily,
           targetCount,
           dailyCounts,
@@ -204,7 +249,7 @@ export function useDues() {
         d => !!d.due_date && d.steps.length === 0 && d.maxProgress >= 100 && !masters.find(m => m.id === d.id)?.is_completed
       );
       // Auto-fix: uncomplete habits that were incorrectly marked as completed
-      const toAutoUncomplete = masters.filter(m => (m as any).habit_category !== null && m.is_completed);
+      const toAutoUncomplete = masters.filter(m => m.habit_category !== null && m.is_completed);
 
       const dbOps = [
         ...toAutoComplete.map(d => supabase.from('todos').update({ is_completed: true }).eq('id', d.id)),
@@ -226,8 +271,8 @@ export function useDues() {
     fetchDues();
   }, [fetchDues]);
 
-  const addDue = useCallback(async (title: string, dueDate?: string, habitCategory?: string, showInRecapDaily = false) => {
-    if (!user) return;
+  const addDue = useCallback(async (title: string, dueDate?: string, habitCategory?: string, showInRecapDaily = false): Promise<string | null> => {
+    if (!user) return null;
     const dateVal = dueDate ? '_due_' + dueDate : '_due_none';
     const { data, error } = await supabase
       .from('todos')
@@ -241,12 +286,14 @@ export function useDues() {
         ...(habitCategory ? { progress: 1 } : {}),
         ...(habitCategory ? { habit_category: habitCategory } : {}),
         ...(habitCategory && showInRecapDaily ? { tags: [RECAP_DAILY_TAG] } : {}),
-      } as any)
+      })
       .select()
       .single();
     if (!error && data) {
       await fetchDues();
+      return (data as Pick<TodoRow, 'id'>).id;
     }
+    return null;
   }, [user, fetchDues]);
 
   const addToToday = useCallback(async (masterId: string, stepTitle?: string) => {
@@ -286,36 +333,62 @@ export function useDues() {
 
   const updateDue = useCallback(async (id: string, updates: { title?: string; due_date?: string | null; links?: DueLink[]; is_completed?: boolean; photos?: string[]; habit_category?: string | null; show_in_recap_daily?: boolean; sort_order?: number; progress?: number }) => {
     const existing = dues.find(d => d.id === id);
-    const updatePayload: any = {};
+    const updatePayload: TodoUpdate = {};
+    const localPatch: Partial<DueWithStats> = {};
     if (updates.title) updatePayload.title = updates.title;
+    if (updates.title) localPatch.title = updates.title;
     if (updates.due_date !== undefined) {
       if (updates.due_date) {
         updatePayload.due_date = updates.due_date;
         updatePayload.date = '_due_' + updates.due_date;
+        localPatch.due_date = updates.due_date;
+        localPatch.date = '_due_' + updates.due_date;
       } else {
         updatePayload.due_date = null;
         updatePayload.date = '_due_none';
+        localPatch.due_date = null;
+        localPatch.date = '_due_none';
       }
     }
-    if (updates.links !== undefined) updatePayload.links = updates.links;
-    if (updates.is_completed !== undefined) updatePayload.is_completed = updates.is_completed;
-    if (updates.photos !== undefined) updatePayload.photos = updates.photos;
-    if (updates.habit_category !== undefined) updatePayload.habit_category = updates.habit_category;
+    if (updates.links !== undefined) {
+      updatePayload.links = serializeDueLinks(updates.links);
+      localPatch.links = updates.links;
+    }
+    if (updates.is_completed !== undefined) {
+      updatePayload.is_completed = updates.is_completed;
+      localPatch.is_completed = updates.is_completed;
+    }
+    if (updates.photos !== undefined) {
+      updatePayload.photos = updates.photos;
+      localPatch.photos = updates.photos;
+    }
+    if (updates.habit_category !== undefined) {
+      updatePayload.habit_category = updates.habit_category;
+      localPatch.habit_category = updates.habit_category;
+    }
     if (updates.show_in_recap_daily !== undefined) {
       const currentTags = existing?.tags || [];
       const nextTags = updates.show_in_recap_daily
         ? Array.from(new Set([...currentTags, RECAP_DAILY_TAG]))
         : currentTags.filter(tag => tag !== RECAP_DAILY_TAG);
       updatePayload.tags = nextTags;
+      localPatch.tags = nextTags;
+      localPatch.show_in_recap_daily = updates.show_in_recap_daily;
     }
-    if (updates.sort_order !== undefined) updatePayload.sort_order = updates.sort_order;
-    if (updates.progress !== undefined) updatePayload.progress = updates.progress;
+    if (updates.sort_order !== undefined) {
+      updatePayload.sort_order = updates.sort_order;
+      localPatch.sort_order = updates.sort_order;
+    }
+    if (updates.progress !== undefined) {
+      updatePayload.progress = updates.progress;
+      localPatch.progress = updates.progress;
+    }
     const { error } = await supabase
       .from('todos')
       .update(updatePayload)
       .eq('id', id);
     if (!error) {
-      setDues(prev => prev.map(d => d.id === id ? { ...d, ...updatePayload } : d));
+      setDues(prev => prev.map(d => d.id === id ? { ...d, ...localPatch } : d));
     }
   }, [dues]);
 
@@ -386,7 +459,7 @@ export function useDues() {
       parent_due_id: masterId,
       progress: 100,
       is_completed: true,
-    } as any);
+    });
 
     if (!error) await fetchDues();
   }, [dues, fetchDues, user]);
@@ -406,7 +479,7 @@ export function useDues() {
       .order('created_at', { ascending: false });
     if (error || !children) return;
 
-    const completedChildren = (children as any[]).filter(child => child.is_completed && child.date === targetDate);
+    const completedChildren = (children as Array<Pick<TodoRow, 'id' | 'date' | 'is_completed'>>).filter(child => child.is_completed && child.date === targetDate);
     const diff = safeCount - completedChildren.length;
     if (diff === 0) return;
 
@@ -420,8 +493,8 @@ export function useDues() {
         parent_due_id: masterId,
         progress: 100,
         is_completed: true,
-      }));
-      const { error: insertError } = await supabase.from('todos').insert(inserts as any);
+      })) as TodoInsert[];
+      const { error: insertError } = await supabase.from('todos').insert(inserts);
       if (!insertError) await fetchDues();
       return;
     }
@@ -434,7 +507,7 @@ export function useDues() {
 
   const setHabitTarget = useCallback(async (masterId: string, nextTarget: number) => {
     const safeTarget = Math.max(1, Math.floor(nextTarget));
-    const { error } = await supabase.from('todos').update({ progress: safeTarget } as any).eq('id', masterId);
+    const { error } = await supabase.from('todos').update({ progress: safeTarget }).eq('id', masterId);
     if (!error) await fetchDues();
   }, [fetchDues]);
 

@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { parseISO, format, isToday as isTodayFn } from 'date-fns';
 import { Clock, Check, X, Plus, CalendarDays, Trash2, ArrowLeft, Pencil, Timer } from 'lucide-react';
 import { cn, isImeComposing } from '@/lib/utils';
@@ -8,6 +8,9 @@ import { ImportedEvent } from '@/hooks/useImportedEvents';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useWorkTypes } from '@/hooks/useWorkTypes';
 import { WORK_TYPE_META } from '@/lib/workType';
+import { computeFreeRegions } from '@/lib/freeRegions';
+import { autoSchedule, type Suggestion, type ScheduleLane, type DurationHistoryRow } from '@/lib/autoSchedule';
+import { useSchedulingHistory } from '@/hooks/useSchedulingHistory';
 import { getActivityAccentColor } from '@/lib/activityColors';
 import {
   PLAN_TIMELINE_AXIS_START_HOUR as WAKE_HOUR,
@@ -16,6 +19,8 @@ import {
   PLAN_TIMELINE_AXIS_START_MIN as WAKE_TOTAL_MIN,
   PLAN_TIMELINE_END_TOTAL_MIN as END_TOTAL_MIN,
   PLAN_TIMELINE_END_HOUR_CONTINUOUS as END_HOUR_CONTINUOUS,
+  PLAN_TIMELINE_WAKE_TOTAL_MIN as DAY_WAKE_MIN,
+  PLAN_TIMELINE_BED_TOTAL_MIN as DAY_BED_MIN,
 } from '@/lib/planTimelineDayBounds';
 import {
   DEFAULT_PLAN_TIMELINE_RHYTHM_PRESET_ID,
@@ -37,8 +42,10 @@ import {
   ULTRA_SHORT_OUTER_PX,
   DRAG_UNSCHEDULE_MARGIN_PX,
   MAX_TIMELINE_TITLE_FONT_PX,
+  MAX_VISIBLE_COLS,
   formatGapMinutesLabel,
   TimelineIntervalPill,
+  TimelineTodayRemainingPill,
   TimelineSpine,
   TimelineSpineBranch,
   SPINE_X_PX,
@@ -73,7 +80,7 @@ interface PlanTimelineViewProps {
   prevDayMoments?: Moment[];
   date?: string; // yyyy-MM-dd, used to determine if viewing today or a past/future day
   onUpdateTodo: (id: string, updates: Partial<Todo>) => void;
-  onAddTodo: (title: string, timeSegment: string) => Promise<any>;
+  onAddTodo: (title: string, timeSegment: string) => Promise<unknown>;
   onDropTodo?: (todoId: string, startMin: number) => void;
   onUnscheduleTodo?: (id: string) => void;
   onDeleteTodo?: (id: string) => void;
@@ -85,11 +92,108 @@ interface PlanTimelineViewProps {
   onDeleteMoment?: (id: string) => void;
   activeTimerIds?: Set<string>;
   getTimerElapsed?: (todoId: string) => number;
+  /** Fired when the user STARTS a rest break from the timeline's Rest toggle.
+   *  The Plan view uses it to pause every running task timer at once, so a rest
+   *  window stops all live clocks together. */
+  onRestStart?: () => void;
+  /** Fired when the user STOPS the rest break. Symmetric to onRestStart — the
+   *  Plan view resumes every timer the rest paused so the clocks pick back up. */
+  onRestEnd?: () => void;
   /** Plan page rhythm picker — shifts “now” marker + stays in sync with Execution chart */
   rhythmPresetId?: string;
 }
 
-export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos, prevDayMoments, date, onUpdateTodo, onAddTodo, onDropTodo, onUnscheduleTodo, onDeleteTodo, onRenameTodo, onStartTimer, onUpdateMoment, onDeleteMoment, activeTimerIds, getTimerElapsed, rhythmPresetId }: PlanTimelineViewProps) {
+// Deterministic PRNG (mulberry32) — same seed → same sparkle pattern every mount.
+// Prevents "positions jump on rerender" while still giving each burst its own layout.
+function mulberry32(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function hashSeed(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+interface SparkleBurstProps {
+  seed: string;
+  count?: number;
+  color?: string;
+  oneShot?: boolean;
+}
+
+type CssVarStyle = React.CSSProperties & Record<`--${string}`, string>;
+type TodoWithPlanMeta = Todo & { parent_due_id?: string | null; habit_category?: string | null };
+
+const SparkleBurst = React.memo(function SparkleBurst({ seed, count = 16, color, oneShot }: SparkleBurstProps) {
+  const sparkles = useMemo(() => {
+    const rnd = mulberry32(hashSeed(seed));
+    const out: Array<{ sx: number; sy: number; size: number; dx: number; dy: number; rot: number; dur: number; delay: number }> = [];
+    // Container is inset:-24px around the block. In this container's coord system
+    // the block occupies roughly [16%, 84%] of both axes. We want sparkles to land
+    // OUTSIDE that inner rect (halo ring), so we sample uniformly in [0, 100] and
+    // reject samples that fall inside the inner block area.
+    const INNER_MIN = 16;
+    const INNER_MAX = 84;
+    let attempts = 0;
+    while (out.length < count && attempts < count * 20) {
+      attempts++;
+      const sx = rnd() * 100;
+      const sy = rnd() * 100;
+      const insideBlock =
+        sx > INNER_MIN && sx < INNER_MAX && sy > INNER_MIN && sy < INNER_MAX;
+      if (insideBlock) continue;
+      const size = 2.5 + rnd() * 3.5;
+      // Drift outward from block: push away from center on both axes.
+      const cx = 50, cy = 50;
+      const outX = sx < cx ? -1 : 1;
+      const outY = sy < cy ? -1 : 1;
+      const dx = outX * (4 + rnd() * 10);   // 4-14px outward horizontally
+      const dy = outY * (4 + rnd() * 12);   // 4-16px outward vertically
+      const rot = (rnd() - 0.5) * 300;
+      const dur = 1200 + rnd() * 900;
+      const delay = rnd() * 1400;
+      out.push({ sx, sy, size, dx, dy, rot, dur, delay });
+    }
+    return out;
+  }, [seed, count]);
+
+  return (
+    <span
+      className="plan-drop-sparkle-burst"
+      style={color ? ({ '--sparkle-color': color } as CssVarStyle) : undefined}
+      aria-hidden="true"
+    >
+      {sparkles.map((s, i) => (
+        <i
+          key={i}
+          style={{
+            '--sx': `${s.sx}%`,
+            '--sy': `${s.sy}%`,
+            '--sz': `${s.size}px`,
+            '--dx': `${s.dx}px`,
+            '--dy': `${s.dy}px`,
+            '--rot': `${s.rot}deg`,
+            '--sd': `${s.dur}ms`,
+            '--sdl': oneShot ? '0ms' : `${s.delay}ms`,
+          } as CssVarStyle}
+        />
+      ))}
+    </span>
+  );
+});
+
+export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos, prevDayMoments, date, onUpdateTodo, onAddTodo, onDropTodo, onUnscheduleTodo, onDeleteTodo, onRenameTodo, onStartTimer, onUpdateMoment, onDeleteMoment, activeTimerIds, getTimerElapsed, onRestStart, onRestEnd, rhythmPresetId }: PlanTimelineViewProps) {
   const { t, lang } = useLanguage();
   const { getWorkType } = useWorkTypes();
   const tOr = useCallback((key: string, fallback: string) => {
@@ -97,8 +201,17 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     return !translated || translated === key ? fallback : translated;
   }, [t]);
   const [displayMode, setDisplayMode] = useState<'plan' | 'actual' | 'both'>('both');
-  // Determine if we're viewing today or a different date
-  const viewingDate = date ? new Date(date + 'T00:00:00') : new Date();
+  // Auto-plan preview: ghosted placements the user can accept / adjust / dismiss.
+  // `null` = not previewing. laneOverrides lets the user flip a task focus↔background.
+  const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
+  const [laneOverrides, setLaneOverrides] = useState<Record<string, ScheduleLane>>({});
+  // Learned habit history (Phase 2): real durations + preferred time-of-day per
+  // work type. Degrades to empty (rule-based) when signed out / no history.
+  const schedulingHistory = useSchedulingHistory();
+  // Determine if we're viewing today or a different date.
+  // Use a stable day key so memo deps don't see a brand-new Date object each render.
+  const viewingDateKey = date || format(new Date(), 'yyyy-MM-dd');
+  const viewingDate = useMemo(() => new Date(`${viewingDateKey}T00:00:00`), [viewingDateKey]);
   const isViewingToday = isTodayFn(viewingDate);
 
   // Track dark mode so we can adapt the (light-mode-tuned) hex tag colors to
@@ -149,6 +262,18 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
   const timelineHalfHourLineColor = isDarkMode ? 'hsl(240 4% 100% / 0.06)' : 'rgba(55, 55, 62, 0.055)';
   const timelineRailLabelColor = isDarkMode ? 'hsl(240 5% 86% / 0.46)' : 'rgba(75, 75, 80, 0.48)';
   const timelinePastTint = isDarkMode ? 'hsl(240 4% 100% / 0.018)' : 'rgba(15, 23, 42, 0.014)';
+  // Ghost auto-plan preview — half-real placements. Warm primary tint, dashed so it
+  // reads as "proposed, not committed". Focus = solid dash; background = softer dots.
+  const ghostFocusBg = isDarkMode ? 'hsl(24 46% 58% / 0.14)' : 'hsl(24 55% 48% / 0.10)';
+  const ghostFocusEdge = isDarkMode ? 'hsl(24 50% 68% / 0.55)' : 'hsl(24 55% 46% / 0.50)';
+  const ghostBgBg = isDarkMode ? 'hsl(150 22% 52% / 0.12)' : 'hsl(150 28% 40% / 0.09)';
+  const ghostBgEdge = isDarkMode ? 'hsl(150 26% 62% / 0.45)' : 'hsl(150 30% 40% / 0.42)';
+  const suggestionToolbarBg = isDarkMode ? 'hsl(240 4% 8% / 0.80)' : 'hsl(0 0% 100% / 0.78)';
+  const suggestionToolbarBorder = isDarkMode ? 'hsl(0 0% 100% / 0.08)' : 'hsl(24 12% 40% / 0.12)';
+  const suggestionToolbarLabelBg = isDarkMode ? 'hsl(24 46% 58% / 0.16)' : 'hsl(24 55% 48% / 0.12)';
+  const suggestionToolbarLabelFg = isDarkMode ? 'hsl(24 58% 76%)' : 'hsl(24 46% 34%)';
+  const suggestionToolbarActionBg = isDarkMode ? 'hsl(0 0% 0% / 0.18)' : 'hsl(0 0% 100% / 0.58)';
+  const suggestionToolbarActionBorder = isDarkMode ? 'hsl(0 0% 100% / 0.08)' : 'hsl(24 12% 40% / 0.12)';
   
   const [dragging, setDragging] = useState<{ id: string; target: 'plan' | 'actual' | 'moment'; edge: 'move' | 'top' | 'bottom'; startY: number; startMin: number; origStart: number; origEnd: number } | null>(null);
   const [dragPreview, setDragPreview] = useState<{ startMin: number; endMin: number } | null>(null);
@@ -180,6 +305,8 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
   const [dropIndicatorMin, setDropIndicatorMin] = useState<number | null>(null);
   const [dragTaskTitle, setDragTaskTitle] = useState<string | null>(null);
   const [dragTaskId, setDragTaskId] = useState<string | null>(null);
+  const [freshDropId, setFreshDropId] = useState<string | null>(null);
+  const freshDropTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
   const [editingBlockTitle, setEditingBlockTitle] = useState('');
   const [editingTimeBlockId, setEditingTimeBlockId] = useState<string | null>(null);
@@ -188,6 +315,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
   const [editingActualBlockId, setEditingActualBlockId] = useState<string | null>(null);
   const [editingActualStart, setEditingActualStart] = useState('');
   const [editingActualEnd, setEditingActualEnd] = useState('');
+  const [selectedResumeBlockId, setSelectedResumeBlockId] = useState<string | null>(null);
   const [photoLightbox, setPhotoLightbox] = useState<{ photos: string[]; index: number } | null>(null);
   const restKey = `eol_rest_${date || format(new Date(), 'yyyy-MM-dd')}`;
   const [restStartMin, setRestStartMinState] = useState<number | null>(() => {
@@ -203,17 +331,30 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
   });
   const setRestStartMin = useCallback((val: number | null) => {
     setRestStartMinState(val);
-    try { val !== null ? localStorage.setItem(`${restKey}_start`, String(val)) : localStorage.removeItem(`${restKey}_start`); } catch {}
+    try {
+      if (val !== null) {
+        localStorage.setItem(`${restKey}_start`, String(val));
+      } else {
+        localStorage.removeItem(`${restKey}_start`);
+      }
+    } catch {
+      // Ignore storage write failures (private mode / quota).
+    }
   }, [restKey]);
   const setRestBlocks = useCallback((updater: (prev: { id: string; startMin: number; endMin: number }[]) => { id: string; startMin: number; endMin: number }[]) => {
     setRestBlocksState(prev => {
       const next = updater(prev);
-      try { localStorage.setItem(`${restKey}_blocks`, JSON.stringify(next)); } catch {}
+      try {
+        localStorage.setItem(`${restKey}_blocks`, JSON.stringify(next));
+      } catch {
+        // Ignore storage write failures (private mode / quota).
+      }
       return next;
     });
   }, [restKey]);
   // Track previous key to detect date navigation; skip on initial mount to avoid overwriting live state
   const prevRestKeyRef = useRef(restKey);
+  const initialScrollDateKeyRef = useRef<string | null>(null);
   useEffect(() => {
     if (prevRestKeyRef.current === restKey) return;
     prevRestKeyRef.current = restKey;
@@ -227,20 +368,6 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
       setRestBlocksState(parsed.filter(b => !b.id.startsWith('rest-auto-')));
     } catch { setRestBlocksState([]); }
   }, [restKey]);
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-    if (isViewingToday) {
-      const viewportHeight = containerRef.current.clientHeight || 0;
-      const nowTop = minToY(nowMin);
-      const scrollTarget = Math.max(0, nowTop - viewportHeight * NOW_VIEWPORT_ANCHOR);
-      containerRef.current.scrollTop = scrollTarget;
-    } else {
-      // For past/future days, scroll to 6 AM
-      const sixAmTop = minToY(6 * 60);
-      containerRef.current.scrollTop = Math.max(0, sixAmTop);
-    }
-  }, [isViewingToday]);
 
   useEffect(() => {
     if (!isViewingToday) {
@@ -261,11 +388,55 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
       (prevDayTodos?.length || prevDayMoments?.length)
         ? { todos: prevDayTodos ?? [], moments: prevDayMoments ?? [] }
         : undefined,
+      format(viewingDate, 'yyyy-MM-dd'),
     ),
-    [todos, importedEvents, moments, activeTimerIds, getTimerElapsed, prevDayTodos, prevDayMoments],
+    [todos, importedEvents, moments, activeTimerIds, getTimerElapsed, prevDayTodos, prevDayMoments, viewingDate],
   );
 
-  const positioned = useMemo(() => assignColumns(planBlocks), [planBlocks]);
+  /** Extend the visible axis upward ONLY when a live-running timer that
+   *  started yesterday has crossed into today — that block is the only thing
+   *  that fills the pre-midnight hours continuously into now. Completed
+   *  cross-midnight sessions clamp their tail to 00:00 (see makeTail) and
+   *  don't earn extra axis; otherwise 23:xx would show as an empty band above
+   *  the tail. `startMin < 0` is the load-bearing signal — a live tail is the
+   *  only thing makeTail produces with a negative startMin. */
+  const AXIS_LEAD_MIN = 180;
+  const axisStartMin = useMemo(() => {
+    let earliestNeg = 0;
+    for (const b of planBlocks) {
+      if (!b.continuedFromPrevDay) continue;
+      if (b.startMin < earliestNeg) earliestNeg = b.startMin;
+    }
+    if (earliestNeg >= 0) return WAKE_TOTAL_MIN;
+    const leadNeeded = Math.min(AXIS_LEAD_MIN, Math.abs(earliestNeg) + 15);
+    return -leadNeeded;
+  }, [planBlocks]);
+
+  // A live (actively-timing) block visually extends down to the "now" line,
+  // even though its recorded actual end is only a minute or two in. Column
+  // assignment must reserve that on-screen span, otherwise a running task and a
+  // later block that visually overlap get placed in the SAME column and stack on
+  // top of each other. We extend active blocks' effective end to now purely for
+  // the overlap/column computation (rendering still uses the live values).
+  const blocksForColumns = useMemo(() => {
+    if (!activeTimerIds || activeTimerIds.size === 0) return planBlocks;
+    const liveEnd = Math.round(nowPreciseMin);
+    return planBlocks.map(b => {
+      if (!activeTimerIds.has(b.id)) return b;
+      const extendedEnd = Math.max(b.endMin, liveEnd);
+      const extendedActualEnd = b.actualEndMin != null ? Math.max(b.actualEndMin, liveEnd) : b.actualEndMin;
+      if (extendedEnd === b.endMin && extendedActualEnd === b.actualEndMin) return b;
+      return { ...b, endMin: extendedEnd, actualEndMin: extendedActualEnd };
+    });
+  }, [planBlocks, activeTimerIds, nowPreciseMin]);
+
+  const positioned = useMemo(() => assignColumns(blocksForColumns), [blocksForColumns]);
+
+  const blockTitleById = useMemo(() => {
+    const map = new Map<string, string>();
+    planBlocks.forEach(b => map.set(b.id, b.title));
+    return map;
+  }, [planBlocks]);
 
   const sortedPlanBlocks = useMemo(
     () => [...planBlocks].sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin),
@@ -275,20 +446,174 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     ? sortedPlanBlocks[sortedPlanBlocks.length - 1].endMin
     : null;
 
+  // Tasks sitting in the list with no time yet — candidates for auto-planning.
+  // Excludes completed, already-scheduled (plan or running timer), step children
+  // and habit rows.
+  const unscheduledTodos = useMemo(
+    () =>
+      todos.filter(
+        t => {
+          const todoMeta = t as TodoWithPlanMeta;
+          return (
+            !todoMeta.is_completed &&
+            !todoMeta.plan_started_at &&
+            !todoMeta.timer_started_at &&
+            !todoMeta.parent_due_id &&
+            !todoMeta.habit_category
+          );
+        },
+      ),
+    [todos],
+  );
+
+  const buildSuggestions = useCallback(
+    (overrides: Record<string, ScheduleLane>) => {
+      const free = computeFreeRegions(
+        sortedPlanBlocks.map(b => ({ startMin: b.startMin, endMin: b.endMin })),
+        {
+          dayStart: DAY_WAKE_MIN,
+          dayEnd: DAY_BED_MIN,
+          minGapMin: 5,
+          nowMin: isViewingToday ? nowMin : undefined,
+        },
+      );
+      return autoSchedule(
+        unscheduledTodos.map(t => ({
+          id: t.id,
+          title: t.title,
+          tags: t.tags,
+          time_segment: t.time_segment,
+        })),
+        free,
+        {
+          dayStart: DAY_WAKE_MIN,
+          dayEnd: DAY_BED_MIN,
+          laneOverrides: overrides,
+          history: schedulingHistory.durations,
+          profile: schedulingHistory.profile,
+        },
+      );
+    },
+    [sortedPlanBlocks, unscheduledTodos, isViewingToday, nowMin, schedulingHistory],
+  );
+
+  const handleAutoPlan = useCallback(() => {
+    if (suggestions) {
+      setSuggestions(null);
+      setLaneOverrides({});
+      return;
+    }
+    setSuggestions(buildSuggestions({}));
+  }, [suggestions, buildSuggestions]);
+
+  const dismissSuggestions = useCallback(() => {
+    setSuggestions(null);
+    setLaneOverrides({});
+  }, []);
+
+  const removeSuggestion = useCallback((todoId: string) => {
+    setSuggestions(prev => {
+      const next = prev ? prev.filter(x => x.todoId !== todoId) : prev;
+      return next && next.length ? next : null;
+    });
+    setLaneOverrides(prev => {
+      if (!(todoId in prev)) return prev;
+      const { [todoId]: _removed, ...rest } = prev;
+      return rest;
+    });
+  }, []);
+
+  const acceptSuggestion = useCallback(
+    (s: Suggestion) => {
+      const d = date || new Date().toISOString().slice(0, 10);
+      onUpdateTodo(s.todoId, {
+        plan_started_at: localMinuteToISOString(d, s.startMin),
+        plan_ended_at: localMinuteToISOString(d, s.endMin),
+      });
+      removeSuggestion(s.todoId);
+    },
+    [date, onUpdateTodo, removeSuggestion],
+  );
+
+  const acceptAllSuggestions = useCallback(() => {
+    if (!suggestions) return;
+    const d = date || new Date().toISOString().slice(0, 10);
+    suggestions.forEach(s =>
+      onUpdateTodo(s.todoId, {
+        plan_started_at: localMinuteToISOString(d, s.startMin),
+        plan_ended_at: localMinuteToISOString(d, s.endMin),
+      }),
+    );
+    setSuggestions(null);
+    setLaneOverrides({});
+  }, [suggestions, date, onUpdateTodo]);
+
+  const toggleSuggestionLane = useCallback(
+    (todoId: string) => {
+      const currentLane =
+        laneOverrides[todoId] ??
+        suggestions?.find(s => s.todoId === todoId)?.lane ??
+        'focus';
+      const nextOverrides: Record<string, ScheduleLane> = {
+        ...laneOverrides,
+        [todoId]: currentLane === 'focus' ? 'background' : 'focus',
+      };
+      setLaneOverrides(nextOverrides);
+      setSuggestions(buildSuggestions(nextOverrides));
+    },
+    [laneOverrides, suggestions, buildSuggestions],
+  );
+
   const hours: number[] = [];
-  // Extend axis to 04:00 next day (continuous hour 28) for night-owls
-  for (let h = WAKE_HOUR; h <= END_HOUR_CONTINUOUS; h++) hours.push(h);
+  // Extend axis to 04:00 next day (continuous hour 28) for night-owls.
+  // Also extend UPWARD when a prev-day session crossed midnight (axisStartMin < 0).
+  const firstHour = Math.floor(axisStartMin / 60);
+  for (let h = firstHour; h <= END_HOUR_CONTINUOUS; h++) hours.push(h);
 
   const minToY = useCallback((minute: number) => {
-    const m = Math.max(WAKE_TOTAL_MIN, Math.min(minute, END_TOTAL_MIN));
-    return (m - WAKE_TOTAL_MIN) * PX_PER_MIN;
-  }, []);
+    const m = Math.max(axisStartMin, Math.min(minute, END_TOTAL_MIN));
+    return (m - axisStartMin) * PX_PER_MIN;
+  }, [axisStartMin]);
 
   const yToMin = useCallback((y: number) => {
-    return Math.round(WAKE_TOTAL_MIN + y / PX_PER_MIN);
-  }, []);
+    return Math.round(axisStartMin + y / PX_PER_MIN);
+  }, [axisStartMin]);
 
   const totalHeight = minToY(END_TOTAL_MIN);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    if (isViewingToday && initialScrollDateKeyRef.current === viewingDateKey) return;
+    if (isViewingToday) initialScrollDateKeyRef.current = viewingDateKey;
+    // The container's clientHeight is 0 on the first synchronous tick after
+    // mount (layout not settled). Reading nowTop/viewport in that state made
+    // the scroll target collapse to nowTop-0 → the whole rail scrolled past
+    // the viewport, leaving the user staring at empty morning hours. Retry
+    // via rAF until we get a real height (bounded so we can't loop forever).
+    let attempts = 0;
+    let raf = 0;
+    const applyScroll = () => {
+      const el = containerRef.current;
+      if (!el) return;
+      const viewportHeight = el.clientHeight || 0;
+      if (viewportHeight === 0 && attempts < 8) {
+        attempts += 1;
+        raf = requestAnimationFrame(applyScroll);
+        return;
+      }
+      if (isViewingToday) {
+        const nowTop = minToY(nowMin);
+        const scrollTarget = Math.max(0, nowTop - viewportHeight * NOW_VIEWPORT_ANCHOR);
+        el.scrollTop = scrollTarget;
+      } else {
+        // For past/future days, scroll to 6 AM
+        const sixAmTop = minToY(6 * 60);
+        el.scrollTop = Math.max(0, sixAmTop);
+      }
+    };
+    raf = requestAnimationFrame(applyScroll);
+    return () => cancelAnimationFrame(raf);
+  }, [isViewingToday, minToY, nowMin, viewingDateKey]);
 
   const sessionContinuationMap = useMemo(() => {
     const grouped = new Map<string, Array<{
@@ -332,14 +657,15 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
 
   const allSlots = useMemo(() => {
     const slots: { key: SlotKey; h: number; half: 0 | 30; startMin: number; endMin: number }[] = [];
-    for (let h = WAKE_HOUR; h <= END_HOUR_CONTINUOUS; h++) {
+    const startH = Math.floor(axisStartMin / 60);
+    for (let h = startH; h <= END_HOUR_CONTINUOUS; h++) {
       slots.push({ key: slotKey(h, 0), h, half: 0, startMin: h * 60, endMin: h * 60 + 30 });
       if (h < END_HOUR_CONTINUOUS) {
         slots.push({ key: slotKey(h, 30), h, half: 30, startMin: h * 60 + 30, endMin: h * 60 + 60 });
       }
     }
     return slots;
-  }, []);
+  }, [axisStartMin]);
 
   const slotRange = useMemo(() => {
     if (selectedSlots.size === 0) return null;
@@ -348,17 +674,24 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
   }, [selectedSlots]);
 
   const selectedRange = customRange ?? slotRange;
+  const selectedRangeStartMin = selectedRange?.startMin ?? null;
+  const selectedRangeEndMin = selectedRange?.endMin ?? null;
+  const hasSelectedRange = selectedRange !== null;
 
   useEffect(() => {
-    if (!selectedRange) { setStartInput(''); setEndInput(''); return; }
-    setStartInput(fmtTime(selectedRange.startMin));
-    setEndInput(fmtTime(selectedRange.endMin));
-  }, [selectedRange?.startMin, selectedRange?.endMin]);
+    if (selectedRangeStartMin == null || selectedRangeEndMin == null) {
+      setStartInput('');
+      setEndInput('');
+      return;
+    }
+    setStartInput(fmtTime(selectedRangeStartMin));
+    setEndInput(fmtTime(selectedRangeEndMin));
+  }, [selectedRangeStartMin, selectedRangeEndMin]);
 
   // Auto-focus the creation card input when selection range appears
   // and dismiss on any click outside the creation card
   useEffect(() => {
-    if (selectedRange) {
+    if (hasSelectedRange) {
       requestAnimationFrame(() => slotInputRef.current?.focus());
       const handler = (e: MouseEvent) => {
         const target = e.target as HTMLElement;
@@ -371,7 +704,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
       const timer = setTimeout(() => document.addEventListener('mousedown', handler), 0);
       return () => { clearTimeout(timer); document.removeEventListener('mousedown', handler); };
     }
-  }, [!!selectedRange]);
+  }, [hasSelectedRange]);
 
   const clampSelectionRange = useCallback((start: number, end: number) => {
     const safeStart = Math.max(WAKE_TOTAL_MIN, Math.min(start, END_TOTAL_MIN - 10));
@@ -393,7 +726,9 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
 
     if (mode === 'plan') return hasPlan ? 'plan' : null;
     if (mode === 'actual') return hasActual && !isTimerActive ? 'actual' : null;
-    if (hasPlan && hasActual) return null;
+    // In Both mode, mixed plan+actual blocks should still be editable.
+    // Default to editing the actual span because it represents what happened.
+    if (hasPlan && hasActual) return !isTimerActive ? 'actual' : null;
     if (hasPlan) return 'plan';
     if (hasActual && !isTimerActive) return 'actual';
     return null;
@@ -516,7 +851,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
             timer_ended_at: null,
             timer_seconds: null,
             is_completed: false,
-          } as any);
+          });
         }
       } else {
         const targetDay = date || format(new Date(), 'yyyy-MM-dd');
@@ -538,7 +873,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
           onUpdateTodo(dragging.id, {
             plan_started_at: startISO,
             plan_ended_at: endISO,
-          } as any);
+          });
         } else if (dragging.target === 'actual') {
           // 实际模式下视为补记 actual，顺便标记为完成（出现删除线）
           // 但如果当前正在计时，就不要强行写死结束时间
@@ -549,7 +884,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
               timer_ended_at: endISO,
               timer_seconds: diffSec,
               is_completed: true,
-            } as any);
+            });
           }
         }
       }
@@ -557,7 +892,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     setDragging(null);
     setDragPreview(null);
     setDragOutside(false);
-  }, [dragging, dragPreview, dragOutside, onUpdateTodo, onUnscheduleTodo, rangeDragging, activeTimerIds, displayMode, date, isOutsideTimeline, onUpdateMoment, parseMomentBlockId]);
+  }, [dragging, dragPreview, dragOutside, onUpdateTodo, onUnscheduleTodo, rangeDragging, activeTimerIds, date, isOutsideTimeline, onUpdateMoment, parseMomentBlockId]);
 
   const parseHHMM = (value: string): number | null => {
     const match = value.match(/^(\d{1,2}):(\d{2})$/);
@@ -605,19 +940,36 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
       setEditingTimeBlockId(null);
       return;
     }
-    onUpdateTodo(blockId, { plan_started_at: startISO, plan_ended_at: endISO } as any);
+    // A completed block's visible extent is its ACTUAL (timer) span, not the
+    // plan. If we only rewrote the plan here, a runaway/over-long actual would
+    // keep the block tall no matter what the user typed. So for a completed todo
+    // that has a real timer span, rewrite the timer fields too — collapsing the
+    // block to exactly the range the user entered.
+    const todo = todos.find(t => t.id === blockId);
+    const patch: Partial<Todo> = { plan_started_at: startISO, plan_ended_at: endISO };
+    if (todo?.is_completed && todo.timer_started_at) {
+      patch.timer_started_at = startISO;
+      patch.timer_ended_at = endISO;
+      patch.timer_seconds = Math.max(0, (parsedEnd - parsedStart) * 60);
+    }
+    onUpdateTodo(blockId, patch);
     setEditingTimeBlockId(null);
-  }, [editingTimeStart, editingTimeEnd, date, onUpdateTodo, onUpdateMoment, parseMomentBlockId]);
+  }, [editingTimeStart, editingTimeEnd, date, onUpdateTodo, onUpdateMoment, parseMomentBlockId, todos]);
 
   const handleRestToggle = useCallback(() => {
     if (restStartMin !== null) {
       const endMin = Math.max(restStartMin + 5, nowMin);
       setRestBlocks(prev => [...prev, { id: `rest-${Date.now()}`, startMin: restStartMin, endMin }]);
       setRestStartMin(null);
+      // Ending the rest break resumes every timer the break paused.
+      onRestEnd?.();
     } else {
       setRestStartMin(nowMin);
+      // Starting a rest break pauses every running task timer at once — the rest
+      // window IS the pause. Owned by PlanView (it holds the pause state).
+      onRestStart?.();
     }
-  }, [restStartMin, nowMin]);
+  }, [restStartMin, nowMin, onRestStart, onRestEnd, setRestBlocks, setRestStartMin]);
 
   const handleSaveActualTime = useCallback((blockId: string) => {
     const parsedStart = parseHHMM(editingActualStart);
@@ -630,8 +982,8 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     const startISO = localMinuteToISOString(d, parsedStart);
     const endISO = localMinuteToISOString(d, parsedEnd);
     const diffSec = Math.max(0, (parsedEnd - parsedStart) * 60);
-    // 在 Actual 模式下手动录入也视为完成一次实际执行
-    onUpdateTodo(blockId, { timer_started_at: startISO, timer_ended_at: endISO, timer_seconds: diffSec, is_completed: true } as any);
+    // 在 Actual 模式下手动录入只补记实际时间；完成状态由 list 手动决定。
+    onUpdateTodo(blockId, { timer_started_at: startISO, timer_ended_at: endISO, timer_seconds: diffSec });
     setEditingActualBlockId(null);
   }, [editingActualStart, editingActualEnd, date, onUpdateTodo]);
 
@@ -710,7 +1062,9 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
         const endMin = Math.max(startMin + 1, now.getHours() * 60 + now.getMinutes());
         setRestBlocks(prev => [...prev, { id: `rest-${Date.now()}`, startMin, endMin }]);
         setRestStartMin(null);
-      } catch {}
+      } catch {
+        // Ignore malformed/stale localStorage data.
+      }
     };
     window.addEventListener('eol-timer-started', handler);
     return () => window.removeEventListener('eol-timer-started', handler);
@@ -729,6 +1083,12 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     };
   }, [dragging, handleMouseUp, updateDragPreview]);
 
+  useEffect(() => {
+    return () => {
+      if (freshDropTimerRef.current) clearTimeout(freshDropTimerRef.current);
+    };
+  }, []);
+
   // Handle external drag & drop from the task list
   const handleTimelineDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -736,9 +1096,15 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     e.dataTransfer.dropEffect = 'move';
     const min = clientYToMin(e.clientY);
     const snapped = snapMinute(min);
-    setDropIndicatorMin(snapped);
+    // Only update state when the snapped minute actually changes.
+    // dragOver fires ~60Hz; mouse moving 1px within the same 15-min slot
+    // should not trigger a full PlanTimelineView re-render.
+    setDropIndicatorMin(prev => (prev === snapped ? prev : snapped));
+    // dataTransfer.getData often returns "" during dragover in Chromium
+    // (security restriction — real data only exposed on drop). Skip if empty
+    // to avoid clobbering the id captured via the 'plan-task-drag-start' event.
     const todoId = e.dataTransfer.getData('text/plain');
-    if (todoId) setDragTaskId(todoId);
+    if (todoId) setDragTaskId(prev => (prev === todoId ? prev : todoId));
   }, [clientYToMin]);
 
   const handleTimelineDrop = useCallback((e: React.DragEvent) => {
@@ -751,9 +1117,10 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
       const min = clientYToMin(e.clientY);
       const snapped = snapMinute(min);
       const clamped = Math.max(WAKE_TOTAL_MIN, Math.min(snapped, END_TOTAL_MIN - duration));
-      // Past slots (before now) → log as done; future slots → schedule as plan
-      const logAsDone = displayMode === 'actual' || clamped < nowMin;
-      if (logAsDone) {
+      // For elapsed slots (or Actual mode), record actual time but keep the
+      // task open. Users may backfill first, then decide completion in list.
+      const logActualTime = displayMode === 'actual' || (isViewingToday && clamped < nowMin);
+      if (logActualTime) {
         const targetDay = date || format(new Date(), 'yyyy-MM-dd');
         const startISO = localMinuteToISOString(targetDay, clamped);
         const endISO = localMinuteToISOString(targetDay, clamped + duration);
@@ -761,15 +1128,17 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
           timer_started_at: startISO,
           timer_ended_at: endISO,
           timer_seconds: duration * 60,
-          is_completed: true,
-        } as any);
+        });
       } else {
         onDropTodo?.(todoId, clamped);
       }
+      setFreshDropId(todoId);
+      if (freshDropTimerRef.current) clearTimeout(freshDropTimerRef.current);
+      freshDropTimerRef.current = setTimeout(() => setFreshDropId(null), 840);
     }
     setDropIndicatorMin(null);
     setDragTaskId(null);
-  }, [clientYToMin, date, displayMode, nowMin, onDropTodo, onUpdateTodo, todos]);
+  }, [clientYToMin, date, displayMode, isViewingToday, nowMin, onDropTodo, onUpdateTodo, todos]);
 
   const handleTimelineDragLeave = useCallback((e: React.DragEvent) => {
     // Only clear if leaving the container entirely
@@ -812,7 +1181,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     if (block.source !== 'todo') return;
 
     if (displayMode === 'plan') {
-      onUpdateTodo(block.id, { plan_started_at: null, plan_ended_at: null } as any);
+      onUpdateTodo(block.id, { plan_started_at: null, plan_ended_at: null });
       return;
     }
 
@@ -822,7 +1191,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
         timer_ended_at: null,
         timer_seconds: 0,
         is_completed: false,
-      } as any);
+      });
       return;
     }
 
@@ -833,7 +1202,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
       timer_ended_at: null,
       timer_seconds: 0,
       is_completed: false,
-    } as any);
+    });
   }, [displayMode, onUpdateTodo, onDeleteMoment, parseMomentBlockId]);
 
   // Rename either a todo block or a moment block, routing to the right hook.
@@ -848,13 +1217,21 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     onRenameTodo?.(block.id, trimmed);
   }, [onRenameTodo, onUpdateMoment, parseMomentBlockId]);
 
-  const renderBlock = (block: TimeBlock, col: number, totalCols: number) => {
+  const renderBlock = (block: TimeBlock, col: number, totalCols: number, visibleCols: number, hiddenSiblingIds: string[], tailRowIndex: number) => {
     const isDraggingThis = dragging?.id === block.id;
     const isImported = block.source === 'imported';
     const isMoment = block.source === 'moment';
     const isTodo = block.source === 'todo';
-    const isTimerActive = isTodo && activeTimerIds?.has(block.id);
-    const blockTodoForTimer = isTodo ? todos.find(td => td.id === block.id) : undefined;
+    // Tail blocks are the post-midnight portion of a previous-day session and
+    // carry a synthesized id `tail-<parentId>`. For active-timer / live-badge /
+    // parent-todo lookups we resolve back to the original parent id so a timer
+    // that started yesterday and is still running lights up on today's tail
+    // block too (not just yesterday's head).
+    const parentTimerId = block.continuedFromPrevDay && block.id.startsWith('tail-')
+      ? block.id.slice(5)
+      : block.id;
+    const isTimerActive = isTodo && activeTimerIds?.has(parentTimerId);
+    const blockTodoForTimer = isTodo ? todos.find(td => td.id === parentTimerId) : undefined;
     const showResumeTimerTitle = Boolean(
       blockTodoForTimer &&
       !block.isCompleted &&
@@ -865,10 +1242,26 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
       (blockTodoForTimer.progress ?? 0) > 0 &&
       (blockTodoForTimer.progress ?? 0) < 100
     );
+    const canResumeFromHistory = Boolean(
+      onStartTimer &&
+      blockTodoForTimer &&
+      !block.isCompleted &&
+      !isTimerActive &&
+      (blockTodoForTimer.timer_seconds || 0) > 0 &&
+      blockTodoForTimer.timer_ended_at &&
+      !blockTodoForTimer.timer_started_at
+    );
+    const isResumeBlockSelected = selectedResumeBlockId === block.id;
+    const blockCoversNow =
+      isViewingToday &&
+      !block.readOnly &&
+      !block.isCompleted &&
+      block.startMin <= nowMin &&
+      block.endMin > nowMin;
+    const keepActionsVisible = isResumeBlockSelected || !!isTimerActive || blockCoversNow;
     const editTarget = getBlockEditTarget(block, displayMode, !!isTimerActive);
     const isEditable = !isImported && !block.readOnly && (isMoment ? !!onUpdateMoment : !!editTarget);
     const isEditingThis = editingBlockId === block.id;
-    const showLiveBadge = isTimerActive && !block.isCompleted;
     const tagIcon = getTagIcon(block.tags, block.title);
     const workType = block.source === 'imported'
       ? null
@@ -911,13 +1304,30 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
         ? `color-mix(in srgb, hsl(var(--foreground)) ${100 - Math.round(strength * 100)}%, ${accentPaint} ${Math.round(strength * 100)}%)`
         : 'hsl(var(--foreground))';
 
-    // Side-by-side columns for overlapping blocks
-    const widthPct = 100 / totalCols;
-    const leftPct = col * widthPct;
-    const gap = totalCols > 1 ? 6 : 0;
+    // Side-by-side columns for overlapping blocks, capped at MAX_VISIBLE_COLS.
+    // Extras (col >= MAX_VISIBLE_COLS) stack behind col N-1 with a small offset
+    // so the user sees "there's more underneath"; interaction is via the +N badge.
+    const isOverflowCol = col >= MAX_VISIBLE_COLS;
+    const visibleCol = Math.min(col, visibleCols - 1);
+    const overflowDepth = isOverflowCol ? col - (MAX_VISIBLE_COLS - 1) : 0;
+    const widthPct = 100 / visibleCols;
+    const leftPct = visibleCol * widthPct;
+    const gap = visibleCols > 1 ? 6 : 0;
     const timelineWidthPx = containerRef.current?.clientWidth ?? 0;
     const blockWidthPx = timelineWidthPx > 0 ? (timelineWidthPx * widthPct) / 100 - gap : 0;
+    const hasHiddenSiblings = hiddenSiblingIds.length > 0;
+    const hiddenBadgeBg = isDarkMode ? 'hsl(210 15% 88%)' : 'hsl(220 15% 25%)';
+    const hiddenBadgeFg = isDarkMode ? 'hsl(220 20% 12%)' : 'hsl(0 0% 100%)';
+    const hiddenBadgeTitle = hasHiddenSiblings
+      ? (lang === 'zh' ? '同段还有：' : 'Also overlapping: ') +
+        hiddenSiblingIds
+          .map(id => blockTitleById.get(id) || id)
+          .join(' / ')
+      : undefined;
     const sessionContinuation = sessionContinuationMap.get(block.id);
+    const continuationLabel = sessionContinuation
+      ? `${formatGapMinutesLabel(sessionContinuation.gapMin)} · ${lang === 'zh' ? '间隔' : 'gap'} ↓`
+      : '';
 
     // Plan/Actual logic for todo blocks
     const hasPlan = isTodo && block.planStartMin != null;
@@ -946,7 +1356,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     // current wall-clock moment (when viewing today).
     const liveActualEnd = isTimerActive
       ? Math.max(
-          actualStart + (getTimerElapsed ? Math.max(1, Math.ceil(getTimerElapsed(block.id) / 60)) : 1),
+          actualStart + (getTimerElapsed ? Math.max(1, Math.ceil(getTimerElapsed(parentTimerId) / 60)) : 1),
           isViewingToday ? nowPreciseMin : 0,
         )
       : null;
@@ -999,18 +1409,18 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
     else if (displayMode === 'both' && editTarget === 'plan' && !hasActual) { visibleStart = planStart; visibleEnd = planEnd; }
     else if (displayMode === 'both' && editTarget === 'actual' && !hasPlan) { visibleStart = actualStart; visibleEnd = actualEnd; }
 
-    const clampedStart = Math.max(visibleStart, WAKE_TOTAL_MIN);
+    const clampedStart = Math.max(visibleStart, axisStartMin);
     const clampedEnd = Math.min(visibleEnd, END_TOTAL_MIN);
     const rawTop = minToY(clampedStart);
     const rawHeight = Math.max(minToY(clampedEnd) - rawTop, 1);
     /** Keep plan/actual strip heights close to timeline scale (~20m ≈ px) instead of forcing 20px+ */
     const MIN_PLAN_ACT_BOX_PX = 12;
     const planSegH = Math.max(
-      minToY(Math.min(planEnd, END_TOTAL_MIN)) - minToY(Math.max(planStart, WAKE_TOTAL_MIN)),
+      minToY(Math.min(planEnd, END_TOTAL_MIN)) - minToY(Math.max(planStart, axisStartMin)),
       MIN_PLAN_ACT_BOX_PX,
     );
     const actSegH = Math.max(
-      minToY(Math.min(actualEnd, END_TOTAL_MIN)) - minToY(Math.max(actualStart, WAKE_TOTAL_MIN)),
+      minToY(Math.min(actualEnd, END_TOTAL_MIN)) - minToY(Math.max(actualStart, axisStartMin)),
       MIN_PLAN_ACT_BOX_PX,
     );
     /** Todo outer shell was min 40px + thick handles; keep short tasks closer to true timeline height */
@@ -1022,9 +1432,15 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
       !isTimerActive &&
       actualEnd <= nowPreciseMin + 0.75 &&
       (displayMode === 'actual' || (displayMode === 'both' && (!hasPlan || visibleEnd <= actualEnd + 0.75)));
-    const top = shouldAnchorCompletedActualToEnd && height > rawHeight
+    const rawFinalTop = shouldAnchorCompletedActualToEnd && height > rawHeight
       ? Math.max(0, rawTop - (height - rawHeight))
       : rawTop;
+    // Prev-day tails now flow through the same column packer as everything else
+    // (see assignColumns), so tailRowIndex is 0 and this offset is inert — kept
+    // only so a future per-row tail treatment has a single place to hook in.
+    const TAIL_ROW_PX = 30;
+    const tailStackOffset = block.continuedFromPrevDay ? tailRowIndex * TAIL_ROW_PX : 0;
+    const top = rawFinalTop + tailStackOffset;
     const tallNarrowLayout = blockWidthPx > 0 && blockWidthPx < 145 && height > 120;
     const compactLayout = height < 64 || (blockWidthPx > 0 && blockWidthPx < 170);
     const veryCompactLayout = height < 42 || (blockWidthPx > 0 && blockWidthPx < 120);
@@ -1066,13 +1482,6 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
           : largeBlockLayout
             ? '13px'
             : '12px';
-    const metaFontSize = microLayout
-      ? '7px'
-      : extraLargeBlockLayout
-        ? '10px'
-        : largeBlockLayout
-          ? '9px'
-          : '8px';
     const pillFontSize = microLayout
       ? '7px'
       : extraLargeBlockLayout
@@ -1098,7 +1507,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
       // Use the pause-aware elapsed seconds from PlanView (getCurrentSessionElapsed),
       // not wall-clock minutes, so the fill freezes during rest and resumes after.
       // Falls back to wall-clock if no getTimerElapsed was supplied (shouldn't happen for active timers).
-      const elapsedSec = getTimerElapsed ? getTimerElapsed(block.id) : Math.max(0, ((nowMin + nowSec / 60) - actualStart) * 60);
+      const elapsedSec = getTimerElapsed ? getTimerElapsed(parentTimerId) : Math.max(0, ((nowMin + nowSec / 60) - actualStart) * 60);
       const elapsedInBlock = Math.max(0, elapsedSec / 60);
       const blockDuration = actualEnd - actualStart;
       actualFillPct = blockDuration > 0 ? Math.min(100, (elapsedInBlock / blockDuration) * 100) : 0;
@@ -1133,7 +1542,10 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
             top, height,
             left: `calc(${leftPct}% + ${gap / 2}px)`,
             width: `calc(${widthPct}% - ${gap}px)`,
-            zIndex: 10 + col,
+            zIndex: isOverflowCol ? 5 : 20 + visibleCol,
+            transform: overflowDepth > 0 ? `translateX(${overflowDepth * 4}px)` : undefined,
+            opacity: isOverflowCol ? 0.28 : undefined,
+            pointerEvents: isOverflowCol ? 'none' : undefined,
             borderRadius: `${BLOCK_CORNER_PX}px`,
             background: eventShell.background,
             borderLeft: `${isDarkMode ? 2 : 3}px solid ${(block.isCompleted || isFocusSession) ? colorWithAlpha(edgeAlpha(0.34)) : isFuture ? colorWithAlpha(edgeAlpha(0.18)) : colorWithAlpha(edgeAlpha(0.38))}`,
@@ -1149,11 +1561,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
               {sessionContinuation.downHeight >= 18 && (
                 <div className="absolute left-1/2 top-1/2 z-[1] -translate-x-1/2 -translate-y-1/2">
                   <TimelineIntervalPill isDarkMode={isDarkMode}>
-                    {(() => {
-                      const h = Math.floor(sessionContinuation.gapMin / 60);
-                      const m = sessionContinuation.gapMin % 60;
-                      return h > 0 ? `${h}h${m > 0 ? ` ${m}m` : ''} rest` : `${m}m rest`;
-                    })()}
+                    {continuationLabel}
                   </TimelineIntervalPill>
                 </div>
               )}
@@ -1204,13 +1612,28 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                   />
                 )}
                 {(block.emoji || tagIcon) && <span className="flex-shrink-0" style={{ fontSize: '15px' }}>{block.emoji || tagIcon}</span>}
-                {!hideTitleTooNarrow && <span className="truncate" style={{ fontSize: '15px', fontWeight: 600, color: isDarkMode ? 'hsl(0 0% 100% / 0.95)' : 'hsl(var(--foreground))' }}>{block.title}</span>}
+                {!hideTitleTooNarrow && <span className="truncate" style={{ fontSize: '15px', fontWeight: 600, color: isDarkMode ? 'hsl(0 0% 100% / 0.95)' : 'hsl(var(--foreground))', textShadow: isDarkMode ? '0 1px 1.5px rgba(0,0,0,0.30)' : undefined }}>{block.title}</span>}
               </div>
               {height > 34 && (
                 <div className="flex items-center gap-1 mt-0.5">
                   <span className="font-mono tabular-nums text-muted-foreground/70" style={{ fontSize: '12px' }}>{Math.max(1, effectiveEnd - effectiveStart)}m</span>
                 </div>
               )}
+            </div>
+          )}
+          {hasHiddenSiblings && (
+            <div
+              className="absolute top-1 right-1 z-30 flex items-center justify-center rounded-full leading-none font-medium tabular-nums select-none pointer-events-auto"
+              style={{
+                minWidth: 20,
+                padding: '2px 6px',
+                fontSize: 10,
+                background: hiddenBadgeBg,
+                color: hiddenBadgeFg,
+              }}
+              title={hiddenBadgeTitle}
+            >
+              +{hiddenSiblingIds.length}
             </div>
           )}
         </div>
@@ -1230,15 +1653,33 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
           isDraggingThis && !dragOutside && "shadow-lg ring-2 ring-primary/40 z-30 opacity-60",
           isDraggingThis && dragOutside && "shadow-lg ring-2 ring-destructive/40 z-30 opacity-30 scale-95 transition-transform",
           isEditingThis && "z-30",
+          freshDropId === block.id && "plan-block-fresh-drop",
         )}
         style={{
           top, height,
           left: `calc(${leftPct}% + ${gap / 2}px)`,
           width: `calc(${widthPct}% - ${gap}px)`,
-          zIndex: isDraggingThis ? 30 : isEditingThis ? 35 : (10 + col),
+          zIndex: isDraggingThis ? 30 : isEditingThis ? 35 : isOverflowCol ? 5 : ((isPlanOnly ? 10 : 20) + visibleCol),
+          transform: overflowDepth > 0 && !isDraggingThis && !isEditingThis ? `translateX(${overflowDepth * 4}px)` : undefined,
+          opacity: isOverflowCol && !isDraggingThis ? 0.28 : undefined,
+          pointerEvents: isOverflowCol ? 'none' : undefined,
         }}
         onMouseDown={isEditable && !isEditingThis ? (e) => handleMouseDown(e, block, 'move') : undefined}
+        onClick={(e) => {
+          if (justDraggedRef.current || isEditingThis) return;
+          const target = e.target as HTMLElement;
+          if (target.closest('[data-block-action="true"]')) return;
+          setSelectedResumeBlockId(prev => (prev === block.id ? null : block.id));
+        }}
       >
+        {freshDropId === block.id && (
+          <SparkleBurst
+            seed={`drop-${block.id}`}
+            count={18}
+            color={colorWithAlpha(0.95)}
+            oneShot
+          />
+        )}
         {sessionContinuation && (
           <div
             className="absolute left-1/2 top-full z-[5] -translate-x-1/2 pointer-events-none flex flex-col items-center"
@@ -1248,11 +1689,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
             {sessionContinuation.downHeight >= 18 && (
               <div className="absolute left-1/2 top-1/2 z-[1] -translate-x-1/2 -translate-y-1/2">
                 <TimelineIntervalPill isDarkMode={isDarkMode}>
-                  {(() => {
-                    const h = Math.floor(sessionContinuation.gapMin / 60);
-                    const m = sessionContinuation.gapMin % 60;
-                    return h > 0 ? `${h}h${m > 0 ? ` ${m}m` : ''} rest` : `${m}m rest`;
-                  })()}
+                  {continuationLabel}
                 </TimelineIntervalPill>
               </div>
             )}
@@ -1266,13 +1703,45 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
             boxShadow: 'none',
           }}
         >
+          {/* Step work-sessions as sub-segments inside the parent block. Each
+              session sits at its real wall-clock position; simultaneous sessions
+              share the block width side-by-side (col / totalCols). They carry the
+              parent's colour so the block reads as one task detailed into its
+              real work moments. Sits above the fill, below the title/labels. */}
+          {block.stepSegments && block.stepSegments.length > 0 && (
+            <div className="absolute inset-0 z-[2] pointer-events-none">
+              {block.stepSegments.map(seg => {
+                const segTop = minToY(Math.max(seg.startMin, axisStartMin)) - top;
+                const segH = Math.max(minToY(Math.min(seg.endMin, END_TOTAL_MIN)) - minToY(Math.max(seg.startMin, axisStartMin)), 9);
+                const segGap = seg.totalCols > 1 ? 4 : 0;
+                const segWidthPct = 100 / seg.totalCols;
+                const segLeftPct = seg.col * segWidthPct;
+                const durMin = seg.endMin - seg.startMin;
+                return (
+                  <div
+                    key={seg.id}
+                    className="absolute rounded-[6px] overflow-hidden"
+                    style={{
+                      top: segTop,
+                      height: segH,
+                      left: `calc(${segLeftPct}% + ${segGap / 2}px)`,
+                      width: `calc(${segWidthPct}% - ${segGap}px)`,
+                      background: colorWithAlpha(isDarkMode ? 0.42 : 0.28),
+                      boxShadow: `inset 0 0 0 1px ${colorWithAlpha(isDarkMode ? 0.62 : 0.46)}`,
+                    }}
+                    title={`${seg.title} · ${fmtDelta(durMin)}`}
+                  />
+                );
+              })}
+            </div>
+          )}
           {displayMode === 'both' && showPlan && showActual && (() => {
           const overlapMinutes = Math.max(0, Math.min(planEnd, actualEnd) - Math.max(planStart, actualStart));
           if (overlapMinutes > 0) return null;
 
-          const planTop = minToY(Math.max(planStart, WAKE_TOTAL_MIN)) - top;
+          const planTop = minToY(Math.max(planStart, axisStartMin)) - top;
           const planHeight = planSegH;
-          const actTop = minToY(Math.max(actualStart, WAKE_TOTAL_MIN)) - top;
+          const actTop = minToY(Math.max(actualStart, axisStartMin)) - top;
           const actHeight = actSegH;
           const planBottom = planTop + planHeight;
           const actBottom = actTop + actHeight;
@@ -1316,17 +1785,41 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
 
         {/* Plan box (dashed) — empty until the task has actual timer evidence. */}
         {showPlan && (() => {
-          const planTop = minToY(Math.max(planStart, WAKE_TOTAL_MIN)) - top;
+          const planTop = minToY(Math.max(planStart, axisStartMin)) - top;
           const planHeight = planSegH;
           const showPlanMiniLabel = false;
           // Stronger dash on "both" (so the planned boundary reads through the
           // solid actual fill) and on plan-only (so an empty outline doesn't
           // disappear against the canvas).
           const hollowPlanFrame = !showActual;
-          const planDashColor = hollowPlanFrame ? colorWithAlpha(isDarkMode ? 0.5 : 0.66) : colorWithAlpha(edgeAlpha(0.28));
-          const planDashWidth = hollowPlanFrame ? (isDarkMode ? 2 : 2.25) : (isDarkMode ? 1.25 : 1.5);
-          const planDashSegment = hollowPlanFrame ? 12 : 10;
-          const planDashGap = hollowPlanFrame ? 8 : 9;
+          // Redesign: planning should read clearly in dark mode.
+          // Use a calmer blue-violet outline + slightly denser dash rhythm.
+          const plannedStrokeColor = isDarkMode
+            ? 'hsl(230 38% 68% / 0.72)'
+            : 'hsl(230 30% 52% / 0.64)';
+          // Plan-only completion (marked done via checkbox, no timer ran): render
+          // with a subtle tinted fill + solid clean border instead of the hesitant
+          // dashed hollow. This differentiates "done" from "still planned" without
+          // adding chrome. Only applies when there's no actual segment to speak
+          // for the block already.
+          const isCompletedPlanOnly = hollowPlanFrame && !!block.isCompleted && !hasActual;
+          const planDashColor = hollowPlanFrame
+            ? plannedStrokeColor
+            : (isDarkMode ? 'hsl(230 34% 66% / 0.6)' : colorWithAlpha(edgeAlpha(0.34)));
+          const planDashWidth = hollowPlanFrame ? (isDarkMode ? 2.25 : 2.35) : (isDarkMode ? 1.5 : 1.6);
+          const planDashSegment = hollowPlanFrame ? 13 : 11;
+          const planDashGap = hollowPlanFrame ? 6 : 7;
+          const planBackdrop = isCompletedPlanOnly
+            ? (isDarkMode
+                ? `linear-gradient(180deg, ${colorWithAlpha(0.24)} 0%, ${colorWithAlpha(0.18)} 100%)`
+                : `linear-gradient(180deg, ${colorWithAlpha(0.16)} 0%, ${colorWithAlpha(0.10)} 100%)`)
+            : hollowPlanFrame
+              ? (isDarkMode
+                  ? 'linear-gradient(180deg, hsl(230 42% 58% / 0.11) 0%, hsl(230 42% 58% / 0.06) 100%)'
+                  : 'linear-gradient(180deg, hsl(230 38% 58% / 0.08) 0%, hsl(230 38% 58% / 0.03) 100%)')
+              : planOpaqueBackdrop
+                ? shellFor('plan').background
+                : 'transparent';
           return (
             <div
               className="absolute left-0 right-0 pointer-events-none"
@@ -1334,15 +1827,26 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                 top: planTop,
                 height: planHeight,
                 borderRadius: `${BLOCK_CORNER_PX}px`,
-                background: hollowPlanFrame ? 'transparent' : planOpaqueBackdrop ? shellFor('plan').background : 'transparent',
+                background: planBackdrop,
                 boxShadow: 'none',
+                // Plan dashed frame must render ABOVE the actual solid fill.
+                // In dark mode `actual` shell is a fully opaque solid color; when
+                // actual fully overlaps plan (e.g. actualStart == planStart and
+                // actualEnd extends past planEnd) the dashed plan boundary would
+                // otherwise be painted over and invisible.
+                zIndex: 2,
               }}
             >
               <div
                 className="absolute inset-0 pointer-events-none"
                 style={{
                   borderRadius: `${BLOCK_CORNER_PX}px`,
-                  ...(slimBothQuietPlanStripe
+                  ...(isCompletedPlanOnly
+                    ? {
+                      border: `1px solid ${colorWithAlpha(isDarkMode ? 0.55 : 0.45)}`,
+                      boxSizing: 'border-box',
+                    }
+                    : slimBothQuietPlanStripe
                     ? {
                       border: `${planDashWidth}px dashed ${planDashColor}`,
                       boxSizing: 'border-box',
@@ -1374,7 +1878,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
 
         {/* Actual box (solid fill) — only when pomodoro has been started */}
         {showActual && (() => {
-          const actTop = minToY(Math.max(actualStart, WAKE_TOTAL_MIN)) - top;
+          const actTop = minToY(Math.max(actualStart, axisStartMin)) - top;
           const actHeight = actSegH;
           const showTitleInActual = false;
           // Suppress mini labels when plan/done bars will render in content (avoids double "done" overlap)
@@ -1383,10 +1887,11 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
           const showCompactActualMiniLabel = false;
           const actualShell = shellFor(block.isCompleted ? 'done' : isTimerActive ? 'active' : 'actual');
           const actualBorderColor = isTimerActive
-            ? activeColorWithAlpha(edgeAlpha(0.38))
+            ? activeColorWithAlpha(0.72)
             : block.isCompleted
               ? colorWithAlpha(edgeAlpha(0.24))
               : colorWithAlpha(edgeAlpha(0.28));
+          const actualBorderWidth = isTimerActive ? 4 : isDarkMode ? 2 : 3;
           return (
             <div
               className="absolute left-0 right-0"
@@ -1395,7 +1900,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                 height: actHeight,
                 borderRadius: `${BLOCK_CORNER_PX}px`,
                 background: actualShell.background,
-                borderLeft: `${isDarkMode ? 2 : 3}px solid ${actualBorderColor}`,
+                borderLeft: `${actualBorderWidth}px solid ${actualBorderColor}`,
                 boxShadow: block.isCompleted
                   ? actualShell.shadow
                   : editingGlow || liveGlow || actualShell.shadow,
@@ -1517,21 +2022,61 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
           );
         })()}
 
+        {/* Tall-block bottom anchor — mirrors a calendar event: the start time
+            reads at the top, the end time + duration read at the bottom edge, so
+            a multi-hour block stops looking like an empty void. pointer-events-none
+            keeps the resize handle beneath it fully usable. Skipped for Both-mode
+            plan+actual blocks (ambiguous which "end" to show) and for short/narrow
+            blocks (no void to fill). */}
+        {!isEditingThis && height >= 150 && !compactLayout && !microLayout && !hideTitleTooNarrow
+          && (blockWidthPx === 0 || blockWidthPx >= 130)
+          && !(displayMode === 'both' && hasPlan && hasActual) && (
+          <div
+            className="absolute left-3 bottom-2 z-[6] flex items-center gap-1.5 pointer-events-none font-mono tabular-nums leading-none"
+            style={{ fontSize: '11px', color: isDarkMode ? 'hsl(0 0% 100% / 0.5)' : 'hsl(var(--muted-foreground) / 0.72)' }}
+          >
+            <span aria-hidden style={{ opacity: 0.65 }}>↳</span>
+            <span>{fmtTime(visibleEnd)}</span>
+            <span style={{ opacity: 0.5 }}>·</span>
+            <span style={{ opacity: 0.82 }}>
+              {(() => {
+                const d = Math.max(1, Math.round(visibleEnd - visibleStart));
+                const h = Math.floor(d / 60);
+                const m = d % 60;
+                return h > 0 ? `${h}h${m > 0 ? ` ${m}m` : ''}` : `${m}m`;
+              })()}
+            </span>
+          </div>
+        )}
+
         {/* Action buttons on hover */}
-        {!isEditingThis && (
+        {!isEditingThis && !block.readOnly && (
           <div
             className={cn(
-              "absolute opacity-0 group-hover/block:opacity-100 flex items-center gap-1 z-30 rounded-md px-1 py-0.5 bg-card/90 shadow-sm ring-1 ring-border/50 backdrop-blur-sm",
+              "absolute flex items-center gap-1 z-30 rounded-md px-1 py-0.5 bg-card/90 shadow-sm ring-1 ring-border/50 backdrop-blur-sm",
+              isResumeBlockSelected ? "opacity-100" : keepActionsVisible ? "opacity-100" : "opacity-0 group-hover/block:opacity-100",
               veryCompactLayout ? "-top-8 right-0" : "top-1 right-1"
             )}
+            data-block-action="true"
             onMouseDown={e => e.stopPropagation()}
             onClick={e => e.stopPropagation()}
           >
             {!block.isCompleted && onStartTimer && (
               <button
-                onClick={() => onStartTimer(block.id)}
-                className={cn("p-1.5 rounded-lg transition-colors", isTimerActive ? "text-primary bg-primary/20" : "hover:bg-primary/20 text-muted-foreground hover:text-primary")}
+                onClick={() => onStartTimer(parentTimerId)}
+                className={cn(
+                  "p-1.5 rounded-lg transition-colors inline-flex items-center gap-1",
+                  isTimerActive ? "text-primary bg-primary/20" : "hover:bg-primary/20 text-muted-foreground hover:text-primary",
+                  isResumeBlockSelected && canResumeFromHistory && "px-2"
+                )}
                 title={
+                  isTimerActive
+                    ? (lang === 'zh' ? '计时进行中' : 'Timer running')
+                    : showResumeTimerTitle
+                      ? t('plan.resumeTimer')
+                      : t('plan.startFocusTimer')
+                }
+                aria-label={
                   isTimerActive
                     ? (lang === 'zh' ? '计时进行中' : 'Timer running')
                     : showResumeTimerTitle
@@ -1540,6 +2085,11 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                 }
               >
                 <Timer size={14} />
+                {isResumeBlockSelected && canResumeFromHistory && (
+                  <span className="text-[11px] font-medium leading-none">
+                    {lang === 'zh' ? '继续' : 'Resume'}
+                  </span>
+                )}
               </button>
             )}
             <button
@@ -1550,30 +2100,38 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                   setEditingActualEnd(fmtTime(actualEnd));
                   return;
                 }
+                // For a completed block the visible extent IS the actual span,
+                // so seed the editor with actual times — editing them rewrites
+                // the timer fields (see handleSaveBlockTime) and the block
+                // collapses to match. Plan-only/in-progress blocks keep plan.
+                const seedStart = block.isCompleted && hasActual ? actualStart : planStart;
+                const seedEnd = block.isCompleted && hasActual ? actualEnd : planEnd;
                 if (veryCompactLayout || microLayout) {
                   setEditingTimeBlockId(block.id);
-                  setEditingTimeStart(fmtTime(planStart));
-                  setEditingTimeEnd(fmtTime(planEnd));
+                  setEditingTimeStart(fmtTime(seedStart));
+                  setEditingTimeEnd(fmtTime(seedEnd));
                   return;
                 }
                 setEditingBlockId(block.id);
                 setEditingBlockTitle(block.title);
-                setEditingTimeStart(fmtTime(planStart));
-                setEditingTimeEnd(fmtTime(planEnd));
+                setEditingTimeStart(fmtTime(seedStart));
+                setEditingTimeEnd(fmtTime(seedEnd));
               }}
               className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground"
               title="Edit"
+              aria-label="Edit"
             >
               <Pencil size={14} />
             </button>
             {displayMode === 'plan' && onUnscheduleTodo && !block.isCompleted && (
-              <button onClick={() => onUnscheduleTodo(block.id)} className="p-1 rounded text-muted-foreground hover:text-accent-foreground transition-colors" title="Move back to list"><ArrowLeft size={12} /></button>
+              <button onClick={() => onUnscheduleTodo(block.id)} className="p-1 rounded text-muted-foreground hover:text-accent-foreground transition-colors" title="Move back to list" aria-label="Move back to list"><ArrowLeft size={12} /></button>
             )}
             {block.source === 'todo' && (
               <button
                 onClick={() => removeBlockFromTimeline(block)}
                 className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive"
                 title={displayMode === 'plan' ? 'Remove from timeline' : displayMode === 'actual' ? 'Clear actual time' : 'Remove from timeline'}
+                aria-label={displayMode === 'plan' ? 'Remove from timeline' : displayMode === 'actual' ? 'Clear actual time' : 'Remove from timeline'}
               >
                 <Trash2 size={14} />
               </button>
@@ -1583,6 +2141,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                 onClick={() => removeBlockFromTimeline(block)}
                 className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive"
                 title={lang === 'zh' ? '删除' : 'Delete'}
+                aria-label={lang === 'zh' ? '删除' : 'Delete'}
               >
                 <Trash2 size={14} />
               </button>
@@ -1656,12 +2215,22 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
 
         {/* Content area — anchored to the primary (actual or plan) block, not always y=0 */}
         {(() => {
-          const planTopOffset = showPlan ? Math.max(0, minToY(Math.max(planStart, WAKE_TOTAL_MIN)) - top) : 0;
-          const actTopOffset = showActual ? Math.max(0, minToY(Math.max(actualStart, WAKE_TOTAL_MIN)) - top) : 0;
-          const contentTopOffset = showActual ? actTopOffset : planTopOffset;
+          const planTopOffset = showPlan ? Math.max(0, minToY(Math.max(planStart, axisStartMin)) - top) : 0;
+          const actTopOffset = showActual ? Math.max(0, minToY(Math.max(actualStart, axisStartMin)) - top) : 0;
           const planBoxH = showPlan ? planSegH : 0;
           const actBoxH = showActual ? actSegH : 0;
-          const contentHeight = showActual ? actBoxH : showPlan ? planBoxH : height;
+          // In Both mode with both plan and actual, anchor content to whichever
+          // box is taller so the title has room to render. Otherwise a just-started
+          // timer (actual ~12px) would squash the title into an invisible strip
+          // while the 60-min plan frame sits empty next to it.
+          const bothPresent = showPlan && showActual;
+          const useTallestFrame = bothPresent && planBoxH > actBoxH;
+          const contentTopOffset = useTallestFrame
+            ? planTopOffset
+            : (showActual ? actTopOffset : planTopOffset);
+          const contentHeight = useTallestFrame
+            ? planBoxH
+            : (showActual ? actBoxH : showPlan ? planBoxH : height);
           /** Outer shell is inflated (outerMinH) but title sat in thin act Seg band — vertically center across full pill */
           const compactContentFullShell = veryCompactLayout && contentHeight > 0 && contentHeight <= height - 4;
           return (
@@ -1679,11 +2248,12 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
           {(() => {
             const timeStr = `${fmtTime(planStart)} → ${fmtTime(planEnd)}`;
             const planDurationMin = planEnd - planStart;
-            const durationStr = (() => { const h = Math.floor(planDurationMin / 60); const m = planDurationMin % 60; return h > 0 ? `${h}h${m > 0 ? ` ${m}m` : ''}` : `${m}m`; })();
+            const durationStr = (() => { const total = Math.round(planDurationMin); const h = Math.floor(total / 60); const m = total % 60; return h > 0 ? `${h}h${m > 0 ? ` ${m}m` : ''}` : `${m}m`; })();
             const actualDurationMin = hasActual ? Math.max(0, actualEnd - actualStart) : 0;
             const actualDurationStr = (() => {
-              const h = Math.floor(actualDurationMin / 60);
-              const m = actualDurationMin % 60;
+              const total = Math.round(actualDurationMin);
+              const h = Math.floor(total / 60);
+              const m = total % 60;
               return h > 0 ? `${h}h${m > 0 ? ` ${m}m` : ''}` : `${m}m`;
             })();
             const showCombinedBothMeta = displayMode === 'both' && hasPlan && hasActual;
@@ -1780,7 +2350,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                     <span
                       className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap leading-tight"
                       style={{
-                        fontSize: ultraShortOuter ? '9.5px' : microLayout ? '10px' : ultraNarrowLayout ? '11px' : '12px',
+                        fontSize: ultraShortOuter ? '11px' : microLayout ? '11.5px' : ultraNarrowLayout ? '12.5px' : '14px',
                         fontWeight: 500,
                         lineHeight: 1.08,
                         margin: 0,
@@ -1808,17 +2378,6 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                           {block.emoji || tagIcon}
                         </span>
                       )}
-                      {!suppressLeadingMeta && showLiveBadge && (
-                        <span className="flex-shrink-0 h-2 w-2 rounded-full" style={{ backgroundColor: blockColor }} />
-                      )}
-                      {!suppressLeadingMeta && isPlanOnly && !block.isCompleted && (
-                        <span
-                          className="flex-shrink-0 rounded bg-background/85 px-1.5 py-0.5 font-semibold tracking-[0.04em]"
-                          style={{ fontSize: metaFontSize, color: colorWithAlpha(isDarkMode ? 0.82 : 0.76) }}
-                        >
-                          PLAN
-                        </span>
-                      )}
                       <span className={cn("min-w-0 overflow-hidden text-ellipsis leading-[1.2]", tallNarrowLayout ? "text-center" : "flex-1")} style={{
                         fontSize: titleFontSize,
                         fontWeight: 500,
@@ -1827,6 +2386,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                         WebkitBoxOrient: allowWrappedTitle ? 'vertical' : 'unset',
                         whiteSpace: allowWrappedTitle ? 'normal' : 'nowrap',
                         color: block.isCompleted ? tintedText(0.12) : isPlanOnly ? (isDarkMode ? 'hsl(0 0% 100% / 0.9)' : tintedText(0.48)) : 'hsl(var(--foreground))',
+                        textShadow: isDarkMode && !block.isCompleted ? '0 1px 1.5px rgba(0,0,0,0.30)' : undefined,
                       }}>{hideTitleTooNarrow ? '' : block.title}</span>
                     </div>
                     {editingTimeBlockId === block.id && (
@@ -2014,7 +2574,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                         const rect = e.currentTarget.getBoundingClientRect();
                         const pct = Math.round(((e.clientX - rect.left) / rect.width) * 100 / 5) * 5;
                         const clamped = Math.max(0, Math.min(100, pct));
-                        onUpdateTodo(block.id, { progress: clamped, is_completed: clamped >= 100 } as any);
+                        onUpdateTodo(block.id, { progress: clamped, is_completed: clamped >= 100 });
                       }}
                     >
                       <div className="h-full rounded-full transition-all" style={{ width: `${block.progress}%`, backgroundColor: colorWithAlpha(0.5) }} />
@@ -2038,39 +2598,25 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
               {block.photos.length > 3 && <span className="text-[9px] text-muted-foreground/60 self-end">+{block.photos.length - 3}</span>}
             </div>
           )}
-          {false && (block.tags && block.tags.length > 0 || workType) && height > 108 && blockWidthPx > 220 && !isEditingThis && !(displayMode === 'both' && hasPlan && hasActual) && (
-            <div className={cn("flex flex-wrap gap-0.5 mt-0.5", tallNarrowLayout && "justify-center")}>
-              {block.tags?.slice(0, 1).map(tag => (
-                <span
-                  key={tag}
-                  className="px-1 py-0 rounded-full"
-                  style={{
-                    fontSize: blockWidthPx >= 215 && height >= 150 ? '11px' : blockWidthPx >= 185 && height >= 110 ? '10px' : '9px',
-                    backgroundColor: tintedCard(0.18),
-                    color: tintedText(0.55),
-                  }}
-                >
-                  #{tag}
-                </span>
-              ))}
-              {workType && (
-                <span
-                  className="px-1.5 py-0 rounded-full"
-                  style={{
-                    fontSize: blockWidthPx >= 215 && height >= 150 ? '11px' : blockWidthPx >= 185 && height >= 110 ? '10px' : '9px',
-                    backgroundColor: WORK_TYPE_META[workType].bg,
-                    color: WORK_TYPE_META[workType].color,
-                  }}
-                >
-                  {WORK_TYPE_META[workType].shortLabel}
-                </span>
-              )}
-            </div>
-          )}
         </div>
           );
         })()}
         </div>
+        {hasHiddenSiblings && (
+          <div
+            className="absolute top-1 right-1 z-30 flex items-center justify-center rounded-full leading-none font-medium tabular-nums select-none pointer-events-auto"
+            style={{
+              minWidth: 20,
+              padding: '2px 6px',
+              fontSize: 10,
+              background: hiddenBadgeBg,
+              color: hiddenBadgeFg,
+            }}
+            title={hiddenBadgeTitle}
+          >
+            +{hiddenSiblingIds.length}
+          </div>
+        )}
       </div>
     );
   };
@@ -2108,6 +2654,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
           {hours.map(h => {
             const top = minToY(h * 60);
             const isMidnight = h === 24; // continuous hour 24 = 00:00 next day
+            const isYesterday = h < 0;
             return (
               <div
                 key={h}
@@ -2122,6 +2669,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                     color: isMidnight
                       ? isDarkMode ? 'hsl(214 60% 68% / 0.55)' : 'hsl(214 50% 48% / 0.55)'
                       : timelineRailLabelColor,
+                    opacity: isYesterday ? 0.5 : 1,
                   }}
                 >
                   {hourLabel(h)}
@@ -2142,7 +2690,6 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
           onDrop={handleTimelineDrop}
           onDragLeave={handleTimelineDragLeave}
           onMouseDown={(e) => {
-            if ((e as any).dataTransfer) return;
             const target = e.target as HTMLElement;
             if (target.closest('[data-plan-block="true"]') || target.closest('[data-range-handle="true"]') || target.closest('[data-creation-card="true"]')) return;
             if (selectedRange) {
@@ -2178,7 +2725,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
           {positioned.map(({ block, col }) => {
             if (col !== 0) return null;
             const startMinForBranch = block.actualStartMin ?? block.startMin;
-            const blockTop = minToY(Math.max(WAKE_TOTAL_MIN, Math.min(END_TOTAL_MIN, startMinForBranch)));
+            const blockTop = minToY(Math.max(axisStartMin, Math.min(END_TOTAL_MIN, startMinForBranch)));
             const tagColor = getThemedTagColor(block.tags, block.title);
             const accentColor =
               tagColor
@@ -2227,11 +2774,16 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
             const previewTitle = dragTodo?.title || dragTaskTitle || '';
             const previewDur = getSmartDuration(previewTitle, dragTodo?.tags);
             const durLabel = previewDur >= 60 ? `${previewDur / 60}h` : `${previewDur}m`;
-            const isPastDrop = dropIndicatorMin < nowMin;
+            const isPastDrop = isViewingToday && dropIndicatorMin < nowMin;
             const previewTagColor = getThemedTagColor(dragTodo?.tags, previewTitle);
             const previewColor = previewTagColor || (isPastDrop ? '#4B9478' : 'hsl(var(--primary))');
             const previewColorWithAlpha = (alpha: number) => {
-              if (previewTagColor) return `${previewTagColor}${Math.round(alpha * 255).toString(16).padStart(2, '0')}`;
+              // Tag colors are now hsl(var(--…)/a) strings, not 6-digit hex, so the
+              // old `${color}${alphaHex}` concat produced malformed values like
+              // `hsl(...)8c` — invalid border/background → an invisible drop preview.
+              // color-mix applies the alpha for any color format (same helper the
+              // focus timer uses).
+              if (previewTagColor) return `color-mix(in srgb, ${previewTagColor} ${Math.round(alpha * 100)}%, transparent)`;
               return isPastDrop ? `rgba(75, 148, 120, ${alpha})` : `hsl(var(--primary) / ${alpha})`;
             };
             const previewDashColor = previewColorWithAlpha(isPastDrop ? 0.42 : 0.55);
@@ -2239,7 +2791,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
             const previewCompact = previewHeight < 46;
             return (
               <div
-                className="absolute left-0 right-0 z-40 overflow-hidden pointer-events-none"
+                className="absolute left-0 right-0 z-40 overflow-visible pointer-events-none"
                 style={{
                   top: minToY(dropIndicatorMin),
                   height: previewHeight,
@@ -2247,8 +2799,10 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                   border: `1px dashed ${previewDashColor}`,
                   background: `linear-gradient(180deg, ${previewColorWithAlpha(isPastDrop ? 0.13 : 0.07)} 0%, ${previewColorWithAlpha(isPastDrop ? 0.045 : 0.025)} 100%)`,
                   boxShadow: `0 8px 24px ${previewColorWithAlpha(0.04)}`,
-                }}
+                  '--sparkle-color': previewColorWithAlpha(0.9),
+                } as CssVarStyle}
               >
+                <SparkleBurst seed={`preview-${dragTaskId || dragTaskTitle || 'x'}`} count={16} />
                 {isPastDrop && (
                   <div
                     className="absolute left-0 top-0 bottom-0 w-[3px]"
@@ -2258,7 +2812,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                 <div className={cn('flex h-full min-w-0 items-center gap-2 px-3', isPastDrop && 'pl-3.5')}>
                   {isPastDrop && <span className="flex-shrink-0 text-[13px] leading-none" style={{ color: previewColor }}>✓</span>}
                   <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium leading-none text-foreground/88">
-                    {previewTitle || (isPastDrop ? 'Log as done' : 'Drop to schedule')}
+                    {previewTitle || (isPastDrop ? 'Log actual time' : 'Drop to schedule')}
                   </span>
                   {!previewCompact && (
                     <span className="flex-shrink-0 font-mono text-[10.5px] leading-none text-muted-foreground/55">
@@ -2285,6 +2839,17 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
             const creationTagColor = slotAddTitle.trim() ? getThemedTagColor(undefined, slotAddTitle.trim()) : undefined;
             const pastAccent = '#4B9478';
             const borderColor = creationTagColor || (isPastRange ? pastAccent : 'hsl(var(--muted-foreground) / 0.45)');
+            const shellStroke = creationTagColor || (isPastRange ? 'hsl(152 32% 44% / 0.56)' : 'hsl(var(--muted-foreground) / 0.26)');
+            const shellFill = creationTagColor
+              ? `linear-gradient(180deg, color-mix(in srgb, hsl(var(--card)) 90%, ${creationTagColor} 10%) 0%, color-mix(in srgb, hsl(var(--card)) 96%, ${creationTagColor} 4%) 100%)`
+              : isPastRange
+                ? 'linear-gradient(180deg, hsl(152 30% 20% / 0.16) 0%, hsl(152 24% 14% / 0.08) 100%)'
+                : 'linear-gradient(180deg, hsl(var(--card) / 0.22) 0%, hsl(var(--card) / 0.08) 100%)';
+            const composerBg = creationTagColor
+              ? `color-mix(in srgb, hsl(var(--card)) 84%, ${creationTagColor} 16%)`
+              : isDarkMode
+                ? 'hsl(var(--card) / 0.92)'
+                : 'hsl(var(--card) / 0.96)';
             const startH = Math.floor(selectedRange.startMin / 60);
             const startM = selectedRange.startMin % 60;
             const endH = Math.floor(selectedRange.endMin / 60);
@@ -2293,6 +2858,7 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
             const durH = Math.floor(durationMin / 60);
             const durM = durationMin % 60;
             const durStr = durH > 0 ? `${durH}h${durM > 0 ? ` ${durM}m` : ''}` : `${durM}m`;
+            const compactRange = rangeHeight < 96;
 
             const applyTimeEdit = (field: 'start' | 'end', value: string) => {
               const match = value.match(/^(\d{1,2}):(\d{2})$/);
@@ -2313,89 +2879,130 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
               <div
                 data-creation-card="true"
                 className="absolute left-0 right-0 z-30"
-                style={{ top: rangeTop }}
+                style={{ top: rangeTop, height: rangeHeight }}
                 onMouseDown={e => e.stopPropagation()}
               >
                 <div
-                  className="flex flex-col gap-1 rounded-[12px] border border-border px-3 py-2.5 shadow-[0_10px_30px_hsl(var(--foreground)/0.16)] ring-1 ring-border/40 overflow-hidden"
+                  className="absolute inset-0 rounded-[14px] border border-dashed shadow-[inset_0_0_0_1px_hsl(var(--border)/0.18)]"
                   style={{
-                    borderLeft: `3px solid ${borderColor}`,
-                    minHeight: rangeHeight,
-                    background: `linear-gradient(180deg, color-mix(in srgb, hsl(var(--card)) 88%, ${borderColor} 12%) 0%, hsl(var(--card)) 60%)`,
+                    borderColor: shellStroke,
+                    background: shellFill,
                   }}
+                />
+                {isPastRange && (
+                  <div
+                    className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-[14px]"
+                    style={{ backgroundColor: pastAccent }}
+                  />
+                )}
+                <div
+                  className={cn(
+                    "absolute z-10",
+                    compactRange ? "inset-[4px]" : "left-2 right-2"
+                  )}
+                  style={compactRange ? undefined : { top: 8 }}
                 >
-                  <div className="flex items-center gap-2 pr-5">
-                    {isPastRange && (
-                      <span className="flex-shrink-0 text-[12px]" style={{ color: pastAccent }}>✓</span>
+                  <div
+                    className={cn(
+                      "relative rounded-[14px] border shadow-[0_16px_32px_hsl(var(--foreground)/0.18)] backdrop-blur-md",
+                      compactRange ? "h-full px-3 py-2" : "px-3 py-2"
                     )}
-                    <input
-                      ref={slotInputRef}
-                      value={slotAddTitle}
-                      onChange={e => setSlotAddTitle(e.target.value)}
-                      onKeyDown={e => {
-                        const native = e.nativeEvent as KeyboardEvent;
-                        if (e.key === 'Enter' && !isImeComposing(native) && slotAddTitle.trim() && selectedRange) {
-                          const range = selectedRange;
-                          const targetDay = date || format(new Date(), 'yyyy-MM-dd');
-                          const sH = Math.floor(range.startMin / 60);
-                          const sM = range.startMin % 60;
-                          const eH = Math.floor(range.endMin / 60);
-                          const eM = range.endMin % 60;
-                          const startISO = new Date(`${targetDay}T${String(sH).padStart(2, '0')}:${String(sM).padStart(2, '0')}:00`).toISOString();
-                          const endISO = new Date(`${targetDay}T${String(eH).padStart(2, '0')}:${String(eM).padStart(2, '0')}:00`).toISOString();
-                          const diffSec = (range.endMin - range.startMin) * 60;
-                          (async () => {
-                            const result = await onAddTodo(slotAddTitle.trim(), 'anytime');
-                            if (result && result.id) {
-                              if (isPastRange) {
-                                onUpdateTodo(result.id, {
-                                  timer_started_at: startISO,
-                                  timer_ended_at: endISO,
-                                  timer_seconds: diffSec,
-                                  is_completed: true,
-                                } as any);
-                              } else {
-                                onUpdateTodo(result.id, { plan_started_at: startISO, plan_ended_at: endISO });
+                    style={{
+                      maxWidth: 'none',
+                      borderColor: `color-mix(in srgb, ${borderColor} 38%, hsl(var(--border)) 62%)`,
+                      background: composerBg,
+                    }}
+                  >
+                  {(
+                    <div className="flex h-full min-w-0 items-center gap-2 pr-7">
+                      {isPastRange && (
+                        <span
+                          className="inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full text-[11px] font-medium"
+                          style={{
+                            color: pastAccent,
+                            background: 'hsl(152 32% 24% / 0.22)',
+                            boxShadow: 'inset 0 0 0 1px hsl(152 30% 42% / 0.22)',
+                          }}
+                        >
+                          ✓
+                        </span>
+                      )}
+                      <input
+                        ref={slotInputRef}
+                        value={slotAddTitle}
+                        onChange={e => setSlotAddTitle(e.target.value)}
+                        onKeyDown={e => {
+                          const native = e.nativeEvent as KeyboardEvent;
+                          if (e.key === 'Enter' && !isImeComposing(native) && slotAddTitle.trim() && selectedRange) {
+                            const range = selectedRange;
+                            const targetDay = date || format(new Date(), 'yyyy-MM-dd');
+                            const sH = Math.floor(range.startMin / 60);
+                            const sM = range.startMin % 60;
+                            const eH = Math.floor(range.endMin / 60);
+                            const eM = range.endMin % 60;
+                            const startISO = new Date(`${targetDay}T${String(sH).padStart(2, '0')}:${String(sM).padStart(2, '0')}:00`).toISOString();
+                            const endISO = new Date(`${targetDay}T${String(eH).padStart(2, '0')}:${String(eM).padStart(2, '0')}:00`).toISOString();
+                            const diffSec = (range.endMin - range.startMin) * 60;
+                            (async () => {
+                              const result = await onAddTodo(slotAddTitle.trim(), 'anytime');
+                              const created = (typeof result === 'object' && result !== null && 'id' in result)
+                                ? (result as { id?: string })
+                                : null;
+                              if (created?.id) {
+                                if (isPastRange) {
+                                  onUpdateTodo(created.id, {
+                                    timer_started_at: startISO,
+                                    timer_ended_at: endISO,
+                                    timer_seconds: diffSec,
+                                  });
+                                } else {
+                                  onUpdateTodo(created.id, { plan_started_at: startISO, plan_ended_at: endISO });
+                                }
                               }
-                            }
-                          })();
-                          dismiss();
-                        }
-                        if (e.key === 'Escape') dismiss();
-                      }}
-                      placeholder={isPastRange ? 'What did you do?' : 'Add task...'}
-                      className="flex-1 bg-transparent text-[13px] font-medium focus:outline-none placeholder:text-muted-foreground/25 text-foreground"
-                      style={{ color: creationTagColor || undefined }}
-                      autoFocus
-                    />
-                  </div>
-                  <div className="mt-auto flex items-center gap-0.5 font-mono tabular-nums text-muted-foreground/40" style={{ fontSize: '10px' }}>
-                    <input
-                      className="w-[40px] bg-transparent text-center focus:outline-none focus:bg-secondary/50 rounded hover:bg-secondary/30 transition-colors"
-                      defaultValue={`${String(startH).padStart(2, '0')}:${String(startM).padStart(2, '0')}`}
-                      key={`start-${selectedRange.startMin}`}
-                      onBlur={e => applyTimeEdit('start', e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                    />
-                    <span>–</span>
-                    <input
-                      className="w-[40px] bg-transparent text-center focus:outline-none focus:bg-secondary/50 rounded hover:bg-secondary/30 transition-colors"
-                      defaultValue={`${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`}
-                      key={`end-${selectedRange.endMin}`}
-                      onBlur={e => applyTimeEdit('end', e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                    />
-                    <span className="ml-1 opacity-50">{durStr}</span>
-                    {isPastRange && (
-                      <span className="ml-1.5 font-sans text-[9px] font-medium uppercase tracking-[0.06em]" style={{ color: pastAccent, opacity: 0.8 }}>done</span>
-                    )}
-                  </div>
+                            })();
+                            dismiss();
+                          }
+                          if (e.key === 'Escape') dismiss();
+                        }}
+                        placeholder={isPastRange ? 'What did you do?' : 'Add task...'}
+                        className="min-w-0 flex-1 bg-transparent text-[14px] font-medium leading-none focus:outline-none placeholder:text-muted-foreground/40 text-foreground"
+                        style={{ color: creationTagColor || undefined }}
+                        autoFocus
+                      />
+                      <div className="ml-auto flex flex-shrink-0 items-center gap-1.5 font-mono tabular-nums text-muted-foreground/72" style={{ fontSize: '10px' }}>
+                        <div className="inline-flex items-center gap-1 rounded-full bg-background/55 px-1.5 py-1 shadow-[inset_0_0_0_1px_hsl(var(--border)/0.34)]">
+                          <input
+                            className="w-[36px] bg-transparent text-center focus:outline-none"
+                            defaultValue={`${String(startH).padStart(2, '0')}:${String(startM).padStart(2, '0')}`}
+                            key={`start-${selectedRange.startMin}`}
+                            onBlur={e => applyTimeEdit('start', e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                          />
+                          <span className="text-muted-foreground/40">→</span>
+                          <input
+                            className="w-[36px] bg-transparent text-center focus:outline-none"
+                            defaultValue={`${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`}
+                            key={`end-${selectedRange.endMin}`}
+                            onBlur={e => applyTimeEdit('end', e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                          />
+                        </div>
+                        <span className="inline-flex items-center rounded-full bg-background/45 px-1.5 py-1 text-[9.5px] font-semibold tracking-[0.02em] text-muted-foreground/78 shadow-[inset_0_0_0_1px_hsl(var(--border)/0.28)]">
+                          {durStr}
+                        </span>
+                        {isPastRange && (
+                          <span className="inline-flex items-center rounded-full px-1.5 py-1 font-sans text-[9px] font-semibold uppercase tracking-[0.08em] shadow-[inset_0_0_0_1px_hsl(152_30%_42%_/_0.25)]" style={{ color: pastAccent, background: 'hsl(152 30% 20% / 0.18)' }}>done</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   <button
                     onClick={dismiss}
-                    className="absolute top-2 right-2 p-0.5 rounded text-muted-foreground/30 hover:text-foreground transition-colors"
+                    className="absolute top-2.5 right-2.5 inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground/34 hover:bg-background/55 hover:text-foreground transition-colors"
                   >
                     <X size={11} />
                   </button>
+                </div>
                 </div>
               </div>
             );
@@ -2481,8 +3088,143 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
             );
           })}
 
+          {/* (Free-time bands removed — a dashed bordered rectangle read as an
+              empty "event card", not as breathing room. The gap-duration pill
+              below already labels open stretches, which is the legible signal
+              without boxing the emptiness.) */}
+
           {/* Plan blocks */}
-          {positioned.map(({ block, col, totalCols }) => renderBlock(block, col, totalCols))}
+          {positioned.map(({ block, col, totalCols, visibleCols, hiddenSiblingIds, tailRowIndex }) => renderBlock(block, col, totalCols, visibleCols, hiddenSiblingIds, tailRowIndex ?? 0))}
+
+          {/* Auto-plan ghost preview — proposed placements. Focus blocks keep the main
+              lane; background (parallel) blocks stay full-width but sit deeper in the
+              canvas so they read as "alongside", not "broken in half". */}
+          {suggestions?.map(s => {
+            const top = minToY(s.startMin);
+            const height = Math.max(20, minToY(s.endMin) - top);
+            const isBg = s.lane === 'background';
+            const title = todos.find(t => t.id === s.todoId)?.title ?? '';
+            const durLabel = `${s.endMin - s.startMin}m`;
+            const showMeta = height >= 42;
+            const leftInset = TIME_RAIL_WIDTH_PX + (isBg ? 22 : 4);
+            const laneLabel = isBg
+              ? (lang === 'zh' ? '并行' : 'Parallel')
+              : (lang === 'zh' ? '专注' : 'Focus');
+            const laneChipBg = isBg
+              ? (isDarkMode ? 'hsl(150 22% 52% / 0.18)' : 'hsl(150 28% 40% / 0.12)')
+              : (isDarkMode ? 'hsl(24 46% 58% / 0.2)' : 'hsl(24 55% 48% / 0.14)');
+            const laneChipFg = isBg
+              ? (isDarkMode ? 'hsl(150 30% 76%)' : 'hsl(150 34% 28%)')
+              : (isDarkMode ? 'hsl(24 60% 78%)' : 'hsl(24 52% 34%)');
+            const actionShellBg = isDarkMode ? 'hsl(0 0% 0% / 0.18)' : 'hsl(0 0% 100% / 0.58)';
+            const actionShellBorder = isDarkMode ? 'hsl(0 0% 100% / 0.08)' : 'hsl(24 12% 40% / 0.12)';
+            return (
+              <div
+                key={`ghost-${s.todoId}`}
+                className="absolute z-[9] overflow-hidden rounded-[12px] px-2.5 py-1.5 transition-shadow pointer-events-auto group/ghost"
+                style={{
+                  top: top + 1,
+                  height: height - 2,
+                  left: leftInset,
+                  right: 6,
+                  background: isBg ? ghostBgBg : ghostFocusBg,
+                  border: `1.5px ${isBg ? 'dotted' : 'dashed'} ${isBg ? ghostBgEdge : ghostFocusEdge}`,
+                  boxShadow: isBg
+                    ? '0 8px 18px hsl(var(--foreground) / 0.06)'
+                    : '0 10px 22px hsl(var(--foreground) / 0.08)',
+                }}
+                onPointerDown={e => e.stopPropagation()}
+                onMouseDown={e => e.stopPropagation()}
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="flex h-full items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex min-w-0 items-start gap-1.5">
+                      <span
+                        className="mt-[4px] shrink-0 rounded-full"
+                        style={{
+                          width: 6,
+                          height: 6,
+                          background: isBg ? 'transparent' : ghostFocusEdge,
+                          border: isBg ? `1.5px solid ${ghostBgEdge}` : undefined,
+                        }}
+                        aria-hidden="true"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div
+                          className="truncate text-[12px] font-medium leading-tight"
+                          style={{ color: 'hsl(var(--foreground) / 0.88)' }}
+                        >
+                          {title}
+                        </div>
+                        {showMeta ? (
+                          <div
+                            className="mt-1 flex items-center gap-1.5 text-[10px] leading-tight tabular-nums"
+                            style={{ color: 'hsl(var(--foreground) / 0.56)' }}
+                          >
+                            <span
+                              className="inline-flex items-center rounded-full px-1.5 py-[2px] font-medium"
+                              style={{ background: laneChipBg, color: laneChipFg }}
+                            >
+                              {laneLabel}
+                            </span>
+                            <span className="inline-flex items-center gap-1">
+                              <Clock size={9} />
+                              {durLabel}
+                            </span>
+                          </div>
+                        ) : (
+                          <div
+                            className="mt-0.5 text-[10px] leading-tight tabular-nums"
+                            style={{ color: 'hsl(var(--foreground) / 0.54)' }}
+                          >
+                            {durLabel}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    className="shrink-0 rounded-full border p-[2px] opacity-78 transition-opacity group-hover/ghost:opacity-100"
+                    style={{ background: actionShellBg, borderColor: actionShellBorder }}
+                  >
+                    <div className="flex items-center gap-0.5">
+                    <button
+                      onPointerDown={e => e.stopPropagation()}
+                      onMouseDown={e => e.stopPropagation()}
+                      onClick={() => toggleSuggestionLane(s.todoId)}
+                      title={isBg ? (lang === 'zh' ? '改为专注（独占）' : 'Make focus') : (lang === 'zh' ? '改为后台（可并行）' : 'Make background')}
+                      className="rounded-full p-[3px] hover:bg-[hsl(var(--foreground)/0.08)] transition-colors"
+                      style={{ color: 'hsl(var(--foreground) / 0.55)' }}
+                    >
+                      <Timer size={12} />
+                    </button>
+                    <button
+                      onPointerDown={e => e.stopPropagation()}
+                      onMouseDown={e => e.stopPropagation()}
+                      onClick={() => acceptSuggestion(s)}
+                      title={lang === 'zh' ? '接受' : 'Accept'}
+                      className="rounded-full p-[3px] hover:bg-[hsl(150_40%_45%/0.18)] transition-colors"
+                      style={{ color: isDarkMode ? 'hsl(150 45% 62%)' : 'hsl(150 45% 38%)' }}
+                    >
+                      <Check size={13} />
+                    </button>
+                    <button
+                      onPointerDown={e => e.stopPropagation()}
+                      onMouseDown={e => e.stopPropagation()}
+                      onClick={() => removeSuggestion(s.todoId)}
+                      title={lang === 'zh' ? '忽略' : 'Dismiss'}
+                      className="rounded-full p-[3px] hover:bg-[hsl(var(--foreground)/0.08)] transition-colors"
+                      style={{ color: 'hsl(var(--foreground) / 0.45)' }}
+                    >
+                      <X size={13} />
+                    </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
 
           {/* Empty state */}
           {planBlocks.length === 0 && !selectedRange && (
@@ -2525,9 +3267,11 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
               const gapStart = sortedPlanBlocks[i].endMin;
               const gapEnd = sortedPlanBlocks[i + 1].startMin;
               if (gapEnd - gapStart < 5) continue;
-              const nextBlock = sortedPlanBlocks[i + 1];
-              // Pomodoro floater shows live elapsed — omit free-gap pill above an actively timed task
-              if (nextBlock.source === 'todo' && activeTimerIds?.has(nextBlock.id)) continue;
+              // Note: we intentionally still show the gap pill even when the NEXT
+              // block is an actively-timed task. The floating pomodoro shows the
+              // live *elapsed* working time — a different number from the free
+              // *gap* before it — so hiding the gap here dropped genuine info
+              // (the "中间时间差" the user expects between two blocks).
               gaps.push({ startMin: gapStart, endMin: gapEnd });
             }
             if (sortedPlanBlocks.length > 0) {
@@ -2625,18 +3369,37 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
             </>
           )}
 
-          {/* Today remaining — always tuck *below* the precise now line (not last block end alone, which can land on the line) */}
-          {isViewingToday && nowMin < END_TOTAL_MIN - 5 && (() => {
+          {/* Today remaining — always tuck *below* the precise now line (not last block end alone, which can land on the line).
+              Suppressed when the timeline is empty: the empty-state card already labels an unstarted day, and stacking a "13h left" pill on top of it just doubles the same signal in overlapping copy. */}
+          {isViewingToday && nowMin < END_TOTAL_MIN - 5 && planBlocks.length > 0 && (() => {
             const GAP_AFTER_BLOCK_PX = 22;
-            /** Clear the 1px now line + blur so the pill sits clearly in "future" */
-            const CLEAR_BELOW_NOW_PX = 14;
+            /** Clear the 1px now line + blur so the pill sits clearly in "future".
+                Bumped past the 14px comfort floor because 14px still reads as "stuck to the
+                block that just ended" when the block ends right on the now line. */
+            const CLEAR_BELOW_NOW_PX = 24;
             const bedMin = BEDTIME_HOUR * 60 + BEDTIME_MINUTE;
             const remainingMin = Math.max(0, bedMin - nowMin);
             const remainingFullPill = remainingMin >= 45;
             const belowNowY = minToY(nowPreciseMin) + CLEAR_BELOW_NOW_PX;
-            // Anchor only to the live now-line. Following the last scheduled block
-            // can push this pill onto unrelated tasks near 23:00/00:00.
-            const anchorY = belowNowY;
+            // Anchor to the live now-line, but never let the pill land on top of a
+            // block whose vertical span it would overlap (e.g. a planned block that
+            // straddles the now line). Tuck it just below any such block instead.
+            const PILL_HEIGHT_PX = 30;
+            /** Same rationale as CLEAR_BELOW_NOW_PX — the pill needs breathing room from
+                the block above, not just non-overlap. 10px reads as visually glued. */
+            const CLEAR_BELOW_BLOCK_PX = 22;
+            const ranges = blocksForColumns
+              .map(b => ({
+                top: minToY(Math.min(b.startMin, b.planStartMin ?? Infinity, b.actualStartMin ?? Infinity)),
+                bottom: minToY(Math.max(b.endMin, b.planEndMin ?? -Infinity, b.actualEndMin ?? -Infinity)),
+              }))
+              .sort((a, b) => a.bottom - b.bottom);
+            let anchorY = belowNowY;
+            for (const r of ranges) {
+              if (r.bottom > anchorY - CLEAR_BELOW_BLOCK_PX && r.top < anchorY + PILL_HEIGHT_PX) {
+                anchorY = r.bottom + CLEAR_BELOW_BLOCK_PX;
+              }
+            }
             const maxTopBeforeBed = Math.max(0, minToY(END_TOTAL_MIN) - 48);
             const topPx = Math.min(Math.max(GAP_AFTER_BLOCK_PX + minToY(WAKE_TOTAL_MIN), anchorY), maxTopBeforeBed);
             return (
@@ -2644,9 +3407,12 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
                 className="absolute left-0 right-0 z-[48] pointer-events-none flex justify-center px-3"
                 style={{ top: topPx }}
               >
-                <TimelineIntervalPill isDarkMode={isDarkMode} variant={remainingFullPill ? 'default' : 'subtle'}>
-                  {`${remainingTimeStr} · ${lang === 'zh' ? '今日剩余' : 'left today'}`}
-                </TimelineIntervalPill>
+                <TimelineTodayRemainingPill
+                  isDarkMode={isDarkMode}
+                  time={remainingTimeStr}
+                  label={lang === 'zh' ? '今日剩余' : 'left today'}
+                  variant={remainingFullPill ? 'default' : 'subtle'}
+                />
               </div>
             );
           })()}
@@ -2685,6 +3451,73 @@ export function PlanTimelineView({ todos, moments, importedEvents, prevDayTodos,
               {Math.max(0, Math.round(selectedRange.endMin - selectedRange.startMin))}
             </span> {t('plan.minutes')}
           </span>
+        )}
+        {isViewingToday && (unscheduledTodos.length > 0 || suggestions) && (
+          <div className="flex items-center gap-1 pointer-events-auto">
+            {suggestions ? (
+              <div
+                className="flex items-center gap-1 rounded-full border p-[3px] backdrop-blur-md shadow-[0_8px_20px_hsl(var(--foreground)/0.08)]"
+                style={{ background: suggestionToolbarBg, borderColor: suggestionToolbarBorder }}
+                onPointerDown={e => e.stopPropagation()}
+                onMouseDown={e => e.stopPropagation()}
+                onClick={e => e.stopPropagation()}
+              >
+                <span
+                  className="inline-flex items-center gap-1 rounded-full px-2 py-[5px] text-[11px] font-medium leading-none"
+                  style={{ background: suggestionToolbarLabelBg, color: suggestionToolbarLabelFg }}
+                >
+                  <CalendarDays size={11} />
+                  {lang === 'zh' ? `${suggestions.length} 条建议` : `${suggestions.length} suggestions`}
+                </span>
+                <div
+                  className="flex items-center gap-0.5 rounded-full border p-[2px]"
+                  style={{ background: suggestionToolbarActionBg, borderColor: suggestionToolbarActionBorder }}
+                >
+                  <button
+                    onPointerDown={e => e.stopPropagation()}
+                    onMouseDown={e => e.stopPropagation()}
+                    onClick={acceptAllSuggestions}
+                    className="flex items-center gap-1 rounded-full px-2 py-[4px] text-[11px] font-medium transition-colors"
+                    style={{
+                      background: isDarkMode ? 'hsl(150 30% 40% / 0.22)' : 'hsl(150 40% 42% / 0.16)',
+                      border: `1px solid ${isDarkMode ? 'hsl(150 32% 55% / 0.40)' : 'hsl(150 38% 40% / 0.38)'}`,
+                      color: isDarkMode ? 'hsl(150 45% 68%)' : 'hsl(150 45% 34%)',
+                    }}
+                  >
+                    <Check size={12} />
+                    <span>{lang === 'zh' ? '全部接受' : 'Accept all'}</span>
+                  </button>
+                  <button
+                    onPointerDown={e => e.stopPropagation()}
+                    onMouseDown={e => e.stopPropagation()}
+                    onClick={dismissSuggestions}
+                    className="flex items-center gap-1 rounded-full px-2 py-[4px] text-[11px] font-medium text-muted-foreground/85 transition-colors hover:text-foreground"
+                    style={{
+                      background: isDarkMode ? 'hsl(0 0% 100% / 0.04)' : 'hsl(0 0% 100% / 0.46)',
+                      border: `1px solid ${isDarkMode ? 'hsl(0 0% 100% / 0.08)' : 'hsl(24 12% 40% / 0.12)'}`,
+                    }}
+                  >
+                    <X size={12} />
+                    <span>{lang === 'zh' ? '取消' : 'Cancel'}</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={handleAutoPlan}
+                title={lang === 'zh' ? '按偏好把未排任务填进空隙' : 'Fill gaps with unscheduled tasks'}
+                className="flex items-center gap-1 px-2.5 py-[3px] text-[12px] font-medium rounded-full transition-colors backdrop-blur-md shadow-[0_4px_12px_hsl(var(--foreground)/0.05)]"
+                style={{
+                  background: isDarkMode ? 'hsl(24 40% 50% / 0.16)' : 'hsl(24 55% 48% / 0.10)',
+                  border: `1px solid ${isDarkMode ? 'hsl(24 45% 60% / 0.38)' : 'hsl(24 50% 46% / 0.34)'}`,
+                  color: isDarkMode ? 'hsl(24 55% 70%)' : 'hsl(24 60% 42%)',
+                }}
+              >
+                <CalendarDays size={13} />
+                <span>{lang === 'zh' ? '自动填充' : 'Auto-plan'}</span>
+              </button>
+            )}
+          </div>
         )}
         <div className="flex items-center bg-[hsl(var(--surface-contrast)/0.88)] backdrop-blur-md rounded-full p-[1.5px] shadow-[0_4px_12px_hsl(var(--foreground)/0.05)] border border-border/45 pointer-events-auto">
           {(['plan', 'actual', 'both'] as const).map(mode => (

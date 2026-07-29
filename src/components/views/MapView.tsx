@@ -216,6 +216,16 @@ interface DisplayPlacePoint {
   renderLng: number;
 }
 
+type HeatPoint = [number, number, number];
+type HeatLayerOptions = Record<string, unknown>;
+
+function createHeatLayer(points: HeatPoint[], options: HeatLayerOptions): L.Layer | null {
+  const heatFactory = (L as unknown as {
+    heatLayer?: (pts: HeatPoint[], opts: HeatLayerOptions) => L.Layer;
+  }).heatLayer;
+  return heatFactory ? heatFactory(points, options) : null;
+}
+
 class MapDetailErrorBoundary extends Component<
   { children: ReactNode; onClose: () => void; lang: string },
   { hasError: boolean }
@@ -490,25 +500,36 @@ type ViewMode = 'world' | 'city';
 export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapViewProps) {
   const { formatDate } = useDateLocale();
   const { t, lang } = useLanguage();
-  const [viewMode, setViewMode] = useState<ViewMode>('city');
+  const [viewMode, setViewMode] = useState<ViewMode>('world');
   const [activeCategory, setActiveCategory] = useState<Category>('all');
   const [placeQuery, setPlaceQuery] = useState('');
   const [searchExpanded, setSearchExpanded] = useState(false);
   const [selectedPlace, setSelectedPlace] = useState<string | null>(null);
+  const selectedPlaceRef = useRef<string | null>(selectedPlace);
   const [showPlaceDetail, setShowPlaceDetail] = useState<PlaceInfo | null>(null);
   const [mapPreviewFailed, setMapPreviewFailed] = useState(false);
   const [detailMapFailed, setDetailMapFailed] = useState(false);
-  const [selectedCityIdx, setSelectedCityIdx] = useState<number>(0);
+  const [selectedCityIdx, setSelectedCityIdx] = useState<number>(-1);
   const autoSelectedRef = useRef(false);
+  // Kept in sync with `viewMode` so async callbacks (geolocation) can check the
+  // *current* view without capturing a stale value. Without this the geolocation
+  // success callback would happily setViewMode('city') 5s after the user had
+  // already navigated to world / another city, yanking them back.
+  const viewModeRef = useRef<ViewMode>('world');
+  // Which cityIdx we last fit the map to. Only bump when the user actually
+  // enters a new city; that way filter/search changes update markers without
+  // re-fitBounds every keystroke (which would visibly jump the map around).
+  const lastFitCityIdxRef = useRef<number>(-1);
   const mapRef = useRef<L.Map | null>(null);
   const detailMapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const markersRef = useRef<(L.Marker | L.CircleMarker | L.Circle)[]>([]);
   // Store city-view markers keyed by place name for lightweight updates on selection
   const cityMarkerMapRef = useRef(new Map<string, { marker: L.Marker; category: string; lat: number; lng: number; renderLat: number; renderLng: number }>());
-  const heatLayerRef = useRef<any>(null);
+  const heatLayerRef = useRef<L.Layer | null>(null);
   const boundaryLayersRef = useRef<L.GeoJSON[]>([]);
-  const [cityBoundaries, setCityBoundaries] = useState<Map<string, any>>(new Map());
+  const [cityBoundaries, setCityBoundaries] = useState<Map<string, GeoJSON.GeoJsonObject>>(new Map());
+  const detailFixTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   // Build all places: merge from new places tables + legacy moments
   const allPlaces = useMemo(() => {
     const placeMap = new Map<string, PlaceInfo>();
@@ -529,7 +550,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
       placesData.cities.forEach(city => {
         city.places.forEach(p => {
           const existing = placeMap.get(p.name);
-          const visitDetails = p.visits.map((v: any) => ({
+          const visitDetails = p.visits.map((v: { date?: string; photos?: unknown; note?: string | null; moment_id?: string | null }) => ({
             date: v.date || '',
             photos: normalizePhotoList(v.photos),
             text: typeof v.note === 'string' && v.note.trim().length > 0 ? v.note : undefined,
@@ -686,9 +707,13 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
         // the card shows the municipality ("北京市" / "Beijing") instead.
         const isRawDistrict = (name?: string) => !!name && (/区$/.test(name) || /\bDistrict$/i.test(name));
         const needsResolve = (name?: string) => !name || name.startsWith('Area ') || isRawDistrict(name);
+        // `resolved` starts as a shallow copy of initialCities and is the
+        // authoritative naming source for the boundary/reclassify steps below.
+        // Previously step 2 read from initialCities directly, so any city whose
+        // name was only filled in by reverse-geocode never got a boundary.
+        const resolved = [...initialCities];
         const unresolvedCities = initialCities.filter(c => needsResolve(c.cityName));
         if (unresolvedCities.length > 0) {
-          const resolved = [...initialCities];
           for (let i = 0; i < resolved.length; i++) {
             if (geoSeqCancelled) return;
             // Skip cities that already have a proper municipal name
@@ -714,7 +739,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
         if (geoSeqCancelled) return;
 
         // Step 2: Fetch boundaries (single call, but the edge fn internally rate-limits)
-        const citiesWithNames = initialCities.filter(c => c.cityName && !c.cityName.startsWith('Area '));
+        const citiesWithNames = resolved.filter(c => c.cityName && !c.cityName.startsWith('Area '));
         if (citiesWithNames.length > 0) {
           try {
             const { data } = await supabase.functions.invoke('geo', {
@@ -728,8 +753,8 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
               },
             });
             if (!geoSeqCancelled && data?.boundaries?.length > 0) {
-              const map = new Map<string, any>();
-              data.boundaries.forEach((b: { name: string; geojson: any }) => {
+              const map = new Map<string, GeoJSON.GeoJsonObject>();
+              data.boundaries.forEach((b: { name: string; geojson: GeoJSON.GeoJsonObject }) => {
                 map.set(b.name, b.geojson);
               });
               setCityBoundaries(map);
@@ -762,41 +787,83 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
     return () => { geoSeqCancelled = true; };
   }, [allPlaces, placesData, lang]);
 
-  // Auto-select closest city to user's location on first load
+  // Auto-select closest city to user's location on first load.
+  // We start in world view with no city selected so users never see a
+  // most-visited-first city (e.g. New York) flash before geolocation resolves.
+  // Once we have a coord — or geolocation fails/times out — we jump to the
+  // closest city and switch to city view.
   useEffect(() => {
-    // Only auto-select once. If already auto-selected, do nothing.
+    viewModeRef.current = viewMode;
+    // Leaving city view resets the fit token so re-entering any city triggers
+    // a fresh fitBounds. Without this, going world → city2 → world → city2
+    // would skip the fit on the second entry because the token still matches.
+    if (viewMode !== 'city') lastFitCityIdxRef.current = -1;
+  }, [viewMode]);
+
+  useEffect(() => {
     if (autoSelectedRef.current) return;
     if (cities.length === 0) return;
 
+    let settled = false;
+    const settleOnce = (fn: () => void) => {
+      if (settled) return;
+      settled = true;
+      fn();
+    };
+
+    const pickClosest = (userLat: number, userLng: number) => settleOnce(() => {
+      let closestIdx = 0;
+      let closestDist = Infinity;
+      cities.forEach((city, i) => {
+        const dist = haversineKm(userLat, userLng, city.centerLat, city.centerLng);
+        if (dist < closestDist) {
+          closestDist = dist;
+          closestIdx = i;
+        }
+      });
+      // Guard against yanking the user away: geolocation is async and by the
+      // time it resolves the user may have already tapped into a city or is
+      // browsing world view intentionally. If they moved off world, or already
+      // picked a city, only remember the closest index — don't force viewMode.
+      const userHasNavigated = viewModeRef.current !== 'world';
+      autoSelectedRef.current = true;
+      if (userHasNavigated) return;
+      setSelectedCityIdx(closestIdx);
+      setViewMode('city');
+    });
+
+    const fallback = () => settleOnce(() => {
+      // Geolocation denied / failed / unavailable — stay in world view so the
+      // user picks a city themselves instead of landing on "most visits".
+      setSelectedCityIdx(0);
+      autoSelectedRef.current = true;
+    });
+
+    // Hard timeout: the browser's `{ timeout }` option only fires the error
+    // callback in some environments — iframes, insecure contexts, and blocked
+    // permission-policy commonly stall without ever resolving or rejecting.
+    // Without this, users in an embed would sit on the empty world view
+    // indefinitely. 7s > the geolocation timeout (5s) so a slow-but-successful
+    // GPS still wins the race.
+    const hardTimeout = setTimeout(fallback, 7000);
+
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const userLat = pos.coords.latitude;
-          const userLng = pos.coords.longitude;
-          let closestIdx = 0;
-          let closestDist = Infinity;
-          cities.forEach((city, i) => {
-            const dist = haversineKm(userLat, userLng, city.centerLat, city.centerLng);
-            if (dist < closestDist) {
-              closestDist = dist;
-              closestIdx = i;
-            }
-          });
-          setSelectedCityIdx(closestIdx);
-          autoSelectedRef.current = true;
-        },
-        () => {
-          // Geolocation denied/failed - default to first city (most visits)
-          setSelectedCityIdx(0);
-          autoSelectedRef.current = true;
-        },
+        (pos) => pickClosest(pos.coords.latitude, pos.coords.longitude),
+        fallback,
         { timeout: 5000 }
       );
     } else {
-      setSelectedCityIdx(0);
-      autoSelectedRef.current = true;
+      fallback();
     }
+
+    return () => clearTimeout(hardTimeout);
   }, [cities]);
+
+  // External focus request (e.g. user tapped a moment's location): jump to that place.
+  useEffect(() => {
+    selectedPlaceRef.current = selectedPlace;
+  }, [selectedPlace]);
 
   // External focus request (e.g. user tapped a moment's location): jump to that place.
   useEffect(() => {
@@ -822,7 +889,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
   }, [focusPlace, cities]);
 
   const currentCity = selectedCityIdx >= 0 ? cities[selectedCityIdx] : null;
-  const cityPlaces = currentCity?.places || [];
+  const cityPlaces = useMemo(() => currentCity?.places ?? [], [currentCity]);
 
   // How many places sit in each category for the current city — drives the
   // filter pills so users can see what's available ("Coffee 3") and we can hide
@@ -926,7 +993,9 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
             if (!cancelled) {
               try {
                 map.invalidateSize();
-              } catch {}
+              } catch {
+                // Ignore transient map sizing race.
+              }
             }
           }, ms));
         });
@@ -937,6 +1006,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
     };
 
     const timer = setTimeout(() => initMap(), 50);
+    const cityMarkerMap = cityMarkerMapRef.current;
 
     return () => {
       cancelled = true;
@@ -945,7 +1015,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
 
       markersRef.current.forEach((m) => m.remove());
       markersRef.current = [];
-      cityMarkerMapRef.current.clear();
+      cityMarkerMap.clear();
 
       if (heatLayerRef.current && mapRef.current) {
         mapRef.current.removeLayer(heatLayerRef.current);
@@ -1027,7 +1097,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
       setTimeout(fitWorld, ms)
     );
     return () => timers.forEach(clearTimeout);
-  }, [cities, viewMode]);
+  }, [cities, viewMode, mapPreviewFailed]);
   useEffect(() => {
     if (MAP_SAFE_MODE || mapPreviewFailed) return;
     if (!mapRef.current || viewMode !== 'world') return;
@@ -1037,27 +1107,34 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
     let rafHandle: number | null = null;
     let innerTimer: ReturnType<typeof setTimeout> | null = null;
 
-    // Clean up previous layers
-    try {
-      markersRef.current.forEach((m) => m.remove());
-    } catch {}
-    markersRef.current = [];
+    // Clean up previous non-pin layers (heatmap + boundaries). Pins are owned
+    // by the separate zoom-dependent effect below and cleaned there.
     try {
       if (heatLayerRef.current) {
         map.removeLayer(heatLayerRef.current);
         heatLayerRef.current = null;
       }
-    } catch {}
+    } catch {
+      // Ignore if heat layer was already removed.
+    }
     try {
       boundaryLayersRef.current.forEach((l) => l.remove());
-    } catch {}
+    } catch {
+      // Ignore stale boundary teardown during quick view switches.
+    }
     boundaryLayersRef.current = [];
 
     // Invalidate size after container height change (world has taller map)
     rafHandle = requestAnimationFrame(() => {
       if (cancelled) return;
       innerTimer = setTimeout(() => {
-        if (!cancelled) { try { map.invalidateSize(); } catch {} }
+        if (!cancelled) {
+          try {
+            map.invalidateSize();
+          } catch {
+            // Ignore transient invalidate failures while switching views.
+          }
+        }
       }, 150);
     });
 
@@ -1070,14 +1147,11 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
     }
 
     const maxPlaceVisits = Math.max(...allPlaces.map((p) => p.visits), 1);
-    const citiesWithBoundary = new Set<string>();
-    const polygonVisibility = 1; // Always fully visible
 
     // ---- 1) Boundary polygons: visited cities get colored fill ----
     cities.forEach((city) => {
       const geojson = cityBoundaries.get(city.cityName);
       if (!geojson) return;
-      citiesWithBoundary.add(city.cityName);
 
       const intensity = Math.min(city.totalVisits / maxCityVisits, 1);
       const fillOpacity = 0.18 + intensity * 0.12; // softer fill only
@@ -1120,7 +1194,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
     });
 
     // ---- 2) Heatmap as subtle supplement ----
-    const heatPoints: [number, number, number][] = [];
+    const heatPoints: HeatPoint[] = [];
     allPlaces.forEach((place) => {
       const normalized = Math.min(place.visits / maxPlaceVisits, 1);
       const intensity = 0.24 + normalized * 0.72;
@@ -1134,9 +1208,9 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
     });
 
     if (HEATMAP_ENABLED && heatPoints.length > 0) {
-      heatLayerRef.current = (L as any).heatLayer(heatPoints, {
-        radius: worldZoom <= 4 ? 18 : 24,
-        blur: worldZoom <= 4 ? 20 : 25,
+      const heatLayer = createHeatLayer(heatPoints, {
+        radius: 24,
+        blur: 25,
         maxZoom: 15,
         max: 1.0,
         minOpacity: 0.02,
@@ -1146,10 +1220,38 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
           0.6: 'rgba(232,130,90,0.20)',
           1.0: 'rgba(222,117,72,0.35)',
         },
-      }).addTo(map);
+      });
+      if (heatLayer) {
+        heatLayerRef.current = heatLayer.addTo(map);
+      }
     }
 
-    // ---- 3) Clustered pins to avoid overlap when zoomed out ----
+    return () => {
+      cancelled = true;
+      if (rafHandle !== null) cancelAnimationFrame(rafHandle);
+      if (innerTimer !== null) clearTimeout(innerTimer);
+    };
+  }, [cities, viewMode, maxCityVisits, allPlaces, cityBoundaries, mapPreviewFailed]);
+
+  // Separate effect for zoom-dependent pin clusters. Splitting this out means
+  // zooming/panning the world map only rebuilds the small pin markers, not the
+  // (expensive to re-parse) boundary geojson polygons — the previous single
+  // effect visibly flickered every zoom because boundaries re-rendered too.
+  useEffect(() => {
+    if (MAP_SAFE_MODE || mapPreviewFailed) return;
+    if (!mapRef.current || viewMode !== 'world') return;
+
+    const map = mapRef.current;
+
+    try {
+      markersRef.current.forEach((m) => m.remove());
+    } catch {
+      // Marker detach can race with map teardown; safe to ignore.
+    }
+    markersRef.current = [];
+
+    if (cities.length === 0) return;
+
     const worldGroups = clusterCitiesForZoom(cities, worldZoom);
 
     worldGroups.forEach((group) => {
@@ -1173,7 +1275,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
 
       marker.bindTooltip(
         `<div style="text-align:center;font-family:inherit;">
-          <div style="font-weight:600;font-size:13px;">${title}</div>
+          <div style="font-weight:600;font-size:13px;">${escapeHtml(title)}</div>
           <div style="color:#888;font-size:11px;margin-top:2px;">${group.totalVisits} ${visitLabel} · ${group.totalPlaces} ${placeLabel}</div>
         </div>`,
         { direction: 'top', offset: [0, -8], className: 'life-map-tooltip' }
@@ -1202,13 +1304,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
 
       markersRef.current.push(marker);
     });
-
-    return () => {
-      cancelled = true;
-      if (rafHandle !== null) cancelAnimationFrame(rafHandle);
-      if (innerTimer !== null) clearTimeout(innerTimer);
-    };
-  }, [cities, viewMode, maxCityVisits, lang, allPlaces, cityBoundaries, worldZoom]);
+  }, [cities, viewMode, maxCityVisits, lang, worldZoom, mapPreviewFailed]);
 
   // Render city view: individual place markers with glow
   useEffect(() => {
@@ -1217,7 +1313,11 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
 
     let cancelled = false;
 
-    try { markersRef.current.forEach(m => m.remove()); } catch {}
+    try {
+      markersRef.current.forEach(m => m.remove());
+    } catch {
+      // Marker detach can race with map teardown; safe to ignore.
+    }
     markersRef.current = [];
     cityMarkerMapRef.current.clear();
     try {
@@ -1225,8 +1325,14 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
         mapRef.current.removeLayer(heatLayerRef.current);
         heatLayerRef.current = null;
       }
-    } catch {}
-    try { boundaryLayersRef.current.forEach(l => l.remove()); } catch {}
+    } catch {
+      // Ignore if heat layer was already removed.
+    }
+    try {
+      boundaryLayersRef.current.forEach(l => l.remove());
+    } catch {
+      // Ignore stale boundary teardown during quick view switches.
+    }
     boundaryLayersRef.current = [];
 
     // Invalidate size and fit bounds to places (detail map behavior)
@@ -1241,7 +1347,10 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
           try {
             map.invalidateSize();
             map.setView([currentCity.centerLat, currentCity.centerLng], 13, { animate: false });
-          } catch {}
+            lastFitCityIdxRef.current = selectedCityIdx;
+          } catch {
+            // Ignore transient map sizing/setView race.
+          }
         }, 120);
         return () => { cancelled = true; clearTimeout(centerTimer); };
       }
@@ -1252,7 +1361,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
     const displayPlaces = spreadNearbyPlaces(filteredPlaces);
 
     // Heatmap glow for city view
-    const heatPoints: [number, number, number][] = [];
+    const heatPoints: HeatPoint[] = [];
     filteredPlaces.forEach((p) => {
       const normalized = Math.min(p.visits / maxPlaceVisits, 1);
       const intensity = 0.4 + normalized * 0.6;
@@ -1263,7 +1372,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
     });
 
     if (HEATMAP_ENABLED) {
-      heatLayerRef.current = (L as any).heatLayer(heatPoints, {
+      const heatLayer = createHeatLayer(heatPoints, {
         radius: 20,
         blur: 22,
         maxZoom: 17,
@@ -1275,13 +1384,16 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
           0.6: 'rgba(232,130,90,0.22)',
           1.0: 'rgba(222,117,72,0.35)',
         },
-      }).addTo(mapRef.current);
+      });
+      if (heatLayer) {
+        heatLayerRef.current = heatLayer.addTo(mapRef.current);
+      }
     }
 
     // Dot markers on top
     displayPlaces.forEach(({ place, renderLat, renderLng }) => {
       const color = categoryColors[place.category] || categoryColors.other;
-      const isSelected = selectedPlace === place.name;
+      const isSelected = selectedPlaceRef.current === place.name;
       const coverPhoto = getPlaceCoverPhoto(place);
       const size = coverPhoto ? (isSelected ? 52 : 42) : (isSelected ? 16 : 12);
       const icon = L.divIcon({
@@ -1294,7 +1406,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
       const marker = L.marker([renderLat, renderLng], { icon })
         .addTo(mapRef.current!)
         .bindPopup(`<div style="text-align:center;font-family:inherit;padding:4px 2px;">
-          <p style="font-weight:600;font-size:13px;margin:0 0 2px;">${place.name}</p>
+          <p style="font-weight:600;font-size:13px;margin:0 0 2px;">${escapeHtml(place.name)}</p>
           <p style="color:#888;font-size:11px;margin:0;">${place.visits} ${place.visits === 1 ? t('map.visit') : t('map.visits')}</p>
         </div>`, { closeButton: false, className: 'map-popup-minimal' });
 
@@ -1306,12 +1418,16 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
       cityMarkerMapRef.current.set(place.name, { marker, category: place.category, lat: place.lat, lng: place.lng, renderLat, renderLng });
     });
 
-      // After markers are added and the container is visible, invalidateSize then fit to places.
-      // Use a short delay so the browser has painted the container (helps Leaflet measure correctly).
+      // Only fit bounds the FIRST time we render a given city — otherwise every
+      // keystroke in the search box (or category toggle) triggers a fitBounds
+      // and the map visibly jumps around while the user is trying to browse.
+      // Subsequent filter changes just replace markers; the viewport stays put.
+      const shouldFit = lastFitCityIdxRef.current !== selectedCityIdx;
       const performFit = () => {
         if (cancelled) return;
         try {
           map.invalidateSize();
+          if (!shouldFit) return;
           if (displayPlaces.length === 1) {
             const p = displayPlaces[0];
             map.setView([p.renderLat, p.renderLng], 15, { animate: false });
@@ -1321,6 +1437,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
               map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15, animate: false });
             }
           }
+          lastFitCityIdxRef.current = selectedCityIdx;
         } catch {
           // swallow if map was removed or view changed
         }
@@ -1334,7 +1451,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
         clearTimeout(primary);
         clearTimeout(fallback);
       };
-  }, [filteredPlaces, viewMode, currentCity, mapPreviewFailed, lang]);
+  }, [filteredPlaces, viewMode, currentCity, mapPreviewFailed, lang, selectedCityIdx, openPlaceDetail, t]);
 
   // Lightweight effect: update only marker styling / pan when selectedPlace changes.
   useEffect(() => {
@@ -1367,7 +1484,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
     } catch (err) {
       // ignore
     }
-  }, [selectedPlace, filteredPlaces, mapPreviewFailed]);
+  }, [selectedPlace, filteredPlaces, mapPreviewFailed, viewMode]);
 
   const detailContainerRef = useRef<HTMLDivElement>(null);
 
@@ -1449,7 +1566,7 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
         });
         resizeObserver.observe(detailContainerRef.current);
 
-        (map as any).__fixTimers = fixTimers;
+        detailFixTimersRef.current = fixTimers;
       } catch (err) {
         console.error('Failed to initialize place detail map', err);
         setDetailMapFailed(true);
@@ -1465,10 +1582,8 @@ export function MapView({ moments, placesData, focusPlace, onOpenDate }: MapView
       }
 
       if (detailMapRef.current) {
-        const map = detailMapRef.current as any;
-        if (map.__fixTimers) {
-          map.__fixTimers.forEach((t: ReturnType<typeof setTimeout>) => clearTimeout(t));
-        }
+        detailFixTimersRef.current.forEach((t) => clearTimeout(t));
+        detailFixTimersRef.current = [];
         try {
           detailMapRef.current.remove();
         } catch (err) {

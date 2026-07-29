@@ -16,6 +16,7 @@ import { useDateLocale } from '@/hooks/useDateLocale';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { hasRichPreview } from '@/components/views/dues/DueLinkItems';
 import { getTimeLeft, formatDuration, HabitPunchCard } from '@/components/views/dues/DueCards';
+import { useSpotlight } from '@/hooks/useSpotlight';
 import { toast } from 'sonner';
 
 /* ── Due Card (Redesigned) ── */
@@ -217,17 +218,27 @@ export function DueCard({ due, onUpdate, onDelete, onAddToToday, justAdded, dueR
   };
 
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const spotlight = useSpotlight<HTMLDivElement>();
 
   return (
-    <div id={`due-card-${due.id}`} tabIndex={0} onPaste={handleCardPaste} className={cn(
-      bare
-        ? "group relative bg-transparent p-0 pt-1"
-        : "bg-card rounded-xl p-4 group relative overflow-hidden transition-shadow hover:shadow-[0_8px_28px_-14px_rgba(0,0,0,0.20)]",
-      due.is_completed && "opacity-55"
-    )} style={bare ? undefined : {
-      boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-      border: '1px solid hsl(var(--border) / 0.6)',
-    }}>
+    <div
+      id={`due-card-${due.id}`}
+      tabIndex={0}
+      onPaste={handleCardPaste}
+      ref={bare ? undefined : spotlight.ref}
+      onPointerMove={bare ? undefined : spotlight.onPointerMove}
+      onPointerLeave={bare ? undefined : spotlight.onPointerLeave}
+      className={cn(
+        bare
+          ? "group relative bg-transparent p-0 pt-1"
+          : "spotlight bg-card rounded-xl p-4 group overflow-hidden transition-shadow hover:shadow-[0_8px_28px_-14px_rgba(0,0,0,0.20)]",
+        due.is_completed && "opacity-55"
+      )}
+      style={bare ? undefined : {
+        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+        border: '1px solid hsl(var(--border) / 0.6)',
+      }}
+    >
       <input ref={photoInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoUpload} />
       
 

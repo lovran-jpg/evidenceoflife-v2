@@ -219,10 +219,10 @@ export function WeekDateBar({ selectedDate, onDateSelect, recordedDates, onTaskM
                   }
                 }}
                 className={cn(
-                  'relative flex min-w-[38px] flex-col items-center rounded-xl px-1.5 py-1 transition-all',
+                  'group relative flex min-w-[38px] flex-col items-center rounded-xl px-1.5 py-1 transition-all',
                   isCurrentDay
                     ? 'bg-muted/35'
-                    : 'hover:bg-muted/20',
+                    : 'hover:bg-muted/30',
                   isHoverValid ? 'ring-2 ring-primary/50 bg-primary/8' : '',
                   isSuccess ? 'bg-primary/10' : ''
                 )}
@@ -240,10 +240,10 @@ export function WeekDateBar({ selectedDate, onDateSelect, recordedDates, onTaskM
                 )}
                 <span
                   className={cn(
-                    'text-[11px] uppercase leading-tight tracking-wide',
+                    'text-[11px] uppercase leading-tight tracking-wide transition-colors',
                     isCurrentDay
                       ? 'font-medium text-foreground'
-                      : 'font-medium text-muted-foreground/30'
+                      : 'font-medium text-muted-foreground/55 group-hover:text-muted-foreground/80'
                   )}
                 >
                   {lang === 'zh' ? formatDate(day, 'EEE').replace('周', '') : formatDate(day, 'EEE')}
@@ -251,12 +251,12 @@ export function WeekDateBar({ selectedDate, onDateSelect, recordedDates, onTaskM
 
                 <span
                   className={cn(
-                    'mt-0.5 text-[15px] leading-tight tabular-nums',
+                    'mt-0.5 text-[15px] leading-tight tabular-nums transition-colors',
                     isCurrentDay
                       ? 'font-semibold text-foreground'
                       : isSelected
                         ? 'font-medium text-foreground/70'
-                        : 'font-normal text-muted-foreground/30'
+                        : 'font-normal text-muted-foreground/55 group-hover:text-foreground/70'
                   )}
                 >
                   {format(day, 'd')}

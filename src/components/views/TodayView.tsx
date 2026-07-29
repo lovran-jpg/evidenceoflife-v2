@@ -42,6 +42,7 @@ import { useIsDarkMode } from '@/hooks/useIsDarkMode';
 import { getActivityAccentColor, getActivityTagIcon } from '@/lib/activityColors';
 import { useWorkTypes } from '@/hooks/useWorkTypes';
 import { WORK_TYPE_META } from '@/lib/workType';
+import { buildTodayWorkTypeBreakdown } from '@/lib/todayTimeBreakdown';
 import { toast } from 'sonner';
 
 import {
@@ -68,6 +69,9 @@ import {
 import { EvidenceReviewCard } from './today/EvidenceReviewCard';
 import { OnThisDayCard } from './today/OnThisDayCard';
 import { MemoryHorizonsCard } from './today/MemoryHorizonsCard';
+import { PlanDrift } from '@/components/today/PlanDrift';
+
+type TimeBreakdownRange = 'today' | 'week' | 'month';
 
 type MomentEditUpdates = Partial<Omit<Moment, 'location'>> & {
   location?: Moment['location'] | null;
@@ -296,6 +300,7 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
   const recapRightColRef = useRef<HTMLDivElement>(null);
   const [recapInputDock, setRecapInputDock] = useState<{ left: number; width: number } | null>(null);
   const [headerImageSrc, setHeaderImageSrc] = useState(homepageImageUrl || monetPainting);
+  const [timeBreakdownRange, setTimeBreakdownRange] = useState<TimeBreakdownRange>('today');
   
   
   const today = selectedDate;
@@ -453,6 +458,135 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
     items.sort((a, b) => a.time.getTime() - b.time.getTime());
     return items;
   }, [completedTodos, allTodos, sortedMoments, importedEvents]);
+
+  const todayTimeBreakdownRows = useMemo(() => {
+    return timelineItems
+      .filter((item) => !item.isPlanOutline && !!item.endTime)
+      .map((item) => {
+        const title = item.type === 'todo'
+          ? item.data.title
+          : item.type === 'moment'
+            ? item.data.text
+            : item.data.title;
+        const tags = item.type === 'todo' ? item.data.tags : item.type === 'moment' ? item.data.tags : undefined;
+        const workType = item.type === 'todo'
+          ? getWorkType({ entity: 'todo', id: item.data.id, title, tags })
+          : item.type === 'moment'
+            ? getWorkType({ entity: 'moment', id: item.data.id, title, text: title, tags })
+            : 'shallow';
+        const startMs = item.time.getTime();
+        const endMs = item.endTime ? item.endTime.getTime() : startMs;
+        const durationMin = Math.max(0, Math.round((endMs - startMs) / 60000));
+        return { workType, durationMin };
+      });
+  }, [timelineItems, getWorkType]);
+
+  const todayTimeBreakdown = useMemo(() => {
+    return buildTodayWorkTypeBreakdown(todayTimeBreakdownRows);
+  }, [todayTimeBreakdownRows]);
+
+  const rangedMomentTimeBreakdown = useMemo(() => {
+    if (!historyMoments?.length) return [];
+    const selectedDateKey = format(selectedDate, 'yyyy-MM-dd');
+    const rangeStart = timeBreakdownRange === 'week'
+      ? startOfWeek(selectedDate, { weekStartsOn: 1 })
+      : new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+    const rangeEnd = timeBreakdownRange === 'week'
+      ? addDays(rangeStart, 6)
+      : new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+    const startKey = format(rangeStart, 'yyyy-MM-dd');
+    const endKey = format(rangeEnd, 'yyyy-MM-dd');
+
+    const historicalRows = historyMoments
+        .filter((moment) => {
+          if (moment.date < startKey || moment.date > endKey) return false;
+          if (moment.date === selectedDateKey) return false;
+          return true;
+        })
+        .map((moment) => {
+          const title = parseSubtitleDetail(moment.text).subtitle || '';
+          const workType = getWorkType({
+            entity: 'moment',
+            id: moment.id,
+            title,
+            text: title,
+            tags: moment.tags,
+          });
+          let durationMin = 0;
+          if (moment.timer_started_at && moment.timer_ended_at) {
+            const startMs = parseISO(moment.timer_started_at).getTime();
+            const endMs = parseISO(moment.timer_ended_at).getTime();
+            if (Number.isFinite(startMs) && Number.isFinite(endMs)) {
+              durationMin = Math.max(0, Math.round((endMs - startMs) / 60000));
+            }
+          } else if ((moment.timer_seconds || 0) > 0) {
+            durationMin = Math.max(0, Math.round((moment.timer_seconds || 0) / 60));
+          }
+          return { workType, durationMin };
+        });
+
+    return buildTodayWorkTypeBreakdown([
+      ...todayTimeBreakdownRows,
+      ...historicalRows,
+    ]);
+  }, [historyMoments, selectedDate, timeBreakdownRange, getWorkType, todayTimeBreakdownRows]);
+
+  const activeTimeBreakdown = timeBreakdownRange === 'today' ? todayTimeBreakdown : rangedMomentTimeBreakdown;
+  const shouldShowTimeBreakdownCard = todayTimeBreakdown.length > 0 || (historyMoments?.length || 0) > 0;
+  const priorityAlignment = useMemo(() => {
+    const rankedTodos = [...(allTodos ?? [])]
+      .filter((todo) => !todo.parent_due_id && todo.date === selectedDateStr)
+      .sort((a, b) => a.sort_order - b.sort_order);
+
+    if (rankedTodos.length === 0) return null;
+
+    const topTodos = rankedTodos.slice(0, Math.min(2, rankedTodos.length));
+    if (topTodos.length === 0) return null;
+
+    const actualMinutesForTodo = (todo: Todo) => {
+      if ((todo.timer_seconds || 0) > 0) {
+        return Math.max(0, Math.round((todo.timer_seconds || 0) / 60));
+      }
+      if (!todo.timer_started_at || !todo.timer_ended_at) return 0;
+      const startMs = parseISO(todo.timer_started_at).getTime();
+      const endMs = parseISO(todo.timer_ended_at).getTime();
+      if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return 0;
+      return Math.max(0, Math.round((endMs - startMs) / 60000));
+    };
+
+    const topTodoIds = new Set(topTodos.map((todo) => todo.id));
+    const timedTodos = rankedTodos.map((todo) => ({ todo, actualMin: actualMinutesForTodo(todo) }));
+    const totalTrackedMin = timedTodos.reduce((sum, entry) => sum + entry.actualMin, 0);
+    const topTrackedMin = timedTodos
+      .filter((entry) => topTodoIds.has(entry.todo.id))
+      .reduce((sum, entry) => sum + entry.actualMin, 0);
+    const touchedTopCount = topTodos.filter((todo) => actualMinutesForTodo(todo) > 0 || todo.is_completed).length;
+    const completedTopCount = topTodos.filter((todo) => todo.is_completed).length;
+    const sharePct = totalTrackedMin > 0 ? Math.round((topTrackedMin / totalTrackedMin) * 100) : 0;
+    const firstUntouched = topTodos.find((todo) => actualMinutesForTodo(todo) <= 0 && !todo.is_completed) ?? null;
+    const strongestLowerPriority = timedTodos
+      .filter((entry) => !topTodoIds.has(entry.todo.id) && entry.actualMin > 0)
+      .sort((a, b) => b.actualMin - a.actualMin)[0] ?? null;
+
+    if (totalTrackedMin === 0 && completedTopCount === 0) return null;
+
+    const tone = sharePct >= 60 && touchedTopCount === topTodos.length
+      ? 'aligned'
+      : sharePct >= 40 || touchedTopCount > 0
+        ? 'mixed'
+        : 'drifted';
+
+    return {
+      tone,
+      topCount: topTodos.length,
+      sharePct,
+      touchedTopCount,
+      completedTopCount,
+      firstUntouchedTitle: firstUntouched?.title ?? null,
+      strongestLowerPriorityTitle: strongestLowerPriority?.todo.title ?? null,
+      strongestLowerPriorityMin: strongestLowerPriority?.actualMin ?? 0,
+    };
+  }, [allTodos, selectedDateStr]);
 
   // Click outside to close edit
   useEffect(() => {
@@ -1414,6 +1548,152 @@ export function TodayView({ selectedDate, onSelectedDateChange, recordedDates, g
                    );
                  })()}
                </div>
+              {shouldShowTimeBreakdownCard && (
+                 <div className="mt-3 rounded-2xl border border-border/50 bg-[hsl(var(--surface-soft))] px-3 py-3">
+                   <div className="flex items-center justify-between gap-2">
+                     <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/70">
+                       {lang === 'zh' ? '时间分布' : 'Time Breakdown'}
+                     </p>
+                     <div className="inline-flex rounded-full border border-border/55 bg-background/75 p-0.5">
+                       {([
+                         { key: 'today', zh: '今日', en: 'Today' },
+                         { key: 'week', zh: '本周', en: 'Week' },
+                         { key: 'month', zh: '本月', en: 'Month' },
+                       ] as const).map((range) => {
+                         const active = timeBreakdownRange === range.key;
+                         return (
+                           <button
+                             key={range.key}
+                             type="button"
+                             onClick={() => setTimeBreakdownRange(range.key)}
+                             className={cn(
+                               'rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors',
+                               active
+                                 ? 'bg-primary/15 text-foreground'
+                                 : 'text-muted-foreground hover:text-foreground/90',
+                             )}
+                           >
+                             {lang === 'zh' ? range.zh : range.en}
+                           </button>
+                         );
+                       })}
+                     </div>
+                   </div>
+                   {activeTimeBreakdown.length > 0 ? (
+                     <>
+                       <div className="mt-2 flex h-2.5 overflow-hidden rounded-full bg-muted/40">
+                         {activeTimeBreakdown.map((item) => (
+                           <div
+                             key={item.type}
+                             style={{ width: `${item.pct}%`, backgroundColor: WORK_TYPE_META[item.type].color }}
+                             title={`${WORK_TYPE_META[item.type].label} · ${item.pct}%`}
+                           />
+                         ))}
+                       </div>
+                       <div className="mt-2.5 flex flex-wrap gap-2">
+                         {activeTimeBreakdown.map((item) => {
+                           const hour = Math.floor(item.min / 60);
+                           const minute = item.min % 60;
+                           const durationLabel = hour > 0
+                             ? `${hour}h${minute > 0 ? ` ${minute}m` : ''}`
+                             : `${minute}m`;
+                           return (
+                             <span key={item.type} className="inline-flex items-center gap-1.5 rounded-full border border-border/55 bg-background/75 px-2.5 py-1 text-[11px] text-muted-foreground">
+                               <span className="h-2 w-2 rounded-full" style={{ backgroundColor: WORK_TYPE_META[item.type].color }} />
+                               <span className="font-medium text-foreground/85">{WORK_TYPE_META[item.type].label}</span>
+                               <span>{item.pct}%</span>
+                               <span className="text-muted-foreground/70">{durationLabel}</span>
+                             </span>
+                           );
+                         })}
+                       </div>
+                     </>
+                   ) : (
+                     <p className="mt-2 text-xs text-muted-foreground/75">
+                       {lang === 'zh'
+                         ? '这个时间范围内还没有可聚合的计时记录。'
+                         : 'No aggregate-able timed records in this range yet.'}
+                     </p>
+                   )}
+                   {timeBreakdownRange !== 'today' && (
+                     <p className="mt-2 text-[10px] text-muted-foreground/65">
+                       {lang === 'zh'
+                         ? 'Week/Month：当天含 Todo/Calendar 计时，历史日期目前基于 Moments 计时记录。'
+                         : 'Week/Month includes today timeline; historical dates currently aggregate from timed Moments.'}
+                     </p>
+                   )}
+                 </div>
+               )}
+               <PlanDrift
+                 allTodos={allTodos}
+                 completedTodos={completedTodos}
+                 allMoments={todayMoments}
+                 todayDateStr={selectedDateStr}
+                 defaultCollapsed={false}
+               />
+               {priorityAlignment && (
+                 <div className="mt-3 rounded-2xl border border-border/50 bg-[hsl(var(--surface-soft))] px-3 py-3">
+                   <div className="flex items-start gap-2.5">
+                     <div
+                       className={cn(
+                         'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border',
+                         priorityAlignment.tone === 'aligned'
+                           ? 'border-primary/25 bg-primary/10 text-primary'
+                           : priorityAlignment.tone === 'mixed'
+                             ? 'border-accent/30 bg-accent/10 text-foreground/80'
+                             : 'border-primary/20 bg-background/70 text-muted-foreground'
+                       )}
+                     >
+                       {priorityAlignment.tone === 'aligned' ? (
+                         <CheckCircle2 className="h-4 w-4" />
+                       ) : (
+                         <Clock className="h-4 w-4" />
+                       )}
+                     </div>
+                     <div className="min-w-0 flex-1">
+                       <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/70">
+                         {lang === 'zh' ? '优先级对齐' : 'Priority Alignment'}
+                       </p>
+                       <p className="mt-1 text-[13px] leading-5 text-foreground/88">
+                         {lang === 'zh'
+                           ? priorityAlignment.tone === 'aligned'
+                             ? `列表前 ${priorityAlignment.topCount} 件事吃下了 ${priorityAlignment.sharePct}% 的任务计时，今天的执行基本跟着优先级走。`
+                             : priorityAlignment.tone === 'mixed'
+                               ? `列表前 ${priorityAlignment.topCount} 件事拿到 ${priorityAlignment.sharePct}% 的任务计时，优先级有跟上，但还不算稳。`
+                               : `今天更多任务计时流向了列表后面的事，前排优先事项还没有真正占住时间。`
+                           : priorityAlignment.tone === 'aligned'
+                             ? `Your first ${priorityAlignment.topCount} tasks captured ${priorityAlignment.sharePct}% of tracked task time today.`
+                             : priorityAlignment.tone === 'mixed'
+                               ? `Your first ${priorityAlignment.topCount} tasks still got ${priorityAlignment.sharePct}% of tracked task time, but the day spread wider than planned.`
+                               : `More tracked task time drifted to lower-ranked work than to the top of today's list.`}
+                       </p>
+                       <p className="mt-1 text-[11px] leading-4 text-muted-foreground/75">
+                         {lang === 'zh'
+                           ? priorityAlignment.firstUntouchedTitle
+                             ? `前排还落着 ${priorityAlignment.firstUntouchedTitle}；如果它明天仍最重要，尽量更早开做。`
+                             : priorityAlignment.strongestLowerPriorityTitle
+                               ? `${priorityAlignment.strongestLowerPriorityTitle} 分走了 ${priorityAlignment.strongestLowerPriorityMin}m，但前排任务至少都已经启动。`
+                               : `前排任务里已经有 ${priorityAlignment.completedTopCount}/${priorityAlignment.topCount} 件完成。`
+                           : priorityAlignment.firstUntouchedTitle
+                             ? `${priorityAlignment.firstUntouchedTitle} is still sitting near the top; if it stays important tomorrow, start it earlier.`
+                             : priorityAlignment.strongestLowerPriorityTitle
+                               ? `${priorityAlignment.strongestLowerPriorityTitle} still pulled ${priorityAlignment.strongestLowerPriorityMin}m, but the top of the list was at least started.`
+                               : `${priorityAlignment.completedTopCount}/${priorityAlignment.topCount} of today's top tasks were completed.`}
+                       </p>
+                       <div className="mt-2 flex flex-wrap gap-2">
+                         <span className="inline-flex items-center gap-1.5 rounded-full border border-border/55 bg-background/75 px-2.5 py-1 text-[11px] text-muted-foreground">
+                           <span className="font-medium text-foreground/85">{priorityAlignment.sharePct}%</span>
+                           <span>{lang === 'zh' ? '任务计时在前排' : 'task time on top items'}</span>
+                         </span>
+                         <span className="inline-flex items-center gap-1.5 rounded-full border border-border/55 bg-background/75 px-2.5 py-1 text-[11px] text-muted-foreground">
+                           <span className="font-medium text-foreground/85">{priorityAlignment.touchedTopCount}/{priorityAlignment.topCount}</span>
+                           <span>{lang === 'zh' ? '前排任务已启动' : 'top tasks started'}</span>
+                         </span>
+                       </div>
+                     </div>
+                   </div>
+                 </div>
+               )}
                   {/* ─── Timeline ─── */}
                   <div className="mb-1.5">
                     <p className="text-[11px] uppercase tracking-[0.08em] mb-1 text-muted-foreground/35 font-normal">{t('recap.timeline')}</p>

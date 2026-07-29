@@ -27,6 +27,12 @@ export const ULTRA_SHORT_OUTER_PX = 30;
 export const DRAG_UNSCHEDULE_MARGIN_PX = 18;
 /** Timeline event titles stay ≤ PlanView task list titles (`TodoItem` uses `text-[16px]`). */
 export const MAX_TIMELINE_TITLE_FONT_PX = 16;
+/** Max side-by-side columns. Set high on purpose: the user wants every event
+ *  that overlaps in time shown in its OWN parallel column (并排), never folded
+ *  behind a "+N" badge. This value is only an absurd safety valve — a single
+ *  day never has this many genuinely-concurrent blocks — so in practice nothing
+ *  is ever hidden and no column-overflow stacking kicks in. */
+export const MAX_VISIBLE_COLS = 24;
 
 /** e.g. 36m, 1h 50m — matches floating interval pills */
 export function formatGapMinutesLabel(totalMin: number): string {
@@ -119,6 +125,82 @@ export function TimelineIntervalPill({
     </div>
   );
 }
+
+/**
+ * "Today remaining" indicator. No container — pure typography:
+ *   `7h 39m  ──  LEFT TODAY`
+ * A hairline rule between the number and the micro-label breathes in width
+ * (10 ↔ 20px), and the label tracking eases (0.16 ↔ 0.20em) on the same
+ * 4s cycle — the whole element gently "inhales / exhales" without ever
+ * moving position or overpowering the now-line. `subtle` variant (used
+ * when < 45min remain) shrinks the number, tightens the rule, and softens
+ * both colors — the closer to bedtime, the quieter it gets.
+ */
+export function TimelineTodayRemainingPill({
+  isDarkMode,
+  time,
+  label,
+  variant = 'default',
+  className,
+}: {
+  isDarkMode: boolean;
+  time: string;
+  label: string;
+  variant?: 'default' | 'subtle';
+  className?: string;
+}) {
+  const subtle = variant === 'subtle';
+  const numColor = isDarkMode
+    ? subtle ? 'hsl(var(--foreground) / 0.72)' : 'hsl(var(--foreground) / 0.92)'
+    : subtle ? 'rgba(48, 48, 52, 0.62)'        : 'rgba(28, 28, 32, 0.86)';
+  const ruleColor = isDarkMode
+    ? subtle ? 'hsl(var(--muted-foreground) / 0.22)' : 'hsl(var(--muted-foreground) / 0.38)'
+    : subtle ? 'rgba(60, 60, 67, 0.18)'             : 'rgba(60, 60, 67, 0.32)';
+  const labelColor = isDarkMode
+    ? subtle ? 'hsl(var(--muted-foreground) / 0.5)' : 'hsl(var(--muted-foreground) / 0.72)'
+    : subtle ? 'rgba(72, 72, 74, 0.48)'             : 'rgba(72, 72, 74, 0.68)';
+  const bgColor = isDarkMode ? 'hsl(240 5% 8% / 0.72)' : 'hsl(0 0% 100% / 0.78)';
+  return (
+    <div
+      className={cn('inline-flex items-baseline gap-2 rounded-full px-2.5 py-1 select-none backdrop-blur-[4px]', className)}
+      style={{ backgroundColor: bgColor }}
+      aria-label={`${time} ${label}`}
+    >
+      <span
+        className={cn(
+          'font-mono font-medium tabular-nums',
+          subtle ? 'text-[12px]' : 'text-[14px] sm:text-[15px]',
+        )}
+        style={{ color: numColor, letterSpacing: '-0.015em', lineHeight: 1 }}
+      >
+        {time}
+      </span>
+      <span
+        aria-hidden
+        className={cn(
+          'self-center animate-today-rule-breathe',
+          subtle && 'scale-y-50',
+        )}
+        style={{
+          display: 'inline-block',
+          height: 1,
+          background: ruleColor,
+          borderRadius: 1,
+        }}
+      />
+      <span
+        className={cn(
+          'font-medium uppercase animate-today-label-breathe',
+          subtle ? 'text-[9px]' : 'text-[10px]',
+        )}
+        style={{ color: labelColor, lineHeight: 1 }}
+      >
+        {label}
+      </span>
+    </div>
+  );
+}
+
 
 /**
  * Quiet vertical "spine" running the full height of the timeline canvas.
@@ -257,6 +339,8 @@ export interface TimeBlock {
   actualEndMin?: number; // set when pomodoro ended
   hasActual?: boolean; // whether actual execution has started
   sessionGroupKey?: string;
+  /** Step work-sessions rendered as side-by-side sub-segments inside this block. */
+  stepSegments?: import('@/lib/stepTimelineSegments').PositionedStepSegment[];
   /** This block's session crosses midnight and continues on the next day. */
   continuesNextDay?: boolean;
   /** This block is the early-morning tail of a session that started yesterday. */
@@ -540,6 +624,11 @@ export function assignColumns(blocks: TimeBlock[]) {
     return false;
   };
 
+  // Every block — including prev-day carryover tails — flows through the same
+  // column packer so that events overlapping in TIME render side-by-side (并排),
+  // never stacked one-right-under-another. Overlapping tails therefore split
+  // into parallel columns exactly like live tasks do, with a "+N" badge folding
+  // any beyond MAX_VISIBLE_COLS.
   const sorted = [...blocks].sort((a, b) => {
     const aFirst = getSegments(a)[0];
     const bFirst = getSegments(b)[0];
@@ -591,7 +680,17 @@ export function assignColumns(blocks: TimeBlock[]) {
   return sorted.map((block, i) => {
     const g = find(i);
     const mapping = groupColMap.get(g)!;
-    return { block, col: mapping.get(colAssign[i])!, totalCols: mapping.size };
+    const remappedCol = mapping.get(colAssign[i])!;
+    const totalCols = mapping.size;
+    const visibleCols = Math.min(totalCols, MAX_VISIBLE_COLS);
+    let hiddenSiblingIds: string[] = [];
+    if (totalCols > MAX_VISIBLE_COLS && remappedCol === MAX_VISIBLE_COLS - 1) {
+      hiddenSiblingIds = sorted
+        .map((b, j) => ({ id: b.id, col: mapping.get(colAssign[j])!, group: find(j) }))
+        .filter(x => x.group === g && x.col >= MAX_VISIBLE_COLS)
+        .map(x => x.id);
+    }
+    return { block, col: remappedCol, totalCols, visibleCols, hiddenSiblingIds, tailRowIndex: 0 };
   });
 }
 

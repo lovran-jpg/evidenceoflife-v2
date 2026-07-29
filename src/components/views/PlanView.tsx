@@ -1,16 +1,20 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useLanguage } from '@/hooks/useLanguage';
-import { Plus, Trash2, Timer, Circle, CheckCircle2, ChevronDown, ChevronRight, Square, Pause, Play, Check, X, Loader2, Mic, ArrowUp, Bell, Repeat, ListTodo, CalendarDays, NotebookPen, Camera, MapPin, List, LayoutGrid, CornerDownLeft } from 'lucide-react';
+import { Plus, Trash2, Timer, Circle, CheckCircle2, ChevronDown, ChevronRight, Square, Pause, Play, Check, X, Loader2, Mic, ArrowUp, Bell, Repeat, ListTodo, CalendarDays, NotebookPen, Camera, MapPin, List, LayoutGrid, CornerDownLeft, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn, isImeComposing } from '@/lib/utils';
+import { mergeCarriedTodos } from '@/lib/carryTodos';
 import { extractLeadingEmoji } from '@/lib/emoji';
-import { useTodos, Todo } from '@/hooks/useTodos';
-import { useImportedEvents } from '@/hooks/useImportedEvents';
+import { computeStepSession } from '@/lib/stepSession';
+import { useTodos, Todo, TodoStep } from '@/hooks/useTodos';
+import { useImportedEvents, type ImportedEvent } from '@/hooks/useImportedEvents';
 import { Slider } from '@/components/ui/slider';
 import { Textarea } from '@/components/ui/textarea';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu';
 import { showUndoToast } from '@/lib/undoToast';
+import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -24,6 +28,7 @@ import { PlanDrift } from '@/components/today/PlanDrift';
 import { FocusTimerOverlay, FloatingTimer } from '@/components/FocusTimerOverlay';
 import { Moment } from '@/types';
 import type { MomentLinkPreview } from '@/types';
+import { AnytimeIcon, MorningIcon, AfternoonIcon, EveningIcon } from './segmentIcons';
 import { useAuth } from '@/hooks/useAuth';
 import { LocationPopover } from '@/components/LocationPopover';
 import { LinkPreviewCard } from '@/components/LinkPreviewCard';
@@ -35,6 +40,7 @@ import { tidyTaskTitle } from '@/lib/tidyTaskTitle';
 import { useIsDarkMode } from '@/hooks/useIsDarkMode';
 import { getActivityAccentColor } from '@/lib/activityColors';
 import { buildTimerSpanISO } from '@/components/views/today/todayHelpers';
+import { createTodoDoneUndoSnapshot, restoreTodoDoneFromUndo } from '@/lib/todoDoneUndo';
 import {
   getPlanTimelineRhythmPreset,
   loadPlanTimelineRhythmPresetId,
@@ -60,10 +66,10 @@ function readPlanListMode(): 'grouped' | 'flat' {
 const TIMER_DOCK_DRAG_COMMIT_PX = 10;
 
 const TIME_SEGMENTS = [
-  { id: 'anytime' as const, label: 'Anytime', emoji: '🗂️' },
-  { id: 'morning' as const, label: 'Morning', emoji: '☀' },
-  { id: 'afternoon' as const, label: 'Afternoon', emoji: '🌤' },
-  { id: 'evening' as const, label: 'Evening', emoji: '🌙' },
+  { id: 'anytime' as const, label: 'Anytime', emoji: '🗂️', Icon: AnytimeIcon },
+  { id: 'morning' as const, label: 'Morning', emoji: '☀', Icon: MorningIcon },
+  { id: 'afternoon' as const, label: 'Afternoon', emoji: '🌤', Icon: AfternoonIcon },
+  { id: 'evening' as const, label: 'Evening', emoji: '🌙', Icon: EveningIcon },
 ];
 
 const TASK_EMOJIS = ['📚', '💻', '🏋️', '✍️', '🎯', '📝', '🔬', '🎨', '🏃', '🧹', '📞', '🛒'];
@@ -337,12 +343,22 @@ function fmtSec(sec: number): string {
   return rh > 0 ? `${d}d${rh}h` : `${d}d`;
 }
 
-function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTime, onUpdateProgress, isTiming, timerElapsed, isPaused, onDragStart, onDragEnd, onToggleWithProgress }: {
+function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTime, onUpdateProgress, isTiming, timerElapsed, isPaused, onDragStart, onDragEnd, onToggleWithProgress, steps, onAddStep, onToggleStep, onDeleteStep, onStartStepTimer, onStopStepTimer, onUpdateStepPlanTime, onUpdateStepTitle, carriedFromDate, onToggleRecurring, onReopen }: {
   todo: Todo; onToggle: () => void; onDelete: () => void; onFocus: () => void;
   onUpdateTitle: (title: string) => void; onUpdateTime: (startTime: string, endTime: string) => void;
   onUpdateProgress: (progress: number) => void;
   isTiming: boolean; timerElapsed: number; isPaused: boolean;
   onDragStart: (e: React.DragEvent) => void; onDragEnd: () => void; onToggleWithProgress: () => void;
+  steps: TodoStep[]; onAddStep: (title: string) => void;
+  onToggleStep: (stepId: string, completed: boolean) => void;
+  onDeleteStep: (stepId: string) => void;
+  onStartStepTimer: (stepId: string) => void;
+  onStopStepTimer: (stepId: string) => void;
+  onUpdateStepPlanTime: (stepId: string, startTime: string, endTime: string) => void;
+  onUpdateStepTitle: (stepId: string, title: string) => void;
+  carriedFromDate?: string | null;
+  onToggleRecurring: (next: boolean) => void;
+  onReopen?: () => void;
 }) {
   const { t: tLang, lang } = useLanguage();
   const { getWorkType, setWorkType, overrides } = useWorkTypes();
@@ -351,13 +367,41 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
   const [isEditingTime, setIsEditingTime] = useState(false);
   const [editStart, setEditStart] = useState('');
   const [editEnd, setEditEnd] = useState('');
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [newStepTitle, setNewStepTitle] = useState('');
+  const [showAddStepInput, setShowAddStepInput] = useState(false);
+  // Inline step-title rename. Click a step's title to edit it in place; Enter
+  // saves (guarded against IME composition so a Chinese/Japanese candidate
+  // confirmation doesn't submit early), Escape cancels, blur saves.
+  const [editingStepId, setEditingStepId] = useState<string | null>(null);
+  const [editingStepTitle, setEditingStepTitle] = useState('');
+  // Two-step delete for steps: a bare X was too easy to hit by accident. The
+  // first click "arms" the specific step (button turns into a red confirm),
+  // the second click within the window actually deletes. Auto-disarms after a
+  // few seconds so a stray first click can't linger as a loaded trigger.
+  const [confirmDeleteStepId, setConfirmDeleteStepId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!confirmDeleteStepId) return;
+    const timer = setTimeout(() => setConfirmDeleteStepId(null), 3000);
+    return () => clearTimeout(timer);
+  }, [confirmDeleteStepId]);
+  // Per-step plan-time editor. Only one step's time inputs are open at a time.
+  const [planTimeStepId, setPlanTimeStepId] = useState<string | null>(null);
+  const [planStart, setPlanStart] = useState('');
+  const [planEnd, setPlanEnd] = useState('');
   const hasProgress = todo.progress > 0 && todo.progress < 100 && !todo.is_completed;
+  const stepCount = steps.length;
+  const stepsDone = steps.filter(s => s.is_completed).length;
+  const hasSteps = stepCount > 0;
 
-  // "Resting" = partial progress left behind (not done), waiting to be resumed.
-  // A plain ended session with no remaining progress is just recorded, not resumable.
+  // "Resting" = a recorded session ended but the task isn't done. Any prior
+  // work (timer_seconds > 0 with an ended_at) marks the task as resumable, even
+  // when progress is still 0 — "Continue Later" without moving the slider is a
+  // valid path, and the row should still surface the Resume chip so the list
+  // reflects that time was logged on the timeline.
   const priorWorkSec = todo.timer_seconds || 0;
-  const isResting = !isTiming && !todo.is_completed && priorWorkSec > 0 && !!todo.timer_ended_at
-    && todo.progress > 0 && todo.progress < 100;
+  const isResting = !isTiming && !todo.is_completed && priorWorkSec > 0 && !!todo.timer_ended_at;
+  const canContinueWhenDone = !!todo.is_completed && priorWorkSec > 0 && !!todo.timer_ended_at;
   const restSec = isResting
     ? Math.max(0, Math.floor((Date.now() - new Date(todo.timer_ended_at!).getTime()) / 1000))
     : 0;
@@ -384,6 +428,12 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
 
   const isScheduled = !!todo.plan_started_at && !todo.is_completed;
   const isDoing = isActivelyRunningTodo(todo);
+  // A task is "ongoing" when its own timer runs OR any of its steps is being
+  // timed. A running step means the user is actively working the task even
+  // though the parent's own timer was never started — so the row should read
+  // as live, not merely "Planned".
+  const hasRunningStep = steps.some(s => !!s.timer_started_at);
+  const isOngoing = isDoing || hasRunningStep;
   const inferredTag = todo.tags?.[0] || autoClassifyTag(todo.title);
   const tagLabel = inferredTag
     ? inferredTag.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
@@ -404,17 +454,22 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
     ? 'Done'
     : isDoing
       ? null
-      : isResting
-        ? tLang('focus.resumeChip')
-        : isScheduled
-          ? 'Planned'
-          : null;
+      : hasRunningStep
+        ? (lang === 'zh' ? '进行中' : 'Ongoing')
+        : isResting
+          ? tLang('focus.resumeChip')
+          : isScheduled
+            ? 'Planned'
+            : null;
 
-  // Resolve color for active (doing/timing) state: tag → work type → neutral
-  const activeColor = tagPillStyle.color !== '#707070'
-    ? tagPillStyle.color
-    : workTypeMeta?.color || '#8B8B8B';
   const isDark = useIsDarkMode();
+
+  // Live color for state signaling — always the page accent (terracotta), never
+  // the tag's own hex. Tag identity lives inside the tag chip; the row-level
+  // "ongoing" signal must not repaint the whole card in whatever hue the tag
+  // happens to be (Work=purple, Study=blue, etc.). Locking to `--primary` keeps
+  // the page's Color Consistency intact regardless of category.
+  const liveTint = (a: number) => `hsl(var(--primary) / ${a})`;
 
   // ── Visual hierarchy (the whole point of this block) ─────────────
   // Goal:   active   ▓▓▓ dominates
@@ -429,26 +484,26 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
   // active row leans hard into its tag color (stronger tint + ring +
   // soft glow halo), and completed rows fade with opacity.
 
-  const activeCategoryStyle = isDoing
-    ? isDark
-      // Dark active: no border, no accent bar — just a clean, even warm
-      // surface so the row reads as "live" without any muddy gradient or
-      // loud outline. The flat low-alpha tint over near-black stays warm
-      // (not brown) and the white title keeps full contrast on top.
-      ? {
-          background: `${activeColor}1A`,
-          borderColor: 'transparent',
-        }
-      : {
-          background: `linear-gradient(135deg, ${activeColor}18 0%, ${activeColor}09 100%)`,
-          borderColor: `${activeColor}50`,
-        }
-    : undefined;
+  // A single, quiet tint for each state. One signal, not four.
+  //   Ongoing  → 2px live-colored spine on the left edge (see below), plus a
+  //              whisper of tint. No pulsing dot, no gradient, no ring.
+  //   Planned  → hairline accent border only. No fill. The row still reads as
+  //              "reserved" at rest, but stays out of the way.
+  //   Idle     → nothing. Silence is the strongest baseline.
+  const activeCategoryStyle: React.CSSProperties | undefined = isOngoing
+    ? {
+        background: liveTint(isDark ? 0.09 : 0.05),
+        borderColor: liveTint(isDark ? 0.22 : 0.18),
+        boxShadow: `inset 2px 0 0 0 ${liveTint(isDark ? 0.7 : 0.55)}`,
+      }
+    : isScheduled
+      ? { borderColor: `hsl(var(--accent) / ${isDark ? 0.22 : 0.28})` }
+      : undefined;
 
   const containerCls = todo.is_completed
     // Done: maximally recede in both modes — no surface, no border, faded.
     ? "bg-transparent border-transparent opacity-65 hover:opacity-90 dark:opacity-45 dark:hover:opacity-75"
-    : isDoing
+    : isOngoing
       // Active: surface comes from inline activeCategoryStyle. Hover just
       // bumps it slightly so the user feels feedback without us fighting
       // the carefully tuned tint.
@@ -460,14 +515,20 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
         // amber warmth in dark mode so it reads as "come back to me"
         // instead of just another inactive row.
         ? "bg-transparent border-[#F1E6DD] hover:bg-[#FFF6EE] dark:border-amber-500/22 dark:hover:bg-amber-500/[0.04]"
-      // Inactive (default): bright in light (cards on paper) → near
-      // invisible in dark (transparent surface, hairline border).
-      : "bg-white/75 border-[#EFEFEF] hover:bg-[#F9F9F9] dark:bg-transparent dark:border-white/[0.07] dark:hover:bg-white/[0.025]";
+      // Inactive (default): bright in light (cards on paper) → in dark, a
+      // whisper of raised surface INSTEAD of a hairline border, so a column of
+      // tasks reads as one calm stack rather than a grid of boxes. Borders are
+      // reserved for stateful rows (resting/active); default rows lean on
+      // surface + spacing (quieter, more iOS-like).
+      : "bg-white/75 border-[#EFEFEF] hover:bg-[#F9F9F9] dark:bg-white/[0.02] dark:border-transparent dark:hover:bg-white/[0.05]";
 
   return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+    <div className="flex w-full max-w-[920px] flex-col">
     <div
       className={cn(
-        "flex h-[50px] w-full max-w-[920px] items-center gap-3 px-3.5 group rounded-[16px] transition-colors relative select-none border",
+        "flex h-[50px] w-full items-center gap-3 px-3.5 group rounded-[16px] transition-colors relative select-none border",
         containerCls
       )}
       style={activeCategoryStyle}
@@ -498,7 +559,7 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
                   // Done — already faded by container opacity, plus muted
                   // strikethrough for unambiguous semantics.
                   ? "text-muted-foreground line-through decoration-muted-foreground/40"
-                  : isDoing
+                  : isOngoing
                     // Active — pure foreground. Hover tones slightly down
                     // (instead of brightening) since it's already maxed.
                     ? "text-foreground hover:text-foreground/90"
@@ -513,9 +574,41 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
             </p>
           </div>
         )}
+        {!isEditing && carriedFromDate && (
+          <span
+            className="flex-shrink-0 rounded-full bg-amber-500/[0.14] px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.06em] text-amber-600/90 dark:text-amber-400/85"
+            title={lang === 'zh' ? '从往日延续 · 还没做' : 'Carried over from a past day'}
+          >
+            {format(new Date(`${carriedFromDate}T00:00:00`), lang === 'zh' ? 'M月d日' : 'MMM d')}
+          </span>
+        )}
+        {!isEditing && hasSteps && (
+          <span
+            className="flex-shrink-0 inline-flex items-center gap-1.5"
+            title={lang === 'zh' ? '完成步骤 / 总步骤' : 'Completed / total steps'}
+          >
+            <span className="h-1 w-6 overflow-hidden rounded-full bg-foreground/[0.12]">
+              <span
+                className="block h-full rounded-full transition-all"
+                style={{
+                  width: `${stepCount ? (stepsDone / stepCount) * 100 : 0}%`,
+                  backgroundColor: stepsDone === stepCount ? 'hsl(var(--primary))' : 'hsl(var(--primary) / 0.55)',
+                }}
+              />
+            </span>
+            <span
+              className={cn(
+                "font-mono text-[11px] tabular-nums transition-colors",
+                stepsDone === stepCount ? "text-primary/80" : "text-muted-foreground/75"
+              )}
+            >
+              {stepsDone}/{stepCount}
+            </span>
+          </span>
+        )}
         {!isEditing && (
           <div className="flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap">
-            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/45">
+            <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground/45">
               {statusLabel && (
                 isResting ? (
                   <button
@@ -524,24 +617,28 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
                     className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 -mx-1 text-amber-500/75 transition-colors hover:bg-amber-500/10"
                     title={tLang('plan.resumeTimer')}
                   >
-                    <Timer size={9} strokeWidth={2} className="text-amber-500/65" />
+                    <Timer size={11} strokeWidth={2} className="text-amber-500/65" />
                     <span className="font-medium text-amber-500/75">{statusLabel}</span>
                   </button>
                 ) : (
                 <span className="inline-flex items-center gap-1">
                   {todo.is_completed
-                    ? <CheckCircle2 size={9} strokeWidth={2} className="text-primary/70" />
-                  : isDoing
-                      ? <Timer size={9} strokeWidth={2} style={{ color: hexWithAlpha(activeColor, '88') }} />
+                    ? <CheckCircle2 size={11} strokeWidth={2} className="text-primary/70" />
+                  : isOngoing
+                      // No icon and no dot for Ongoing. The 2px live-colored
+                      // spine on the row's left edge is the signal — a second
+                      // visual marker here would just be noise.
+                      ? null
                       : isResting
-                        ? <Timer size={9} strokeWidth={2} className="text-amber-500/65" />
-                        : <CalendarDays size={9} strokeWidth={2} />}
+                        ? <Timer size={11} strokeWidth={2} className="text-amber-500/65" />
+                        : <CalendarDays size={11} strokeWidth={2} className="text-muted-foreground/45" />}
                   <span className={cn(
                     "font-medium",
                     todo.is_completed && "text-primary/70",
-                    isResting && "text-amber-500/65"
+                    isResting && "text-amber-500/65",
+                    !todo.is_completed && !isOngoing && !isResting && "text-muted-foreground/55"
                   )}
-                    style={isDoing ? { color: hexWithAlpha(activeColor, '88') } : undefined}
+                    style={isOngoing ? { color: liveTint(0.85) } : undefined}
                   >{statusLabel}</span>
                 </span>
                 )
@@ -559,10 +656,10 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
                   // dark:saturate softens the inline-style tag color (which
                   // is a fully-saturated hex designed for white canvas) so it
                   // doesn't read as neon on the dark surface.
-                  className="inline-flex max-w-[88px] min-w-0 items-center gap-1 rounded-full px-1.5 py-[2px] text-[10px] font-medium dark:saturate-[0.78] dark:opacity-90"
+                  className="inline-flex max-w-[88px] min-w-0 items-center gap-1 rounded-full px-1.5 py-[2px] text-[12px] font-medium dark:saturate-[0.78] dark:opacity-90"
                   style={{ backgroundColor: hexWithAlpha(tagPillStyle.bg, '20'), color: tagPillStyle.color }}
                 >
-                  <ListTodo size={9} strokeWidth={2} />
+                  <ListTodo size={11} strokeWidth={2} />
                   <span className="truncate">{tagLabel}</span>
                 </span>
               )}
@@ -571,7 +668,7 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
                   <button
                     type="button"
                     className={cn(
-                      "items-center gap-1 rounded-full px-1.5 py-[2px] text-[10px] font-medium transition-colors hover:brightness-95 dark:saturate-[0.85] dark:!text-foreground/80 dark:!bg-white/[0.06]",
+                      "items-center gap-1 rounded-full px-1.5 py-[2px] text-[12px] font-medium transition-colors hover:brightness-95 dark:saturate-[0.85] dark:!text-foreground/80 dark:!bg-white/[0.06]",
                       workTypeMatchesTag
                         ? "hidden"
                         : hasExplicitWorkType ? "inline-flex" : "hidden group-hover:inline-flex"
@@ -630,6 +727,58 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
         ) : null}
       </div>
       <div className="flex items-center gap-1.5 flex-shrink-0">
+        {todo.is_completed && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleStartEditTime();
+            }}
+            className="flex h-[34px] w-[34px] rounded-full items-center justify-center border border-transparent text-muted-foreground/55 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity transition-colors hover:border-primary/25 hover:bg-primary/[0.08] hover:text-primary"
+            title={lang === 'zh' ? '编辑完成时间' : 'Edit completion time'}
+            aria-label={lang === 'zh' ? '编辑完成时间' : 'Edit completion time'}
+          >
+            <Clock size={14} />
+          </button>
+        )}
+        {todo.is_completed && onReopen && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onReopen();
+            }}
+            className="flex h-[34px] w-[34px] rounded-full items-center justify-center border border-transparent text-muted-foreground/55 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity transition-colors hover:border-primary/25 hover:bg-primary/[0.08] hover:text-primary"
+            title={lang === 'zh' ? '恢复为未完成' : 'Reopen task'}
+            aria-label={lang === 'zh' ? '恢复为未完成' : 'Reopen task'}
+          >
+            <CornerDownLeft size={14} />
+          </button>
+        )}
+        {!isEditing && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsExpanded(v => !v);
+              if (!isExpanded && stepCount === 0) setShowAddStepInput(true);
+            }}
+            className={cn(
+              "flex h-[28px] w-[28px] rounded-full items-center justify-center text-muted-foreground/55 transition-all",
+              hasSteps
+                ? "opacity-60 hover:opacity-100 hover:text-foreground"
+                : "opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:text-foreground",
+              isExpanded && "rotate-90 opacity-100 text-foreground"
+            )}
+            title={isExpanded
+              ? (lang === 'zh' ? '收起步骤' : 'Collapse steps')
+              : (lang === 'zh' ? (hasSteps ? '展开步骤' : '添加步骤') : (hasSteps ? 'Show steps' : 'Add steps'))}
+            aria-label={isExpanded ? 'Collapse steps' : 'Expand steps'}
+            aria-expanded={isExpanded}
+          >
+            <ChevronRight size={14} />
+          </button>
+        )}
         <button
           onClick={onDelete}
           className="flex h-[34px] w-[34px] rounded-full items-center justify-center border border-transparent text-muted-foreground/55 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity transition-colors hover:border-destructive/25 hover:bg-destructive/[0.08] hover:text-destructive"
@@ -638,19 +787,23 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
         >
           <Trash2 size={14} />
         </button>
-        {!todo.is_completed && (
+        {(!todo.is_completed || canContinueWhenDone) && (
           <button
             onClick={onFocus}
             className={cn(
               "h-[34px] w-[34px] rounded-full flex items-center justify-center transition-colors border",
-              isTiming
+              canContinueWhenDone
+                ? "border-primary/30 bg-primary/10 text-primary hover:bg-primary/16 dark:border-primary/28 dark:bg-primary/14"
+                : isTiming
                 ? (isPaused ? "border-border bg-secondary text-foreground/55 opacity-70" : "border-border bg-secondary text-foreground/70 shadow-sm")
                 : isResting
                   ? "border-[#8A6A4F]/45 bg-transparent text-[#8A6A4F] hover:bg-[#FFF4EA] dark:border-foreground/20 dark:text-foreground/72 dark:hover:bg-foreground/[0.06]"
                   : "border-[#2F2D29]/45 bg-transparent text-[#2F2D29] hover:bg-[#F2F1EF] dark:border-foreground/20 dark:text-foreground/72 dark:hover:bg-foreground/[0.06]"
             )}
             title={
-              isTiming
+              canContinueWhenDone
+                ? (lang === 'zh' ? '继续计时（自动恢复任务）' : 'Continue timing (reopen task)')
+                : isTiming
                 ? (lang === 'zh' ? '查看计时器' : 'Show timer')
                 : isResting
                   ? tLang('plan.resumeTimer')
@@ -662,6 +815,299 @@ function TodoItem({ todo, onToggle, onDelete, onFocus, onUpdateTitle, onUpdateTi
         )}
       </div>
     </div>
+    {isExpanded && !isEditing && (
+      <div className="relative mt-1 flex flex-col gap-0 pl-9 pr-3 pb-3 pt-2 border-t border-foreground/[0.04] before:absolute before:left-4 before:top-3 before:bottom-3 before:w-px before:bg-foreground/[0.1] before:content-['']">
+        {steps.map(step => {
+          const stepRunning = !!step.timer_started_at;
+          const stepBaseSec = step.timer_seconds || 0;
+          const stepElapsed = stepBaseSec + (stepRunning
+            ? Math.max(0, Math.floor((Date.now() - new Date(step.timer_started_at!).getTime()) / 1000))
+            : 0);
+          const pad2 = (n: number) => String(n).padStart(2, '0');
+          const stepLiveLabel = `${pad2(Math.floor(stepElapsed / 60))}:${pad2(stepElapsed % 60)}`;
+          const planLabel = step.plan_started_at && step.plan_ended_at
+            ? `${format(new Date(step.plan_started_at), 'HH:mm')}–${format(new Date(step.plan_ended_at), 'HH:mm')}`
+            : null;
+          const isEditingPlan = planTimeStepId === step.id;
+          const timerActive = stepRunning || stepElapsed > 0;
+          const openPlanEditor = () => {
+            if (isEditingPlan) { setPlanTimeStepId(null); return; }
+            setPlanStart(step.plan_started_at ? format(new Date(step.plan_started_at), 'HH:mm') : format(new Date(), 'HH:mm'));
+            setPlanEnd(step.plan_ended_at ? format(new Date(step.plan_ended_at), 'HH:mm') : format(new Date(), 'HH:mm'));
+            setPlanTimeStepId(step.id);
+          };
+          return (
+          <div key={step.id} className="group/step">
+          <div className="flex items-center gap-2.5 py-1.5">
+            <button
+              type="button"
+              onClick={() => onToggleStep(step.id, !step.is_completed)}
+              className="flex-shrink-0 text-muted-foreground/55 hover:text-primary transition-colors"
+              aria-label={step.is_completed ? 'Mark step incomplete' : 'Mark step complete'}
+            >
+              {step.is_completed
+                ? <CheckCircle2 size={14} className="text-primary/75" />
+                : <Circle size={14} />}
+            </button>
+            {editingStepId === step.id ? (
+              <input
+                autoFocus
+                value={editingStepTitle}
+                onChange={e => setEditingStepTitle(e.target.value)}
+                onKeyDown={e => {
+                  // Guard against IME composition: while composing a Chinese /
+                  // Japanese candidate, Enter confirms the candidate — it must
+                  // NOT commit the rename. Only a "real" Enter saves.
+                  if (e.key === 'Enter' && !isImeComposing(e.nativeEvent as KeyboardEvent)) {
+                    if (editingStepTitle.trim()) onUpdateStepTitle(step.id, editingStepTitle);
+                    setEditingStepId(null);
+                  } else if (e.key === 'Escape') {
+                    setEditingStepId(null);
+                  }
+                }}
+                onBlur={() => {
+                  if (editingStepTitle.trim() && editingStepTitle.trim() !== step.title) {
+                    onUpdateStepTitle(step.id, editingStepTitle);
+                  }
+                  setEditingStepId(null);
+                }}
+                className={cn(
+                  "flex-1 min-w-0 bg-transparent text-[13px] leading-relaxed focus:outline-none",
+                  "border-b border-primary/40 text-foreground"
+                )}
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => { setEditingStepId(step.id); setEditingStepTitle(step.title); }}
+                title={lang === 'zh' ? '点击编辑步骤' : 'Click to edit step'}
+                className={cn(
+                  "flex-1 min-w-0 truncate text-left text-[13px] leading-relaxed bg-transparent border-none p-0",
+                  "cursor-text hover:text-foreground transition-colors",
+                  step.is_completed
+                    // Line-through + foreground/45 keeps text ≥4.5:1 on both light
+                    // and dark backgrounds (AA), while still reading as "past".
+                    // Decoration is muted separately so the strike doesn't add its
+                    // own noise on top of the already-faded title.
+                    ? "line-through text-foreground/45 decoration-foreground/25"
+                    : stepRunning
+                      // The currently-timing step: full foreground, no color fill.
+                      // The live time on the right + the parent header's spine are
+                      // the "live" signals. This row is just fully legible.
+                      ? "text-foreground"
+                      : "text-foreground/80"
+                )}
+              >
+                {step.title}
+              </button>
+            )}
+
+            {/* One persistent time chip — the live/elapsed timer takes priority
+                over the plan window so the row never shows two competing time
+                readouts. No fill, no dot. Color and font weight carry the
+                state; the chip stops being a "pill" and starts being a label. */}
+            {timerActive ? (
+              <button
+                type="button"
+                onClick={() => { if (stepRunning) onStopStepTimer(step.id); else onStartStepTimer(step.id); }}
+                className={cn(
+                  "flex-shrink-0 inline-flex items-center gap-1 px-1 py-0.5 rounded transition-colors",
+                  stepRunning
+                    ? "text-primary hover:bg-primary/8"
+                    : "text-muted-foreground/60 hover:text-primary hover:bg-primary/8"
+                )}
+                title={stepRunning
+                  ? (lang === 'zh' ? '停止步骤计时' : 'Stop step timer')
+                  : (lang === 'zh' ? '继续步骤计时' : 'Resume step timer')}
+                aria-label={stepRunning
+                  ? (lang === 'zh' ? '停止步骤计时' : 'Stop step timer')
+                  : (lang === 'zh' ? '继续步骤计时' : 'Resume step timer')}
+              >
+                {stepRunning ? (
+                  <span className="font-mono text-[11px] tabular-nums leading-none">{stepLiveLabel}</span>
+                ) : (
+                  <>
+                    <Timer size={11} strokeWidth={1.75} />
+                    <span className="font-mono text-[10px] tabular-nums leading-none">{fmtSec(stepElapsed)}</span>
+                  </>
+                )}
+              </button>
+            ) : planLabel ? (
+              <button
+                type="button"
+                onClick={openPlanEditor}
+                className="flex-shrink-0 inline-flex items-center gap-1 px-1 py-0.5 rounded text-muted-foreground/55 transition-colors hover:text-primary hover:bg-primary/8"
+                title={lang === 'zh' ? '编辑计划时间' : 'Edit planned time'}
+                aria-label={lang === 'zh' ? '编辑计划时间' : 'Edit planned time'}
+              >
+                <Clock size={11} strokeWidth={1.75} />
+                <span className="font-mono text-[10px] tabular-nums leading-none">{planLabel}</span>
+              </button>
+            ) : null}
+
+            {/* Hover-only action cluster: whatever the persistent chip doesn't
+                already cover, plus delete. Hidden at rest to keep the row calm. */}
+            <div className="flex flex-shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover/step:opacity-100">
+              {!timerActive && (
+                <button
+                  type="button"
+                  onClick={() => onStartStepTimer(step.id)}
+                  className="rounded-full p-1 text-muted-foreground/40 transition-colors hover:text-primary"
+                  title={lang === 'zh' ? '开始步骤计时' : 'Start step timer'}
+                  aria-label={lang === 'zh' ? '开始步骤计时' : 'Start step timer'}
+                >
+                  <Timer size={12} strokeWidth={1.75} />
+                </button>
+              )}
+              {(!timerActive && !planLabel) && (
+                <button
+                  type="button"
+                  onClick={openPlanEditor}
+                  className={cn(
+                    "rounded-full p-1 transition-colors",
+                    isEditingPlan ? "text-primary" : "text-muted-foreground/40 hover:text-primary"
+                  )}
+                  title={lang === 'zh' ? '设置计划时间' : 'Set planned time'}
+                  aria-label={lang === 'zh' ? '设置计划时间' : 'Set planned time'}
+                >
+                  <Clock size={12} strokeWidth={1.75} />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirmDeleteStepId === step.id) {
+                    onDeleteStep(step.id);
+                    setConfirmDeleteStepId(null);
+                  } else {
+                    setConfirmDeleteStepId(step.id);
+                  }
+                }}
+                onMouseLeave={() => {
+                  if (confirmDeleteStepId === step.id) setConfirmDeleteStepId(null);
+                }}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full transition-colors",
+                  confirmDeleteStepId === step.id
+                    ? "px-1.5 py-0.5 bg-destructive/12 text-destructive"
+                    : "p-1 text-muted-foreground/40 hover:text-destructive"
+                )}
+                title={confirmDeleteStepId === step.id
+                  ? (lang === 'zh' ? '再次点击确认删除' : 'Click again to confirm')
+                  : (lang === 'zh' ? '删除步骤' : 'Delete step')}
+                aria-label={confirmDeleteStepId === step.id
+                  ? (lang === 'zh' ? '确认删除步骤' : 'Confirm delete step')
+                  : (lang === 'zh' ? '删除步骤' : 'Delete step')}
+              >
+                {confirmDeleteStepId === step.id ? (
+                  <>
+                    <Trash2 size={11} strokeWidth={1.75} />
+                    <span className="text-[10px] font-medium leading-none">
+                      {lang === 'zh' ? '确认' : 'Delete'}
+                    </span>
+                  </>
+                ) : (
+                  <Trash2 size={12} strokeWidth={1.75} />
+                )}
+              </button>
+            </div>
+          </div>
+          {isEditingPlan && (
+            <div className="flex items-center gap-1 pl-6 pb-1" onClick={e => e.stopPropagation()}>
+              <input
+                type="time"
+                value={planStart}
+                onChange={e => setPlanStart(e.target.value)}
+                className="bg-secondary rounded px-1 py-0.5 text-xs font-mono w-[70px] focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              <span className="text-muted-foreground text-xs">→</span>
+              <input
+                type="time"
+                value={planEnd}
+                onChange={e => setPlanEnd(e.target.value)}
+                className="bg-secondary rounded px-1 py-0.5 text-xs font-mono w-[70px] focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+              <button
+                type="button"
+                onClick={() => { onUpdateStepPlanTime(step.id, planStart, planEnd); setPlanTimeStepId(null); }}
+                aria-label={lang === 'zh' ? '保存计划时间' : 'Save planned time'}
+                className="text-primary hover:text-primary/80"
+              >
+                <Check size={12} />
+              </button>
+              {planLabel && (
+                <button
+                  type="button"
+                  onClick={() => { onUpdateStepPlanTime(step.id, '', ''); setPlanTimeStepId(null); }}
+                  className="text-[11px] text-muted-foreground/70 hover:text-destructive"
+                >
+                  {lang === 'zh' ? '清除' : 'Clear'}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setPlanTimeStepId(null)}
+                aria-label={lang === 'zh' ? '取消' : 'Cancel'}
+                className="text-muted-foreground hover:text-destructive"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          )}
+          </div>
+          );
+        })}
+        {(showAddStepInput || stepCount === 0) ? (
+          <div className="flex items-center gap-2.5 py-1.5">
+            <Circle size={14} className="flex-shrink-0 text-muted-foreground/30" />
+            <input
+              type="text"
+              value={newStepTitle}
+              onChange={e => setNewStepTitle(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !isImeComposing(e.nativeEvent as KeyboardEvent) && newStepTitle.trim()) {
+                  onAddStep(newStepTitle);
+                  setNewStepTitle('');
+                } else if (e.key === 'Escape') {
+                  setNewStepTitle('');
+                  setShowAddStepInput(false);
+                }
+              }}
+              onBlur={() => {
+                if (newStepTitle.trim()) {
+                  onAddStep(newStepTitle);
+                  setNewStepTitle('');
+                }
+                if (stepCount > 0) setShowAddStepInput(false);
+              }}
+              placeholder={lang === 'zh' ? '添加步骤…' : 'Add step…'}
+              className="flex-1 min-w-0 bg-transparent text-[13px] placeholder:text-muted-foreground/40 focus:outline-none"
+              autoFocus={showAddStepInput}
+            />
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setShowAddStepInput(true)}
+            className="flex items-center gap-2.5 py-1.5 text-[13px] text-muted-foreground/55 transition-colors hover:text-foreground/70 self-start"
+          >
+            <Plus size={14} strokeWidth={1.75} className="text-muted-foreground/40" />
+            <span>{lang === 'zh' ? '添加步骤' : 'Add step'}</span>
+          </button>
+        )}
+      </div>
+    )}
+    </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-56">
+        <ContextMenuItem onSelect={() => onToggleRecurring(!todo.is_recurring)}>
+          <Repeat size={14} className={cn("mr-2", todo.is_recurring ? "text-primary" : "text-muted-foreground")} />
+          <span>{todo.is_recurring
+            ? (lang === 'zh' ? '停止每天重复' : 'Stop repeating daily')
+            : (lang === 'zh' ? '每天重复' : 'Repeat daily')}</span>
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }
 
@@ -696,7 +1142,7 @@ export function PlanView({
   onSwitchToRecap?: () => void;
   moments?: Moment[];
   todos?: Todo[];
-  importedEvents?: any[];
+  importedEvents?: ImportedEvent[];
   prevDayTodos?: Todo[];
   prevDayMoments?: Moment[];
   onAddMoment?: (data: {
@@ -711,18 +1157,28 @@ export function PlanView({
     timer_ended_at?: string | null;
     timer_seconds?: number | null;
     date?: string;
-  }) => Promise<any>;
+  }) => Promise<unknown>;
   onEditMoment?: (id: string, updates: Partial<Moment>) => void;
   onDeleteMoment?: (id: string) => void;
 }) {
   const todayStr = date || format(new Date(), 'yyyy-MM-dd');
   const {
     todos: hookTodos,
+    pastDayOpenTodos,
+    stepsByParent,
     addTodo: rawAddTodo,
     updateTodo: rawUpdateTodo,
     deleteTodo: rawDeleteTodo,
     restoreTodo: rawRestoreTodo,
     toggleComplete: rawToggleComplete,
+    addStep: rawAddStep,
+    toggleStep: rawToggleStep,
+    deleteStep: rawDeleteStep,
+    startStepTimer: rawStartStepTimer,
+    stopStepTimer: rawStopStepTimer,
+    updateStepPlanTime: rawUpdateStepPlanTime,
+    updateStepTitle: rawUpdateStepTitle,
+    toggleRecurring,
   } = useTodos(todayStr);
   
   const { events: importedEvents } = useImportedEvents();
@@ -737,13 +1193,16 @@ export function PlanView({
   const { t: tLang, lang } = useLanguage();
   const planViewIsDark = useIsDarkMode();
   const { addReminder } = useReminders();
+  const getElapsedRef = useRef<(todo: Todo) => number>(() => 0);
+  const getCurrentSessionElapsedRef = useRef<(todo: Todo) => number>(() => 0);
+  const clearFreshTimerStartRef = useRef<(todoId: string) => void>(() => {});
   const planTags = orderedPlanTags.map(key => {
     const def = defaultPlanTags.find(d => d.key === key);
     return def ? tLang(key) : key;
   });
-  const addTodo = useCallback(async (title: string, timeSegment: Todo['time_segment'] = 'anytime', dueDate?: string) => {
+  const addTodo = useCallback(async (title: string, timeSegment: Todo['time_segment'] = 'anytime', dueDate?: string, options?: { isRecurring?: boolean }) => {
     const cleanTitle = tidyTaskTitle(title);
-    const result = await rawAddTodo(cleanTitle, timeSegment, dueDate);
+    const result = await rawAddTodo(cleanTitle, timeSegment, dueDate, options);
     // Auto-classify tag if none assigned
     if (result && (!result.tags || result.tags.length === 0)) {
       const autoTag = autoClassifyTag(cleanTitle);
@@ -784,11 +1243,34 @@ export function PlanView({
     });
   }, [todos, deleteTodo, rawRestoreTodo, lang, onTodosChanged]);
 
+  const showDoneUndo = useCallback((opts: {
+    todo: Pick<Todo, 'id' | 'title' | 'parent_due_id'>;
+    previous: ReturnType<typeof createTodoDoneUndoSnapshot>;
+  }) => {
+    showUndoToast({
+      description: lang === 'zh' ? `已完成"${opts.todo.title}"` : `Completed "${opts.todo.title}"`,
+      undoLabel: lang === 'zh' ? '撤销' : 'Undo',
+      onUndo: async () => {
+        await updateTodo(opts.todo.id, restoreTodoDoneFromUndo(opts.previous));
+        if (opts.todo.parent_due_id) {
+          await supabase
+            .from('todos')
+            .update({
+              progress: opts.previous.progress,
+              is_completed: opts.previous.is_completed,
+            })
+            .eq('id', opts.todo.parent_due_id);
+        }
+      },
+    });
+  }, [lang, updateTodo]);
+
   const toggleComplete = useCallback(async (id: string) => {
     const todo = todos.find(t => t.id === id);
     if (!todo) return;
 
     const newCompleted = !todo.is_completed;
+    const previousSnapshot = createTodoDoneUndoSnapshot(todo);
     const updates: Partial<Todo> = {
       is_completed: newCompleted,
       progress: newCompleted ? 100 : todo.progress,
@@ -797,8 +1279,8 @@ export function PlanView({
     if (newCompleted && todo.timer_started_at && !todo.timer_ended_at) {
       // Task was actively running — record end time
       updates.timer_ended_at = new Date().toISOString();
-      updates.timer_seconds = getElapsed(todo);
-      clearFreshTimerStart(todo.id);
+      updates.timer_seconds = getElapsedRef.current(todo);
+      clearFreshTimerStartRef.current(todo.id);
       setPausedTimers(prev => {
         const next = new Set(prev);
         next.delete(id);
@@ -819,7 +1301,16 @@ export function PlanView({
 
     await rawUpdateTodo(id, updates);
     onTodosChanged?.();
-  }, [todos, rawUpdateTodo, onTodosChanged]);
+
+    // Only offer undo when we're marking Done (accidental clicks); reverting
+    // to open state is already trivial (re-click the circle).
+    if (newCompleted) {
+      showDoneUndo({
+        todo,
+        previous: previousSnapshot,
+      });
+    }
+  }, [todos, rawUpdateTodo, onTodosChanged, showDoneUndo]);
 
   const isEnterSubmit = (e: React.KeyboardEvent) => {
     const native = e.nativeEvent as KeyboardEvent;
@@ -839,6 +1330,7 @@ export function PlanView({
   
   const [collapsedSegments, setCollapsedSegments] = useState<Set<string>>(new Set());
   const [archiveCollapsed, setArchiveCollapsed] = useState(true);
+
   const [addingSegment, setAddingSegment] = useState<string | null>(null);
   const [segmentNewTitle, setSegmentNewTitle] = useState('');
   const [isAddingQuick, setIsAddingQuick] = useState(false);
@@ -873,7 +1365,9 @@ export function PlanView({
         const obj = JSON.parse(raw) as Record<string, { pausedAt: number | null; totalPausedMs: number }>;
         return new Map(Object.entries(obj));
       }
-    } catch {}
+    } catch {
+      // Ignore malformed persisted pause state and fall back to defaults.
+    }
     return new Map();
   });
   const pauseStatesRef = useRef(_initPauseStates);
@@ -884,12 +1378,16 @@ export function PlanView({
   });
   const [pauseStateVersion, setPauseStateVersion] = useState(0);
   const [showOverlayForId, setShowOverlayForId] = useState<string | null>(null);
+  const startFocusInFlightRef = useRef<Set<string>>(new Set());
   const [pendingStopIds, setPendingStopIds] = useState<Set<string>>(new Set());
   const [freshTimerStarts, setFreshTimerStarts] = useState<Record<string, string>>({});
   const [tick, setTick] = useState(0);
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const [recurringUntilDone, setRecurringUntilDone] = useState(false);
   const [reminderConfig, setReminderConfig] = useState<{ enabled: boolean; type: 'browser' | 'email'; intervalDays: number }>({ enabled: false, type: 'browser', intervalDays: 1 });
+  // User-picked time slot for the next quick-add. null = auto-follow the current
+  // hour's segment (so it stays correct through the day until explicitly chosen).
+  const [quickSegmentOverride, setQuickSegmentOverride] = useState<Todo['time_segment'] | null>(null);
   const [showFullTimeline, setShowFullTimeline] = useState(false);
   const [timelineRhythmPresetId] = useState(loadPlanTimelineRhythmPresetId);
   const timelineRhythmPreset = useMemo(() => getPlanTimelineRhythmPreset(timelineRhythmPresetId), [timelineRhythmPresetId]);
@@ -930,10 +1428,51 @@ export function PlanView({
     () => `plan-capture-draft:${user?.id || 'guest'}:${todayStr}`,
     [todayStr, user?.id]
   );
-  const activeTimerTodos = todos.filter(t => isActivelyRunningTodo(t) && !pendingStopIds.has(t.id));
+  const todayActiveTimerTodos = useMemo(
+    () => todos.filter(t => isActivelyRunningTodo(t) && !pendingStopIds.has(t.id)),
+    [todos, pendingStopIds],
+  );
+  // A focus timer started yesterday and never stopped keeps running past
+  // midnight. Its todo record stays filed under yesterday (rollOverYesterdayTodos
+  // deliberately skips timers), so without this it would vanish from today's
+  // live bookkeeping — the timeline tail would freeze and no FloatingTimer would
+  // show. Fold those still-running prev-day todos in (deduped) so the timer
+  // "follows" into today: live growth + floating pill + reset-on-new-task all
+  // treat it as active. Only bookkeeping/overlay consume this list, never the
+  // task-list render, so no duplicate row appears.
+  const prevDayActiveTimerTodos = useMemo(
+    () => (prevDayTodos || []).filter(
+      t => isActivelyRunningTodo(t) && !pendingStopIds.has(t.id) && !todos.some(td => td.id === t.id),
+    ),
+    [prevDayTodos, pendingStopIds, todos],
+  );
+  const activeTimerTodos = useMemo(
+    () => [...todayActiveTimerTodos, ...prevDayActiveTimerTodos],
+    [todayActiveTimerTodos, prevDayActiveTimerTodos],
+  );
   const restingTodos = todos.filter(t => !t.is_completed && !isActivelyRunningTodo(t) && (t.timer_seconds || 0) > 0 && !!t.timer_ended_at);
+  // Tasks whose work is happening via a running STEP timer (not the task's own
+  // timer). Maps parentId → the running step's `timer_started_at`. Used to
+  // surface the parent on the timeline as an "ongoing" block (synthesized from
+  // the step) and to keep the per-second tick alive while only a step runs.
+  const runningStepByParent = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const [pid, steps] of Object.entries(stepsByParent)) {
+      // A finished parent's block must not keep live-extending to "now". Once the
+      // user has ended/completed the parent, a still-running (or forgotten) child
+      // step is stale — ignoring it here stops the timeline block from following
+      // the clock forever.
+      const parent = todos.find(t => t.id === pid);
+      if (parent?.is_completed) continue;
+      const running = steps.find(s => !!s.timer_started_at);
+      if (running?.timer_started_at) map.set(pid, running.timer_started_at);
+    }
+    return map;
+  }, [stepsByParent, todos]);
   const defaultQuickSegment = getTimeSegmentForHour(new Date().getHours()) as Todo['time_segment'];
-  const defaultQuickSegmentConfig = TIME_SEGMENTS.find(seg => seg.id === defaultQuickSegment) || TIME_SEGMENTS[1];
+  // Effective slot the next quick-add lands in: the user's explicit pick, or —
+  // until they pick — the segment for the current hour.
+  const effectiveQuickSegment = quickSegmentOverride ?? defaultQuickSegment;
 
   // Clean up pendingStopIds only once todos reflects the task has actually stopped —
   // prevents the FloatingTimer from briefly remounting (which resets its mountTime cap).
@@ -951,10 +1490,10 @@ export function PlanView({
   }, [todos]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (activeTimerTodos.length === 0 && restingTodos.length === 0) return;
+    if (activeTimerTodos.length === 0 && restingTodos.length === 0 && runningStepByParent.size === 0) return;
     const interval = setInterval(() => setTick(t => t + 1), 1000);
     return () => clearInterval(interval);
-  }, [activeTimerTodos.length, restingTodos.length]);
+  }, [activeTimerTodos.length, restingTodos.length, runningStepByParent.size]);
 
   useEffect(() => {
     const saved = localStorage.getItem(captureDraftStorageKey);
@@ -1079,13 +1618,17 @@ export function PlanView({
     const totalPausedMs = (pauseState?.totalPausedMs || 0) + currentPauseMs;
     return Math.max(0, Math.floor((now - startedAt - totalPausedMs) / 1000));
   };
+  getElapsedRef.current = getElapsed;
+  getCurrentSessionElapsedRef.current = getCurrentSessionElapsed;
 
   const savePauseStatesToStorage = useCallback(() => {
     try {
       const obj: Record<string, { pausedAt: number | null; totalPausedMs: number }> = {};
       pauseStatesRef.current.forEach((v, k) => { obj[k] = v; });
       localStorage.setItem('plan-pause-states', JSON.stringify(obj));
-    } catch {}
+    } catch {
+      // Ignore storage failures in private mode.
+    }
   }, []);
 
   const clearPauseState = useCallback((todoId: string) => {
@@ -1107,6 +1650,7 @@ export function PlanView({
       return next;
     });
   }, []);
+  clearFreshTimerStartRef.current = clearFreshTimerStart;
 
   // The floating timer lives WITHIN the timeline column, not the whole viewport
   // (the logged-in layout has a chat panel on the right). Bound dragging/snapping
@@ -1299,31 +1843,70 @@ export function PlanView({
   const [resetPromptTodoId, setResetPromptTodoId] = useState<string | null>(null);
 
   const handleStartFocus = (todo: Todo) => {
-    // If already actively timing (started but not ended), check if it's a scheduled task
-    if (todo.timer_started_at && !todo.timer_ended_at) {
-      // Check if this was a pre-scheduled timer (started time is in the past, more than 30s ago)
-      const startedAt = new Date(todo.timer_started_at).getTime();
-      const diff = Date.now() - startedAt;
-      if (diff > 30000) {
-        // Show reset/resume prompt
-        setResetPromptTodoId(todo.id);
+    if (startFocusInFlightRef.current.has(todo.id)) return;
+    startFocusInFlightRef.current.add(todo.id);
+    try {
+      // If already actively timing (started but not ended), check if it's a scheduled task
+      if (todo.timer_started_at && !todo.timer_ended_at) {
+        // Check if this was a pre-scheduled timer (started time is in the past, more than 30s ago)
+        const startedAt = new Date(todo.timer_started_at).getTime();
+        const diff = Date.now() - startedAt;
+        if (diff > 30000) {
+          // Show reset/resume prompt
+          setResetPromptTodoId(todo.id);
+          return;
+        }
+        setShowOverlayForId(todo.id);
         return;
       }
-      setShowOverlayForId(todo.id);
+      // Start a fresh timer from now, keep plan fields intact
+      const startISO = new Date().toISOString();
+      clearPauseState(todo.id);
+      setFreshTimerStarts(prev => ({ ...prev, [todo.id]: startISO }));
+      const hasAnotherActiveTimer =
+        activeTimerTodos.some(t => t.id !== todo.id) ||
+        (showOverlayForId !== null && showOverlayForId !== todo.id);
+      if (!hasAnotherActiveTimer) {
+        setShowOverlayForId(todo.id);
+      }
+      updateTodo(todo.id, { timer_started_at: startISO, timer_ended_at: null });
+      window.dispatchEvent(new Event('eol-timer-started'));
+    } finally {
+      setTimeout(() => startFocusInFlightRef.current.delete(todo.id), 400);
+    }
+  };
+
+  const reopenTodoFromDone = useCallback(async (todo: Todo) => {
+    if (!todo.is_completed) return todo;
+    const reopenProgress = Math.min(99, Math.max(0, todo.progress || 0));
+    await updateTodo(todo.id, {
+      is_completed: false,
+      progress: reopenProgress,
+    });
+
+    if (todo.parent_due_id) {
+      await supabase
+        .from('todos')
+        .update({ progress: reopenProgress, is_completed: false })
+        .eq('id', todo.parent_due_id);
+    }
+
+    return {
+      ...todo,
+      is_completed: false,
+      progress: reopenProgress,
+    };
+  }, [updateTodo]);
+
+  const handleContinueTimingFromDone = async (todo: Todo) => {
+    if (!todo.is_completed) {
+      handleStartFocus(todo);
       return;
     }
-    // Start a fresh timer from now, keep plan fields intact
-    const startISO = new Date().toISOString();
-    clearPauseState(todo.id);
-    setFreshTimerStarts(prev => ({ ...prev, [todo.id]: startISO }));
-    updateTodo(todo.id, { timer_started_at: startISO, timer_ended_at: null });
-    window.dispatchEvent(new Event('eol-timer-started'));
-    const hasAnotherActiveTimer =
-      activeTimerTodos.some(t => t.id !== todo.id) ||
-      (showOverlayForId !== null && showOverlayForId !== todo.id);
-    if (!hasAnotherActiveTimer) {
-      setShowOverlayForId(todo.id);
-    }
+
+    const reopened = await reopenTodoFromDone(todo);
+
+    handleStartFocus(reopened);
   };
 
   const handleResetTimer = (todoId: string) => {
@@ -1342,15 +1925,20 @@ export function PlanView({
   };
 
   const handleTogglePause = (todoId: string) => {
-    setPausedTimers(prev => { const next = new Set(prev); next.has(todoId) ? next.delete(todoId) : next.add(todoId); return next; });
+    setPausedTimers(prev => {
+      const next = new Set(prev);
+      if (next.has(todoId)) next.delete(todoId);
+      else next.add(todoId);
+      return next;
+    });
   };
 
   const handleStopTimer = async (todoId: string) => {
-    const todo = todos.find(t => t.id === todoId);
+    const todo = todos.find(t => t.id === todoId) ?? (prevDayTodos || []).find(t => t.id === todoId);
     if (!todo?.timer_started_at) return;
 
     const elapsed = getElapsed(todo);
-    const isDueChild = Boolean((todo as any).parent_due_id);
+    const isDueChild = Boolean(todo.parent_due_id);
     const nextProgress = isDueChild ? Math.max(0, Math.min(100, todo.progress || 0)) : 100;
     const nextCompleted = isDueChild ? nextProgress >= 100 : true;
 
@@ -1362,7 +1950,7 @@ export function PlanView({
     });
 
     if (isDueChild) {
-      await supabase.from('todos').update({ progress: nextProgress, is_completed: nextProgress >= 100 } as any).eq('id', (todo as any).parent_due_id);
+      await supabase.from('todos').update({ progress: nextProgress, is_completed: nextProgress >= 100 }).eq('id', todo.parent_due_id!);
     }
 
     clearPauseState(todoId);
@@ -1377,9 +1965,11 @@ export function PlanView({
 
   const handleToggleWithProgress = async (todo: Todo) => {
     const next = todo.is_completed ? 0 : 100;
-    const updates: Partial<Todo> = { progress: next, is_completed: !todo.is_completed };
+    const willComplete = !todo.is_completed;
+    const previousSnapshot = createTodoDoneUndoSnapshot(todo);
+    const updates: Partial<Todo> = { progress: next, is_completed: willComplete };
 
-    if (!todo.is_completed && todo.timer_started_at && !todo.timer_ended_at) {
+    if (willComplete && todo.timer_started_at && !todo.timer_ended_at) {
       updates.timer_ended_at = new Date().toISOString();
       updates.timer_seconds = getElapsed(todo);
       clearFreshTimerStart(todo.id);
@@ -1389,20 +1979,27 @@ export function PlanView({
         return n;
       });
       setShowOverlayForId(prev => prev === todo.id ? null : prev);
-    } else if (!todo.is_completed && todo.plan_started_at && !todo.timer_started_at) {
+    } else if (willComplete && todo.plan_started_at && !todo.timer_started_at) {
       const endedAt = todo.plan_ended_at ?? new Date().toISOString();
       updates.timer_started_at = todo.plan_started_at;
       updates.timer_ended_at = endedAt;
       updates.timer_seconds = Math.max(0, Math.floor(
         (new Date(endedAt).getTime() - new Date(todo.plan_started_at).getTime()) / 1000
       ));
-    } else if (!todo.is_completed && !todo.timer_started_at && !todo.plan_started_at) {
+    } else if (willComplete && !todo.timer_started_at && !todo.plan_started_at) {
       Object.assign(updates, getAutoDoneTimerUpdates(todo));
     }
 
     await updateTodo(todo.id, updates);
-    if ((todo as any).parent_due_id) {
-      await supabase.from('todos').update({ progress: next, is_completed: next >= 100 } as any).eq('id', (todo as any).parent_due_id);
+    if (todo.parent_due_id) {
+      await supabase.from('todos').update({ progress: next, is_completed: next >= 100 }).eq('id', todo.parent_due_id);
+    }
+
+    if (willComplete) {
+      showDoneUndo({
+        todo,
+        previous: previousSnapshot,
+      });
     }
   };
 
@@ -1411,11 +2008,19 @@ export function PlanView({
     const plainTitle = newTitle.trim();
     const emoji = selectedEmoji;
     setNewTitle(''); setSelectedEmoji(null); setIsAddingQuick(true);
+    setPlusMenuOpen(false); // collapse the time-slot/options menu on submit
     try {
       const title = emoji ? `${emoji} ${plainTitle}` : plainTitle;
-      const newTodo = await addTodo(title, defaultQuickSegment);
+      const wasRecurring = recurringUntilDone;
+      const newTodo = await addTodo(title, effectiveQuickSegment, undefined, { isRecurring: wasRecurring });
       if (newTodo && reminderConfig.enabled) {
         await addReminder(title, reminderConfig.intervalDays, `Task reminder (${todayStr})`, reminderConfig.type);
+      }
+      if (wasRecurring) {
+        setRecurringUntilDone(false);
+        if (newTodo) {
+          toast(lang === 'zh' ? '已设为每天重复·明天起自动出现' : 'Set to repeat daily · appears automatically from tomorrow');
+        }
       }
       if (startTimer && newTodo) {
         const startISO = new Date().toISOString();
@@ -1440,7 +2045,12 @@ export function PlanView({
   };
 
   const toggleSegment = (id: string) => {
-    setCollapsedSegments(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+    setCollapsedSegments(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
   const [dragTodoId, setDragTodoId] = useState<string | null>(null);
@@ -1521,7 +2131,7 @@ export function PlanView({
   const handleDropOnTimeline = useCallback((todoId: string, startMin: number) => {
     const todo = todos.find(t => t.id === todoId);
     if (!todo) return;
-    const today = format(new Date(), 'yyyy-MM-dd');
+    const targetDay = todayStr;
     const startH = Math.floor(startMin / 60);
     const startM = startMin % 60;
     const tag = todo.tags?.[0] || autoClassifyTag(todo.title) || '';
@@ -1534,17 +2144,27 @@ export function PlanView({
     const endMin = startMin + smartDur;
     const endH = Math.floor(endMin / 60);
     const endM = endMin % 60;
-    const startISO = new Date(`${today}T${String(startH).padStart(2, '0')}:${String(startM).padStart(2, '0')}:00`).toISOString();
-    const endISO = new Date(`${today}T${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}:00`).toISOString();
+    const startISO = new Date(`${targetDay}T${String(startH).padStart(2, '0')}:${String(startM).padStart(2, '0')}:00`).toISOString();
+    const endISO = new Date(`${targetDay}T${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}:00`).toISOString();
     // 只设置计划时间；实际执行(actual)只能通过番茄钟或在 Actual 模式下补记
     updateTodo(todoId, {
       plan_started_at: startISO,
       plan_ended_at: endISO,
     });
-  }, [todos, updateTodo]);
+  }, [todos, todayStr, updateTodo]);
+
+  // Carried-over unfinished tasks from prior days now live directly in the
+  // main task list (the user wants them mixed in, not tucked in a separate
+  // collapsed section). mergeCarriedTodos collapses same-title copies to a
+  // single row so a task left unfinished across several days doesn't show up as
+  // two or three "ghosts". See src/lib/carryTodos.ts for the dedupe rules.
+  const mainListTodos = useMemo(
+    () => mergeCarriedTodos(todos, pastDayOpenTodos),
+    [todos, pastDayOpenTodos]
+  );
 
   const grouped = TIME_SEGMENTS.map(seg => {
-    const segTodos = todos.filter(t => t.time_segment === seg.id && !t.is_completed);
+    const segTodos = mainListTodos.filter(t => t.time_segment === seg.id && !t.is_completed);
     segTodos.sort((a, b) => {
       const aDoing = isActivelyRunningTodo(a) ? 1 : 0;
       const bDoing = isActivelyRunningTodo(b) ? 1 : 0;
@@ -1618,6 +2238,65 @@ export function PlanView({
       timer_seconds: workingSec,
     });
   }, [getInheritedPlanActualRange, onAddMoment]);
+
+  // Record a just-ended STEP timer session as a focus-session moment tagged to
+  // the parent todo. This is what makes finished step work persist on the
+  // timeline: the moment flows through the existing moments → buildPlanBlocks
+  // pipeline and renders as a truthfully-positioned segment, grouped with the
+  // parent (and its other step sessions) via `todo-session:<parentId>`.
+  const logStepSessionMoment = useCallback(async (
+    step: TodoStep,
+    session: { startISO: string; endISO: string; seconds: number },
+  ) => {
+    if (!onAddMoment || session.seconds <= 0) return;
+    const parentId = step.parent_due_id;
+    const parent = todos.find(t => t.id === parentId)
+      ?? (prevDayTodos || []).find(t => t.id === parentId);
+    const startMs = new Date(session.startISO).getTime();
+    const sessionDate = Number.isFinite(startMs)
+      ? format(new Date(startMs), 'yyyy-MM-dd')
+      : undefined;
+    await onAddMoment({
+      ...(sessionDate ? { date: sessionDate } : {}),
+      text: step.title,
+      emoji: extractLeadingEmoji(step.title) || extractLeadingEmoji(parent?.title || ''),
+      photos: [],
+      // `focus-session` + `todo-session:<parentId>` make it render and group
+      // exactly like the parent's own focus sessions; `step-session` marks its
+      // origin for any future step-specific handling. Parent tags carry color.
+      tags: ['focus-session', 'step-session', `todo-session:${parentId}`, ...(parent?.tags || [])],
+      timer_started_at: session.startISO,
+      timer_ended_at: session.endISO,
+      timer_seconds: session.seconds,
+    });
+  }, [onAddMoment, todos, prevDayTodos]);
+
+  // Find a step (and confirm it's currently running) from the parent map.
+  const findRunningStep = useCallback((stepId: string): TodoStep | null => {
+    for (const steps of Object.values(stepsByParent)) {
+      const s = steps.find(x => x.id === stepId);
+      if (s) return s.timer_started_at ? s : null;
+    }
+    return null;
+  }, [stepsByParent]);
+
+  // Wrapped step handlers: capture the session window BEFORE the raw call folds
+  // elapsed into timer_seconds and clears timer_started_at (which loses "when").
+  const stopStepTimer = useCallback(async (stepId: string) => {
+    const running = findRunningStep(stepId);
+    const session = running ? computeStepSession(running, Date.now()) : null;
+    await rawStopStepTimer(stepId);
+    if (running && session) await logStepSessionMoment(running, session);
+  }, [findRunningStep, rawStopStepTimer, logStepSessionMoment]);
+
+  const toggleStep = useCallback(async (stepId: string, completed: boolean) => {
+    // Completing a running step stops its timer too — capture that final session.
+    const running = completed ? findRunningStep(stepId) : null;
+    const session = running ? computeStepSession(running, Date.now()) : null;
+    await rawToggleStep(stepId, completed);
+    if (running && session) await logStepSessionMoment(running, session);
+  }, [findRunningStep, rawToggleStep, logStepSessionMoment]);
+
   const getCaptureTypeLabel = useCallback((moment: Moment) => {
     const value = moment.tags?.find(tag => tag !== CAPTURE_NOTE_TAG && !tag.startsWith('mood:'));
     return value ? value.charAt(0).toUpperCase() + value.slice(1) : null;
@@ -1632,11 +2311,86 @@ export function PlanView({
   const scheduledCount = useMemo(() => todos.filter(t => t.plan_started_at || t.is_completed).length, [todos]);
   const activeTimerIdSet = useMemo(() => new Set(activeTimerTodos.map(t => t.id)), [activeTimerTodos]);
   const getTimerElapsedForId = useCallback((id: string) => {
-    const todo = todos.find(t => t.id === id);
-    return todo ? getCurrentSessionElapsed(todo) : 0;
-  }, [todos, tick]);
+    const todo = todos.find(t => t.id === id) ?? (prevDayTodos || []).find(t => t.id === id);
+    return todo ? getCurrentSessionElapsedRef.current(todo) : 0;
+  }, [todos, prevDayTodos]);
 
-  const overlayTodo = showOverlayForId ? todos.find(t => t.id === showOverlayForId) : null;
+  // ── Timeline inputs: reflect a running STEP as an "ongoing" block ────────
+  // A task with a running step (but no own timer) should read as in-progress
+  // on the timeline, not a dashed plan outline. We synthesize a timer from the
+  // step's start so the existing actual/live/running machinery lights it up —
+  // no changes needed in buildPlanBlocks or the primitives. These inputs are
+  // used ONLY by the timeline; the task list and FloatingTimer keep using the
+  // real timer fields, so no phantom floating timer appears for the parent.
+  const timelineTodos = useMemo(() => {
+    if (runningStepByParent.size === 0) return todos;
+    return todos.map(t => {
+      const startedAt = runningStepByParent.get(t.id);
+      if (startedAt && !isActivelyRunningTodo(t)) {
+        return { ...t, timer_started_at: startedAt, timer_ended_at: null };
+      }
+      return t;
+    });
+  }, [todos, runningStepByParent]);
+  const timelineActiveTimerIds = useMemo(() => {
+    if (runningStepByParent.size === 0) return activeTimerIdSet;
+    const set = new Set(activeTimerIdSet);
+    for (const pid of runningStepByParent.keys()) set.add(pid);
+    return set;
+  }, [activeTimerIdSet, runningStepByParent]);
+  const getTimelineTimerElapsed = useCallback((id: string) => {
+    const startedAt = runningStepByParent.get(id);
+    const todo = todos.find(t => t.id === id);
+    if (startedAt && todo && !isActivelyRunningTodo(todo)) {
+      return Math.max(0, Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000));
+    }
+    return getTimerElapsedForId(id);
+  }, [runningStepByParent, todos, getTimerElapsedForId]);
+
+  // Currently-running step timers, surfaced as LIVE step sub-segments on the
+  // timeline. A step's durable `step-session` moment is only written when it
+  // STOPS, so without this a running step is invisible on the timeline until
+  // then — and if the parent already shows a block (its own timer or plan),
+  // starting a step looks like nothing happened. We synthesize a transient
+  // step-session moment per running step (end = now) so it renders as a live
+  // sub-segment inside the parent and grows every tick. Once the step stops,
+  // its timer_started_at clears (dropping it here) and the real logged moment
+  // takes over — no double render.
+  const liveStepSessionMoments = useMemo<Moment[]>(() => {
+    void tick; // recompute each second so the live segment grows
+    if (runningStepByParent.size === 0) return [];
+    const nowISO = new Date().toISOString();
+    const out: Moment[] = [];
+    for (const [pid, steps] of Object.entries(stepsByParent)) {
+      const parent = todos.find(t => t.id === pid);
+      if (!parent || parent.is_completed) continue;
+      for (const s of steps) {
+        if (!s.timer_started_at) continue;
+        out.push({
+          id: `live-step-${s.id}`,
+          date: todayStr,
+          text: s.title,
+          emoji: extractLeadingEmoji(s.title) || extractLeadingEmoji(parent.title || ''),
+          photos: [],
+          tags: ['focus-session', 'step-session', `todo-session:${pid}`, ...(parent.tags || [])],
+          createdAt: s.timer_started_at,
+          timer_started_at: s.timer_started_at,
+          timer_ended_at: nowISO,
+          timer_seconds: null,
+        });
+      }
+    }
+    return out;
+  }, [stepsByParent, todos, todayStr, runningStepByParent.size, tick]);
+
+  const timelineMoments = useMemo(
+    () => (liveStepSessionMoments.length > 0 ? [...dateMoments, ...liveStepSessionMoments] : dateMoments),
+    [dateMoments, liveStepSessionMoments],
+  );
+
+  const overlayTodo = showOverlayForId
+    ? (todos.find(t => t.id === showOverlayForId) ?? (prevDayTodos || []).find(t => t.id === showOverlayForId))
+    : null;
   const floatingTimers = activeTimerTodos.filter(t => t.id !== showOverlayForId)
     .map(t => ({ id: t.id, title: t.title, elapsed: getElapsed(t), isPaused: pausedTimers.has(t.id) }));
   const uploadCapturePhoto = useCallback(async (file: File): Promise<string | null> => {
@@ -1758,6 +2512,7 @@ export function PlanView({
 
       {overlayTodo && (
         <FocusTimerOverlay
+          key={overlayTodo.id}
           todo={withFreshTimerStart(overlayTodo)}
           pauseState={pauseStatesRef.current.get(overlayTodo.id)}
           onPauseStateChange={(pauseState) => handlePauseStateChange(overlayTodo.id, pauseState)}
@@ -1771,9 +2526,10 @@ export function PlanView({
           })()}
           onComplete={async (workingSec, progress) => {
             const finalProgress = progress ?? 100;
-            const isDueChild = Boolean((overlayTodo as any).parent_due_id);
+            const isDueChild = Boolean(overlayTodo.parent_due_id);
             const endedAtISO = new Date().toISOString();
             const snap = withFreshTimerStart(overlayTodo);
+            const previousSnapshot = createTodoDoneUndoSnapshot(snap);
             const inheritedPlanRange = getInheritedPlanActualRange(snap);
             // Detach into a correctly-dated moment when the work is partial OR
             // when the session ended on a day BEFORE today (forgotten / past
@@ -1800,8 +2556,14 @@ export function PlanView({
               if (isDueChild) {
                 await supabase
                   .from('todos')
-                  .update({ progress: finalProgress, is_completed: finalProgress >= 100 } as any)
-                  .eq('id', (snap as any).parent_due_id);
+                  .update({ progress: finalProgress, is_completed: finalProgress >= 100 })
+                  .eq('id', snap.parent_due_id!);
+              }
+              if (finalProgress >= 100 && !shouldDetachSession) {
+                showDoneUndo({
+                  todo: snap,
+                  previous: previousSnapshot,
+                });
               }
             } catch {
               // best-effort save
@@ -1809,7 +2571,7 @@ export function PlanView({
           }}
           onSaveAndContinue={async (workingSec, progress) => {
             const nextProgress = progress ?? overlayTodo.progress ?? 0;
-            const isDueChild = Boolean((overlayTodo as any).parent_due_id);
+            const isDueChild = Boolean(overlayTodo.parent_due_id);
             const endedAtISO = new Date().toISOString();
             const snap = withFreshTimerStart(overlayTodo);
             // Close and remove from active timers immediately
@@ -1829,8 +2591,8 @@ export function PlanView({
               if (isDueChild) {
                 await supabase
                   .from('todos')
-                  .update({ progress: nextProgress, is_completed: false } as any)
-                  .eq('id', (snap as any).parent_due_id);
+                  .update({ progress: nextProgress, is_completed: false })
+                  .eq('id', snap.parent_due_id!);
               }
             } catch {
               // best-effort save
@@ -1838,8 +2600,9 @@ export function PlanView({
           }}
           onFinishAt={async (workingSec, progress, completed, endedAtISO) => {
             const finalProgress = completed ? 100 : progress;
-            const isDueChild = Boolean((overlayTodo as any).parent_due_id);
+            const isDueChild = Boolean(overlayTodo.parent_due_id);
             const snap = withFreshTimerStart(overlayTodo);
+            const previousSnapshot = createTodoDoneUndoSnapshot(snap);
             const inheritedPlanRange = getInheritedPlanActualRange(snap);
             // Detach when not completed OR when the chosen end-time lands on a
             // day BEFORE today (forgotten timer being closed retroactively).
@@ -1866,8 +2629,14 @@ export function PlanView({
               if (isDueChild) {
                 await supabase
                   .from('todos')
-                  .update({ progress: finalProgress, is_completed: completed } as any)
-                  .eq('id', (snap as any).parent_due_id);
+                  .update({ progress: finalProgress, is_completed: completed })
+                  .eq('id', snap.parent_due_id!);
+              }
+              if (completed && !shouldDetachSession) {
+                showDoneUndo({
+                  todo: snap,
+                  previous: previousSnapshot,
+                });
               }
             } catch {
               // best-effort save
@@ -1880,10 +2649,10 @@ export function PlanView({
             setShowOverlayForId(null);
           }}
           onUpdateStartTime={async (newStartedAt) => {
-            await updateTodo(overlayTodo.id, { timer_started_at: newStartedAt } as any);
+            await updateTodo(overlayTodo.id, { timer_started_at: newStartedAt });
           }}
           onUpdateEndTime={async (newEndedAt) => {
-            await updateTodo(overlayTodo.id, { plan_ended_at: newEndedAt } as any);
+            await updateTodo(overlayTodo.id, { plan_ended_at: newEndedAt });
           }}
         />
       )}
@@ -1928,10 +2697,27 @@ export function PlanView({
         >
           <div className="flex-1 overflow-y-auto min-h-0">
           <div className="px-2 space-y-1 pb-28">
+              {/* Empty state — when no active tasks, invite the first action rather
+                  than leaving the column a black void next to a busy timeline. */}
+              {mainListTodos.filter(t => !t.is_completed).length === 0 && (
+                <div className="flex flex-col items-center justify-center gap-3.5 px-6 py-20 text-center animate-fade-in">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/[0.08] text-primary/80">
+                    <NotebookPen size={22} strokeWidth={1.8} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <p className="text-[14px] font-medium text-foreground/85">
+                      {lang === 'zh' ? '今天还是一张白纸' : "Today's a blank page"}
+                    </p>
+                    <p className="mx-auto max-w-[230px] text-[12.5px] leading-relaxed text-muted-foreground/70">
+                      {lang === 'zh' ? '在下面加个任务，或从时间轴拖一件事进来。' : 'Add a task below, or drag one onto the timeline.'}
+                    </p>
+                  </div>
+                </div>
+              )}
               {/* Flat list mode */}
               {listMode === 'flat' ? (
                 <div className="space-y-0.5">
-                  {[...todos].filter(t => !t.is_completed).sort((a, b) => {
+                  {[...mainListTodos].filter(t => !t.is_completed).sort((a, b) => {
                     const aDoing = isActivelyRunningTodo(a) ? 1 : 0;
                     const bDoing = isActivelyRunningTodo(b) ? 1 : 0;
                     if (aDoing !== bDoing) return bDoing - aDoing;
@@ -1944,6 +2730,7 @@ export function PlanView({
                       key={todo.id}
                       todo={todo}
                       onToggle={() => toggleComplete(todo.id)}
+                      onToggleRecurring={(next) => toggleRecurring(todo.id, next)}
                       onDelete={() => deleteTodoWithUndo(todo.id)}
                       onUpdateTitle={(title) => updateTodo(todo.id, { title })}
                       onUpdateTime={(startTime, endTime) => {
@@ -1971,10 +2758,24 @@ export function PlanView({
                       onToggleWithProgress={() => handleToggleWithProgress(todo)}
                       onUpdateProgress={(progress) => {
                         updateTodo(todo.id, { progress, is_completed: progress >= 100 });
-                        if ((todo as any).parent_due_id) {
-                          supabase.from('todos').update({ progress, is_completed: progress >= 100 } as any).eq('id', (todo as any).parent_due_id);
+                        if (todo.parent_due_id) {
+                          supabase.from('todos').update({ progress, is_completed: progress >= 100 }).eq('id', todo.parent_due_id);
                         }
                       }}
+                      steps={stepsByParent[todo.id] || []}
+                      onAddStep={(title) => rawAddStep(todo.id, title)}
+                      onToggleStep={toggleStep}
+                      onDeleteStep={rawDeleteStep}
+                      onStartStepTimer={rawStartStepTimer}
+                      onStopStepTimer={stopStepTimer}
+                      onUpdateStepPlanTime={(stepId, startTime, endTime) => {
+                        if (!startTime && !endTime) { rawUpdateStepPlanTime(stepId, null, null); return; }
+                        const span = buildTimerSpanISO(startTime, endTime, { fallbackDateStr: todayStr });
+                        if (!span) return;
+                        rawUpdateStepPlanTime(stepId, span.startISO, span.endISO);
+                      }}
+                      onUpdateStepTitle={rawUpdateStepTitle}
+                      carriedFromDate={todo.date !== todayStr ? todo.date : undefined}
                     />
                   ))}
                 </div>
@@ -1989,7 +2790,7 @@ export function PlanView({
                         onClick={() => toggleSegment(seg.id)}
                         className="flex items-center gap-2 min-w-0"
                       >
-                        <span className="text-[14px] leading-none opacity-80">{seg.emoji}</span>
+                        <seg.Icon size={14} strokeWidth={1.9} className="opacity-80 text-muted-foreground/80" />
                         <span className="text-[13px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/80">{seg.label}</span>
                         <span className="text-[12px] tabular-nums text-muted-foreground/55 font-normal">{seg.todos.length}</span>
                         {collapsedSegments.has(seg.id)
@@ -2036,6 +2837,7 @@ export function PlanView({
                             <TodoItem
                               todo={todo}
                               onToggle={() => toggleComplete(todo.id)}
+                              onToggleRecurring={(next) => toggleRecurring(todo.id, next)}
                               onDelete={() => deleteTodoWithUndo(todo.id)}
                               onUpdateTitle={(title) => updateTodo(todo.id, { title })}
                               onUpdateTime={(startTime, endTime) => {
@@ -2061,12 +2863,27 @@ export function PlanView({
                                 window.dispatchEvent(new Event('plan-task-drag-end'));
                               }}
                               onToggleWithProgress={() => handleToggleWithProgress(todo)}
+                              onReopen={() => { void reopenTodoFromDone(todo); }}
                               onUpdateProgress={(progress) => {
                                 updateTodo(todo.id, { progress, is_completed: progress >= 100 });
-                                if ((todo as any).parent_due_id) {
-                                  supabase.from('todos').update({ progress, is_completed: progress >= 100 } as any).eq('id', (todo as any).parent_due_id);
+                                if (todo.parent_due_id) {
+                                  supabase.from('todos').update({ progress, is_completed: progress >= 100 }).eq('id', todo.parent_due_id);
                                 }
                               }}
+                              steps={stepsByParent[todo.id] || []}
+                              onAddStep={(title) => rawAddStep(todo.id, title)}
+                              onToggleStep={toggleStep}
+                              onDeleteStep={rawDeleteStep}
+                              onStartStepTimer={rawStartStepTimer}
+                              onStopStepTimer={stopStepTimer}
+                              onUpdateStepPlanTime={(stepId, startTime, endTime) => {
+                                if (!startTime && !endTime) { rawUpdateStepPlanTime(stepId, null, null); return; }
+                                const span = buildTimerSpanISO(startTime, endTime, { fallbackDateStr: todayStr });
+                                if (!span) return;
+                                rawUpdateStepPlanTime(stepId, span.startISO, span.endISO);
+                              }}
+                              onUpdateStepTitle={rawUpdateStepTitle}
+                              carriedFromDate={todo.date !== todayStr ? todo.date : undefined}
                             />
                           </div>
                         ))}
@@ -2097,6 +2914,7 @@ export function PlanView({
                             key={todo.id}
                             todo={todo}
                             onToggle={() => toggleComplete(todo.id)}
+                            onToggleRecurring={(next) => toggleRecurring(todo.id, next)}
                             onDelete={() => deleteTodoWithUndo(todo.id)}
                             onUpdateTitle={(title) => updateTodo(todo.id, { title })}
                             onUpdateTime={(startTime, endTime) => {
@@ -2104,7 +2922,7 @@ export function PlanView({
                               if (!span) return;
                               updateTodo(todo.id, { timer_started_at: span.startISO, timer_ended_at: span.endISO, timer_seconds: span.seconds });
                             }}
-                            onFocus={() => handleStartFocus(todo)}
+                            onFocus={() => handleContinueTimingFromDone(todo)}
                             isTiming={activeTimerTodos.some(t => t.id === todo.id)}
                             timerElapsed={activeTimerTodos.some(t => t.id === todo.id) ? getElapsed(todo) : 0}
                             isPaused={pausedTimers.has(todo.id)}
@@ -2117,12 +2935,26 @@ export function PlanView({
                             }}
                             onDragEnd={() => { setDragTodoId(null); window.dispatchEvent(new Event('plan-task-drag-end')); }}
                             onToggleWithProgress={() => handleToggleWithProgress(todo)}
+                            onReopen={() => { void reopenTodoFromDone(todo); }}
                             onUpdateProgress={(progress) => {
                               updateTodo(todo.id, { progress, is_completed: progress >= 100 });
-                              if ((todo as any).parent_due_id) {
-                                supabase.from('todos').update({ progress, is_completed: progress >= 100 } as any).eq('id', (todo as any).parent_due_id);
+                              if (todo.parent_due_id) {
+                                supabase.from('todos').update({ progress, is_completed: progress >= 100 }).eq('id', todo.parent_due_id);
                               }
                             }}
+                            steps={stepsByParent[todo.id] || []}
+                            onAddStep={(title) => rawAddStep(todo.id, title)}
+                            onToggleStep={toggleStep}
+                            onDeleteStep={rawDeleteStep}
+                            onStartStepTimer={rawStartStepTimer}
+                            onStopStepTimer={stopStepTimer}
+                            onUpdateStepPlanTime={(stepId, startTime, endTime) => {
+                              if (!startTime && !endTime) { rawUpdateStepPlanTime(stepId, null, null); return; }
+                              const span = buildTimerSpanISO(startTime, endTime, { fallbackDateStr: todayStr });
+                              if (!span) return;
+                              rawUpdateStepPlanTime(stepId, span.startISO, span.endISO);
+                            }}
+                            onUpdateStepTitle={rawUpdateStepTitle}
                           />
                         ))}
                       </div>
@@ -2229,47 +3061,60 @@ export function PlanView({
                       <Plus size={16} />
                     </button>
                     {plusMenuOpen && (
-                      <div className="absolute bottom-12 left-0 bg-card border border-border rounded-xl shadow-xl p-2 min-w-[220px] z-[70] space-y-0.5 animate-scale-in font-normal" onClick={e => e.stopPropagation()}>
-                        <p className="text-[9px] text-muted-foreground/60 uppercase tracking-wider px-2 pt-1">Time slot</p>
-                        <div className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-[11px] bg-primary/10 text-primary whitespace-nowrap">
-                          <span>{defaultQuickSegmentConfig.emoji}</span>
-                          <span>
-                            {tLang(`plan.seg.${defaultQuickSegment}`) || defaultQuickSegmentConfig.label}
-                          </span>
-                          <Check size={12} className="ml-auto" />
-                        </div>
-                        <p className="px-2 pt-0.5 text-[9px] leading-4 text-muted-foreground/60">
-                          {lang === 'zh' ? '先放到当前时间段，可拖到 Anytime' : 'Drops into the current segment · drag to Anytime'}
+                      <div className="absolute bottom-12 left-0 bg-card border border-border rounded-2xl shadow-xl p-2.5 min-w-[264px] z-[70] animate-scale-in font-normal" onClick={e => e.stopPropagation()}>
+                        <p className="px-1 pb-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70">
+                          {tLang('plan.timeSlot') || 'Time slot'}
                         </p>
-                        <div className="border-t border-border/30 my-1" />
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {TIME_SEGMENTS.map(seg => {
+                            const isSelected = effectiveQuickSegment === seg.id;
+                            return (
+                              <button
+                                key={seg.id}
+                                onClick={() => setQuickSegmentOverride(seg.id)}
+                                aria-pressed={isSelected}
+                                className={cn(
+                                  "flex items-center gap-2 rounded-xl border px-2.5 py-2 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card",
+                                  isSelected
+                                    ? "border-primary/40 bg-primary/10 text-primary font-medium"
+                                    : "border-border/60 bg-transparent text-foreground hover:bg-secondary"
+                                )}
+                              >
+                                <seg.Icon size={15} strokeWidth={1.9} className="flex-shrink-0" />
+                                <span className="truncate">{tLang(`plan.seg.${seg.id}`) || seg.label}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <div className="border-t border-border/40 my-2.5" />
                         <button onClick={() => setReminderConfig(prev => ({ ...prev, enabled: !prev.enabled }))}
-                          className={cn("w-full flex items-center gap-2 px-2 py-1 rounded-lg text-[11px] whitespace-nowrap transition-colors",
-                            reminderConfig.enabled ? "bg-primary/10 text-primary" : "hover:bg-secondary text-foreground"
+                          className={cn("w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card",
+                            reminderConfig.enabled ? "bg-primary/10 text-primary font-medium" : "hover:bg-secondary text-foreground"
                           )}>
-                          <Bell size={13} className={reminderConfig.enabled ? "text-primary" : "text-muted-foreground"} />
+                          <Bell size={15} className={reminderConfig.enabled ? "text-primary" : "text-muted-foreground"} />
                           <span>{tLang('plan.setReminder') || 'Set Reminder'}</span>
-                          {reminderConfig.enabled && <Check size={12} className="ml-auto" />}
+                          {reminderConfig.enabled && <Check size={14} className="ml-auto flex-shrink-0" />}
                         </button>
                         {reminderConfig.enabled && (
-                          <div className="px-1 py-1 space-y-1">
-                            <div className="flex gap-1">
-                              <button onClick={() => setReminderConfig(prev => ({ ...prev, type: 'browser' }))} className={cn("px-2 py-1 rounded text-[11px]", reminderConfig.type === 'browser' ? "bg-primary/10 text-primary" : "bg-secondary text-foreground")}>Web</button>
-                              <button onClick={() => setReminderConfig(prev => ({ ...prev, type: 'email' }))} className={cn("px-2 py-1 rounded text-[11px]", reminderConfig.type === 'email' ? "bg-primary/10 text-primary" : "bg-secondary text-foreground")}>Email</button>
+                          <div className="px-2.5 pt-1.5 pb-1 space-y-1.5">
+                            <div className="flex gap-1.5">
+                              <button onClick={() => setReminderConfig(prev => ({ ...prev, type: 'browser' }))} className={cn("flex-1 px-2.5 py-1.5 rounded-lg text-[12px] transition-colors", reminderConfig.type === 'browser' ? "bg-primary/10 text-primary font-medium" : "bg-secondary text-foreground hover:bg-secondary/80")}>Web</button>
+                              <button onClick={() => setReminderConfig(prev => ({ ...prev, type: 'email' }))} className={cn("flex-1 px-2.5 py-1.5 rounded-lg text-[12px] transition-colors", reminderConfig.type === 'email' ? "bg-primary/10 text-primary font-medium" : "bg-secondary text-foreground hover:bg-secondary/80")}>Email</button>
                             </div>
-                            <div className="flex gap-1 flex-wrap">
+                            <div className="flex gap-1.5">
                               {[1, 3, 7, 30].map(d => (
-                                <button key={d} onClick={() => setReminderConfig(prev => ({ ...prev, intervalDays: d }))} className={cn("px-2 py-1 rounded text-[11px]", reminderConfig.intervalDays === d ? "bg-primary/10 text-primary" : "bg-secondary text-foreground")}>{d}d</button>
+                                <button key={d} onClick={() => setReminderConfig(prev => ({ ...prev, intervalDays: d }))} className={cn("flex-1 px-2 py-1.5 rounded-lg text-[12px] transition-colors", reminderConfig.intervalDays === d ? "bg-primary/10 text-primary font-medium" : "bg-secondary text-foreground hover:bg-secondary/80")}>{d}d</button>
                               ))}
                             </div>
                           </div>
                         )}
                         <button onClick={() => { setRecurringUntilDone(prev => !prev); }}
-                          className={cn("w-full flex items-center gap-2 px-2 py-1 rounded-lg text-[11px] whitespace-nowrap transition-colors",
-                            recurringUntilDone ? "bg-primary/10 text-primary" : "hover:bg-secondary text-foreground"
+                          className={cn("w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-1 focus-visible:ring-offset-card",
+                            recurringUntilDone ? "bg-primary/10 text-primary font-medium" : "hover:bg-secondary text-foreground"
                           )}>
-                          <Repeat size={13} className={recurringUntilDone ? "text-primary" : "text-muted-foreground"} />
-                          <span>{tLang('plan.repeatDaily') || 'Repeat daily until done'}</span>
-                          {recurringUntilDone && <Check size={12} className="ml-auto" />}
+                          <Repeat size={15} className={recurringUntilDone ? "text-primary" : "text-muted-foreground"} />
+                          <span>{tLang('plan.repeatDaily') || 'Repeat daily'}</span>
+                          {recurringUntilDone && <Check size={14} className="ml-auto flex-shrink-0" />}
                         </button>
                       </div>
                     )}
@@ -2306,15 +3151,15 @@ export function PlanView({
             className="relative flex-1 min-h-0 rounded-3xl border border-[rgba(55,55,62,0.07)] bg-[#f9fafc] px-2.5 py-4 dark:border-border/35 dark:bg-transparent"
           >
             <PlanTimelineView
-              todos={todos}
-              moments={dateMoments}
+              todos={timelineTodos}
+              moments={timelineMoments}
               importedEvents={dateImportedEvents}
               prevDayTodos={prevDayTodos}
               prevDayMoments={prevDayMoments}
               date={todayStr}
               rhythmPresetId={timelineRhythmPresetId}
               onUpdateTodo={updateTodo}
-              onAddTodo={(title, seg) => addTodo(title, seg as any)}
+              onAddTodo={(title, seg) => addTodo(title, seg as Todo['time_segment'])}
               onDropTodo={handleDropOnTimeline}
               onUnscheduleTodo={(id) => updateTodo(id, { plan_started_at: null, plan_ended_at: null })}
               onDeleteTodo={deleteTodoWithUndo}
@@ -2325,8 +3170,8 @@ export function PlanView({
               }}
               onUpdateMoment={onEditMoment}
               onDeleteMoment={onDeleteMoment}
-              activeTimerIds={activeTimerIdSet}
-              getTimerElapsed={getTimerElapsedForId}
+              activeTimerIds={timelineActiveTimerIds}
+              getTimerElapsed={getTimelineTimerElapsed}
             />
           </div>
         </div>

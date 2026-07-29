@@ -129,6 +129,39 @@
   --surface-lavender-accent-dark: 251 53% 86%;  /* #CFC8EE */
   --surface-cream-accent-dark: 47 66% 76%;      /* #EAD89A */
 
+  /* Rose + dusty-blue completions (StickyNotes had light-only before —
+     these dark counterparts follow the same 15-18% L shell + hue-tinted
+     accent recipe as the four hues above, so all six sticky-note hues
+     now flip cleanly on .dark. */
+  --surface-rose-shell-dark: 0 20% 17%;         /* deep-tinted rose shell */
+  --surface-dusty-blue-shell-dark: 207 20% 17%; /* deep-tinted blue shell */
+  --surface-rose-accent-dark: 346 45% 82%;      /* light rose text on dark card */
+  --surface-dusty-blue-accent-dark: 204 40% 80%; /* light blue text on dark card */
+
+  /* ─────────────────────────────────────────────
+     Habit hue tokens (HSL triplets). Six low-
+     saturation warm-editorial hues, used to color
+     one habit tile at a time in HabitsView's grid.
+     Both light + dark values live here (unlike
+     --surface-*-accent above) because tiles render
+     inside a dark sheet on dark theme; the "-dark"
+     suffix nudges lightness up ~10pt so the accent
+     ink stays readable on a near-black surface.
+     ───────────────────────────────────────────── */
+  --habit-hue-peach: 19 44% 50%;         /* peach   — Sport / Move */
+  --habit-hue-sage: 148 28% 43%;         /* sage    — Health / Care (matches --habit) */
+  --habit-hue-cream: 43 42% 45%;         /* ochre   — Learning */
+  --habit-hue-lavender: 252 26% 55%;     /* plum    — Coding / Focus */
+  --habit-hue-rose: 346 26% 52%;         /* rose    — Errand / Life */
+  --habit-hue-dusty: 204 26% 50%;        /* dusty   — Reading / Reflect */
+
+  --habit-hue-peach-dark: 19 44% 60%;
+  --habit-hue-sage-dark: 148 28% 55%;
+  --habit-hue-cream-dark: 43 42% 58%;
+  --habit-hue-lavender-dark: 252 26% 65%;
+  --habit-hue-rose-dark: 346 26% 62%;
+  --habit-hue-dusty-dark: 204 26% 60%;
+
   /* ─────────────────────────────────────────────
      Landing page (src/pages/Landing.tsx) — FIXED
      warm marketing palette. This page deliberately
@@ -175,4 +208,28 @@
   /* macOS traffic-light dots (#ff5f57 / #febc2e / #28c840) are intentionally
      left as literal hex in Landing.tsx — they are universal OS chrome, not
      brand colors, so they are deliberately NOT tokenized here. */
+}
+
+/* Habit hue overrides for dark theme — mirrors the .dark class in
+   index.css and the OS-level `prefers-color-scheme: dark` block, so
+   `hsl(var(--habit-hue-peach))` in a consumer resolves to the readable
+   dark variant on a near-black sheet without the consumer knowing which
+   theme is active. */
+.dark {
+  --habit-hue-peach: var(--habit-hue-peach-dark);
+  --habit-hue-sage: var(--habit-hue-sage-dark);
+  --habit-hue-cream: var(--habit-hue-cream-dark);
+  --habit-hue-lavender: var(--habit-hue-lavender-dark);
+  --habit-hue-rose: var(--habit-hue-rose-dark);
+  --habit-hue-dusty: var(--habit-hue-dusty-dark);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --habit-hue-peach: var(--habit-hue-peach-dark);
+    --habit-hue-sage: var(--habit-hue-sage-dark);
+    --habit-hue-cream: var(--habit-hue-cream-dark);
+    --habit-hue-lavender: var(--habit-hue-lavender-dark);
+    --habit-hue-rose: var(--habit-hue-rose-dark);
+    --habit-hue-dusty: var(--habit-hue-dusty-dark);
+  }
 }

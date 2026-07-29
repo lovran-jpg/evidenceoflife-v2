@@ -46,7 +46,7 @@ const translations: Record<string, Record<Lang, string>> = {
   'plan.addTask': { zh: '添加任务...', en: 'Add a task...' },
   'plan.timeSlot': { zh: '时间段', en: 'Time slot' },
   'plan.setReminder': { zh: '设置提醒', en: 'Set Reminder' },
-  'plan.repeatDaily': { zh: '每天重复直到完成', en: 'Repeat daily until done' },
+  'plan.repeatDaily': { zh: '每天重复', en: 'Repeat daily' },
   'plan.addAndStart': { zh: '添加并开始计时', en: 'Add & start timer' },
   'plan.grouped': { zh: '分组', en: 'Grouped' },
   'plan.flat': { zh: '列表', en: 'Flat' },
@@ -143,6 +143,9 @@ const translations: Record<string, Record<Lang, string>> = {
   'chatbot.setDeadline': { zh: '设置截止日期', en: 'Set deadline' },
   'chatbot.oneTime': { zh: '一次性', en: 'One-time' },
   'chatbot.habit': { zh: '习惯', en: 'Habit' },
+  'chatbot.title': { zh: '语音输入', en: 'Voice input' },
+  'chatbot.startListening': { zh: '开始语音输入', en: 'Start voice input' },
+  'chatbot.stopListening': { zh: '停止聆听', en: 'Stop listening' },
   'dues.days': { zh: '天', en: 'days' },
   // Plan Drift
   'drift.title': { zh: '计划偏移', en: 'Plan Drift' },
@@ -449,7 +452,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     if (newLang === lang) return;
     setLangState(newLang);
     localStorage.setItem('app-language', newLang);
-    updateProfile({ language: newLang } as any);
+    updateProfile({ language: newLang });
   }, [updateProfile, lang]);
 
   // Apply lang class to body for font weight
@@ -471,4 +474,5 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useLanguage = () => useContext(LanguageContext);

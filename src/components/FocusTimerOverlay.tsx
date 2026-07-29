@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Slider } from '@/components/ui/slider';
-import { Pause, Play, Square, X, Check, Timer, ChevronLeft } from 'lucide-react';
+import { Pause, Play, Square, X, Check, Timer, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Todo } from '@/hooks/useTodos';
 import { autoClassifyTag, TAG_CATEGORY_COLORS } from '@/lib/autoTag';
@@ -112,6 +112,11 @@ export function FocusTimerOverlay({
   const [editingStart, setEditingStart] = useState(false);
   const [startTimeInput, setStartTimeInput] = useState('');
   const [forgottenEndInput, setForgottenEndInput] = useState('');
+  // Which calendar day the forgotten-timer end lands on, expressed as "days
+  // ago" (0 = today, 1 = yesterday …). null = follow the default (the day the
+  // session started). Lets the user correct the end day when the auto-derived
+  // one is wrong, instead of being locked to the session-start day.
+  const [endDayOffset, setEndDayOffset] = useState<number | null>(null);
   const pauseState = externalPauseState ?? localPauseState;
   const isPaused = pauseState.pausedAt !== null;
   const mountTimeRef = useRef(Date.now());
@@ -130,6 +135,10 @@ export function FocusTimerOverlay({
     fallbackStartedAtRef.current = now;
     mountTimeRef.current = now;
     setNowMs(now);
+    // This overlay instance can be reused when the user switches between
+    // concurrent timers. Never carry one timer's local Rest state into the
+    // next timer when that timer has no persisted pause state of its own.
+    setLocalPauseState(externalPauseState ?? { pausedAt: null, totalPausedMs: 0 });
   }, [todo.id]);
 
   useEffect(() => {
@@ -201,6 +210,20 @@ export function FocusTimerOverlay({
     if (lang === 'zh') return startedDaysAgo === 1 ? '昨天' : `${startedDaysAgo} 天前`;
     return startedDaysAgo === 1 ? 'Yesterday' : `${startedDaysAgo} days ago`;
   })();
+  // Human label for an arbitrary "days ago" offset — drives the editable end-day
+  // stepper (0 = today, 1 = yesterday, N = N days ago).
+  const dayLabelForOffset = (offset: number) => {
+    if (offset <= 0) return lang === 'zh' ? '今天' : 'Today';
+    if (lang === 'zh') return offset === 1 ? '昨天' : `${offset} 天前`;
+    return offset === 1 ? 'Yesterday' : `${offset} days ago`;
+  };
+  // The effective end day: user override when set, else the session-start day.
+  // Clamped to [0, startedDaysAgo] so the end can never be earlier than the day
+  // the timer started nor later than today.
+  const effectiveEndDayOffset = Math.min(
+    startedDaysAgo,
+    Math.max(0, endDayOffset ?? startedDaysAgo)
+  );
   const suggestedEndElapsedSec = suggestedEndDate && Number.isFinite(startedAt)
     ? Math.max(60, Math.floor((suggestedEndDate.getTime() - startedAt - totalPaused) / 1000))
     : DEFAULT_SESSION_SEC;
@@ -269,6 +292,7 @@ export function FocusTimerOverlay({
     setCompletionProgress(100);
     setProgressTouched(false);
     setForgottenEndInput('');
+    setEndDayOffset(null);
   }, [todo.id]);
 
   // Seed the forgotten-timer editor with the suggested HH:mm whenever the
@@ -298,21 +322,28 @@ export function FocusTimerOverlay({
 
   const handleFinishAtSuggestion = useCallback((completed: boolean) => {
     if (!onFinishAt || !startedDate) return;
-    // Resolve the actual end the user committed to: prefer the editable input
-    // (anchored to the SESSION-START day so an overnight HH:mm rolls forward
-    // via buildTimerSpanISO instead of jumping to today), else fall back to
-    // the auto-suggestion.
-    const anchorISO = todo.timer_started_at
-      ?? (Number.isFinite(startedAt) ? new Date(startedAt).toISOString() : null);
-    const startISOFallback = Number.isFinite(startedAt) ? new Date(startedAt).toISOString() : null;
-    const startISO = anchorISO ?? startISOFallback;
+    // Resolve the actual end the user committed to. The end date is anchored to
+    // the day the user picked in the stepper (effectiveEndDayOffset: 0 = today,
+    // 1 = yesterday …) at the typed HH:mm. If that lands on/before the start
+    // (e.g. an overnight session where the end clock time is earlier than the
+    // start), roll forward one day. Falls back to the auto-suggestion when the
+    // input is empty or unusable.
     const trimmed = forgottenEndInput.trim();
     let chosenEndDate: Date | null = null;
-    if (trimmed && startISO) {
-      const startHM = `${String(startedDate.getHours()).padStart(2, '0')}:${String(startedDate.getMinutes()).padStart(2, '0')}`;
-      const fallbackDateStr = `${startedDate.getFullYear()}-${String(startedDate.getMonth() + 1).padStart(2, '0')}-${String(startedDate.getDate()).padStart(2, '0')}`;
-      const span = buildTimerSpanISO(startHM, trimmed, { anchorISO: startISO, fallbackDateStr });
-      if (span) chosenEndDate = new Date(span.endISO);
+    const hm = /^(\d{1,2}):(\d{2})$/.exec(trimmed);
+    if (hm) {
+      const hours = Number(hm[1]);
+      const minutes = Number(hm[2]);
+      if (hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60) {
+        const end = new Date();
+        end.setDate(end.getDate() - effectiveEndDayOffset);
+        end.setHours(hours, minutes, 0, 0);
+        // Overnight guard: an end that isn't strictly after the start belongs to
+        // the next calendar day (only rolled once — a further mismatch means the
+        // input is invalid and we fall back to the suggestion).
+        if (end.getTime() <= startedAt) end.setDate(end.getDate() + 1);
+        if (end.getTime() > startedAt) chosenEndDate = end;
+      }
     }
     if (!chosenEndDate) chosenEndDate = suggestedEndDate;
     if (!chosenEndDate) return;
@@ -336,13 +367,50 @@ export function FocusTimerOverlay({
     completionProgress,
     progressTouched,
     todo.progress,
-    todo.timer_started_at,
     onFinishAt,
     suggestedEndDate,
     forgottenEndInput,
+    effectiveEndDayOffset,
     startedDate,
     startedAt,
     totalPaused,
+  ]);
+
+  // Checking the editable "Ends at HH:mm" must actually STOP the timer at that
+  // time — not merely tweak plan_ended_at while the clock keeps running. We end
+  // the session at the chosen moment (logging it via onFinishAt), mirroring the
+  // forgotten-timer flow's end-at logic so an overnight HH:mm rolls forward
+  // instead of jumping to today.
+  const handleStopAtEndTime = useCallback((hm: string) => {
+    const trimmed = hm.trim();
+    if (!trimmed || !startedDate) return;
+    const anchorISO = todo.timer_started_at
+      ?? (Number.isFinite(startedAt) ? new Date(startedAt).toISOString() : null);
+    if (!anchorISO) return;
+    const startHM = `${String(startedDate.getHours()).padStart(2, '0')}:${String(startedDate.getMinutes()).padStart(2, '0')}`;
+    const fallbackDateStr = `${startedDate.getFullYear()}-${String(startedDate.getMonth() + 1).padStart(2, '0')}-${String(startedDate.getDate()).padStart(2, '0')}`;
+    const span = buildTimerSpanISO(startHM, trimmed, { anchorISO, fallbackDateStr });
+    if (!span) return;
+    const endDate = new Date(span.endISO);
+    const elapsedSec = Math.max(60, Math.floor((endDate.getTime() - startedAt - totalPaused) / 1000));
+    if (onFinishAt) {
+      const nextProgress = progressTouched
+        ? Math.min(99, completionProgress)
+        : Math.max(0, Math.min(99, todo.progress || 0));
+      onFinishAt(elapsedSec, nextProgress, false, endDate.toISOString());
+    } else if (onUpdateEndTime) {
+      onUpdateEndTime(endDate.toISOString());
+    }
+  }, [
+    todo.timer_started_at,
+    todo.progress,
+    startedAt,
+    startedDate,
+    totalPaused,
+    onFinishAt,
+    onUpdateEndTime,
+    completionProgress,
+    progressTouched,
   ]);
 
   const handleCancel = useCallback(() => {
@@ -603,13 +671,10 @@ export function FocusTimerOverlay({
                     <button
                       className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/12 text-primary hover:bg-primary/20"
                       onClick={() => {
-                        if (startTimeInput && onUpdateEndTime) {
-                          const ref = new Date(todo.timer_started_at as string);
-                          const [h, m] = startTimeInput.split(':').map(Number);
-                          const next = new Date(ref);
-                          next.setHours(h, m, 0, 0);
-                          onUpdateEndTime(next.toISOString());
-                        }
+                        // Confirming the end time STOPS the timer at that moment
+                        // (ends + records the session), rather than silently
+                        // editing plan_ended_at while the clock keeps ticking.
+                        handleStopAtEndTime(startTimeInput || endDisplay || '');
                         setEditingStart(false);
                       }}
                     >
@@ -652,9 +717,29 @@ export function FocusTimerOverlay({
                 onClick={e => e.stopPropagation()}
               >
                 <span>{lang === 'zh' ? '结束于' : 'End at'}</span>
-                {dayOffsetLabel && (
-                  <span className="rounded-full bg-secondary px-2 py-[1px] text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
-                    {dayOffsetLabel}
+                {startedDaysAgo > 0 && (
+                  <span className="inline-flex items-center gap-0.5 rounded-full bg-secondary px-1 py-[1px]">
+                    <button
+                      type="button"
+                      onClick={() => setEndDayOffset(Math.min(startedDaysAgo, effectiveEndDayOffset + 1))}
+                      disabled={effectiveEndDayOffset >= startedDaysAgo}
+                      className="flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30 disabled:hover:text-muted-foreground"
+                      aria-label={lang === 'zh' ? '往前一天' : 'Earlier day'}
+                    >
+                      <ChevronLeft size={12} />
+                    </button>
+                    <span className="min-w-[46px] text-center text-[10px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">
+                      {dayLabelForOffset(effectiveEndDayOffset)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setEndDayOffset(Math.max(0, effectiveEndDayOffset - 1))}
+                      disabled={effectiveEndDayOffset <= 0}
+                      className="flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30 disabled:hover:text-muted-foreground"
+                      aria-label={lang === 'zh' ? '往后一天' : 'Later day'}
+                    >
+                      <ChevronRight size={12} />
+                    </button>
                   </span>
                 )}
                 <input
@@ -667,20 +752,14 @@ export function FocusTimerOverlay({
               <p className="mt-1 text-[11px] leading-5 text-muted-foreground/65">
                 {lang === 'zh' ? '也可以继续计时。' : 'Or keep it running.'}
               </p>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => handleFinishAtSuggestion(false)}
-                  className="h-8 rounded-full bg-[hsl(var(--surface-contrast))] px-3 text-[11px] font-semibold text-foreground/80 border border-border/55 transition-colors hover:bg-[hsl(var(--surface-soft-hover))]"
-                >
-                  {lang === 'zh'
-                    ? `收在 ${dayOffsetLabel ? dayOffsetLabel + ' ' : ''}${forgottenEndInput || suggestedEndLabel}`
-                    : `End ${dayOffsetLabel ? dayOffsetLabel.toLowerCase() + ' ' : ''}${forgottenEndInput || suggestedEndLabel}`}
-                </button>
+              <div className="mt-2">
                 <button
                   onClick={() => handleFinishAtSuggestion(true)}
-                  className="h-8 rounded-full bg-primary px-3 text-[11px] font-semibold text-primary-foreground transition-colors hover:brightness-105"
+                  className="h-8 w-full rounded-full bg-primary px-3 text-[11px] font-semibold text-primary-foreground transition-colors hover:brightness-105"
                 >
-                  {lang === 'zh' ? '完成任务' : 'Complete'}
+                  {lang === 'zh'
+                    ? `完成于 ${startedDaysAgo > 0 ? dayLabelForOffset(effectiveEndDayOffset) + ' ' : ''}${forgottenEndInput || suggestedEndLabel}`
+                    : `Complete at ${startedDaysAgo > 0 ? dayLabelForOffset(effectiveEndDayOffset).toLowerCase() + ' ' : ''}${forgottenEndInput || suggestedEndLabel}`}
                 </button>
               </div>
             </div>

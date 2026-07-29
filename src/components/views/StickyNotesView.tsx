@@ -12,31 +12,54 @@ import { useProfile } from '@/hooks/useProfile';
 import { showUndoToast } from '@/lib/undoToast';
 import { SheetHeader, SheetEmptyState } from '@/components/sheet/SheetShell';
 
-// Warm, brand-aligned pastel palettes so sticky notes read as part of the
-// same cream/terracotta/sage world as the rest of the app — not bolted-on
-// generic Post-it colors. Still six distinct hues for differentiation.
-// `text` doubles as the currentColor source for borders/checkboxes/link tints,
-// so it stays a readable mid-tone of each hue.
+// Card palettes now reference tokens.css (--surface-<hue>-*), so each hue
+// gets a real light + dark variant instead of the previous light-only hex.
+// The hue itself still gives users a visual filing system (peach vs sage vs
+// cream…), but saturation stays warm-editorial and light/dark parity is
+// automatic — no more cream cards floating on pure-black canvas.
 const COLOR_PALETTES = [
-  { bg: 'bg-[#FCF3EC]', border: 'border-[#EBCFBE]', header: 'bg-[#F3DECB]', text: 'text-[#B66A47]' }, // Peach
-  { bg: 'bg-[#F1F7F2]', border: 'border-[#CFE2D8]', header: 'bg-[#DCEBE0]', text: 'text-[#4E8B6A]' }, // Sage
-  { bg: 'bg-[#FBF6E9]', border: 'border-[#E6DDC6]', header: 'bg-[#F0E6CC]', text: 'text-[#A8852F]' }, // Cream
-  { bg: 'bg-[#FBF0F0]', border: 'border-[#ECD2D2]', header: 'bg-[#F3DEDE]', text: 'text-[#B5687A]' }, // Rose
-  { bg: 'bg-[#F5F3FB]', border: 'border-[#D8D5EC]', header: 'bg-[#E6E2F5]', text: 'text-[#7565B3]' }, // Lavender
-  { bg: 'bg-[#EFF4F8]', border: 'border-[#CDDCE8]', header: 'bg-[#DCE7F0]', text: 'text-[#4E7C9B]' }, // Dusty blue
-];
-
-const ROTATE_POOLS = [
-  [1.2, -0.7, 1.8, -1.3, 0.5, -1.0, 0.8],
-  [-1.8, 0.9, -0.5, 1.4, -1.1, 0.6, -1.5],
-  [0.7, -1.6, 1.1, -0.8, 1.5, -0.4, 0.9],
+  {
+    bg: 'bg-[hsl(var(--surface-peach-shell-sticky))] dark:bg-[hsl(var(--surface-peach-shell-dark))]',
+    border: 'border-[hsl(var(--surface-peach-border))] dark:border-[hsl(var(--surface-peach-accent-dark)/0.22)]',
+    header: 'bg-[hsl(var(--surface-peach-header))] dark:bg-[hsl(var(--surface-peach-accent-dark)/0.18)]',
+    text: 'text-[hsl(var(--surface-peach-accent))] dark:text-[hsl(var(--surface-peach-accent-dark))]',
+  },
+  {
+    bg: 'bg-[hsl(var(--surface-sage-shell-sticky))] dark:bg-[hsl(var(--surface-sage-shell-dark))]',
+    border: 'border-[hsl(var(--surface-sage-border))] dark:border-[hsl(var(--surface-sage-accent-dark)/0.22)]',
+    header: 'bg-[hsl(var(--surface-sage-header))] dark:bg-[hsl(var(--surface-sage-accent-dark)/0.18)]',
+    text: 'text-[hsl(var(--surface-sage-accent))] dark:text-[hsl(var(--surface-sage-accent-dark))]',
+  },
+  {
+    bg: 'bg-[hsl(var(--surface-cream-shell-sticky))] dark:bg-[hsl(var(--surface-cream-shell-dark))]',
+    border: 'border-[hsl(var(--surface-cream-border))] dark:border-[hsl(var(--surface-cream-accent-dark)/0.22)]',
+    header: 'bg-[hsl(var(--surface-cream-header))] dark:bg-[hsl(var(--surface-cream-accent-dark)/0.18)]',
+    text: 'text-[hsl(var(--surface-cream-accent))] dark:text-[hsl(var(--surface-cream-accent-dark))]',
+  },
+  {
+    bg: 'bg-[hsl(var(--surface-rose-shell-sticky))] dark:bg-[hsl(var(--surface-rose-shell-dark))]',
+    border: 'border-[hsl(var(--surface-rose-border))] dark:border-[hsl(var(--surface-rose-accent-dark)/0.22)]',
+    header: 'bg-[hsl(var(--surface-rose-header))] dark:bg-[hsl(var(--surface-rose-accent-dark)/0.18)]',
+    text: 'text-[hsl(var(--surface-rose-accent))] dark:text-[hsl(var(--surface-rose-accent-dark))]',
+  },
+  {
+    bg: 'bg-[hsl(var(--surface-lavender-shell-sticky))] dark:bg-[hsl(var(--surface-lavender-shell-dark))]',
+    border: 'border-[hsl(var(--surface-lavender-border))] dark:border-[hsl(var(--surface-lavender-accent-dark)/0.22)]',
+    header: 'bg-[hsl(var(--surface-lavender-header))] dark:bg-[hsl(var(--surface-lavender-accent-dark)/0.18)]',
+    text: 'text-[hsl(var(--surface-lavender-accent))] dark:text-[hsl(var(--surface-lavender-accent-dark))]',
+  },
+  {
+    bg: 'bg-[hsl(var(--surface-dusty-blue-shell))] dark:bg-[hsl(var(--surface-dusty-blue-shell-dark))]',
+    border: 'border-[hsl(var(--surface-dusty-blue-border))] dark:border-[hsl(var(--surface-dusty-blue-accent-dark)/0.22)]',
+    header: 'bg-[hsl(var(--surface-dusty-blue-header))] dark:bg-[hsl(var(--surface-dusty-blue-accent-dark)/0.18)]',
+    text: 'text-[hsl(var(--surface-dusty-blue-accent))] dark:text-[hsl(var(--surface-dusty-blue-accent-dark))]',
+  },
 ];
 
 type Tab = { id: string; name: string; colorIndex: number };
 
 type StyleConfig = {
   bg: string; border: string; header: string; text: string;
-  rotate: number[];
   label: string; sublabel: string; notePlaceholder: string; addItem: string; confirmDelete: string;
 };
 
@@ -120,8 +143,6 @@ function NoteCard({
   const [linkDrafts, setLinkDrafts] = useState<Record<string, string>>({});
   const [addingLinkForId, setAddingLinkForId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  const rot = config.rotate[parseInt(note.id.slice(-4), 16) % config.rotate.length];
 
   const buildLinkPreview = async (rawValue: string): Promise<MomentLinkPreview | null> => {
     const url = normalizeUrl(rawValue);
@@ -266,17 +287,21 @@ function NoteCard({
   return (
     <div
       className={cn(
-        'group/card relative flex flex-col gap-2 rounded-sm shadow-md p-3 transition-transform duration-200 rotate-[var(--note-rot)] hover:scale-[1.02] hover:shadow-lg hover:z-10',
+        'group/card relative flex flex-col gap-2 rounded-lg shadow-sm p-3 transition-shadow duration-200 hover:shadow-md',
         config.bg, config.border, 'border',
       )}
-      style={{ '--note-rot': `${rot}deg` } as React.CSSProperties}
     >
-      {/* Tape strip */}
+      {/* Drag handle — a slim strip along the top edge, replaces the
+          skeuomorphic tape. Reads as a UI affordance, not a physical prop. */}
       <div
         draggable
         onDragStart={onHandleDragStart}
-        className={cn('absolute -top-2 left-1/2 -translate-x-1/2 w-8 h-4 rounded-sm opacity-60 cursor-grab active:cursor-grabbing', config.header)}
+        className={cn(
+          'absolute inset-x-3 top-0 h-1 rounded-full opacity-0 group-hover/card:opacity-60 hover:!opacity-100 cursor-grab active:cursor-grabbing transition-opacity',
+          config.header,
+        )}
         title="Drag to reorder"
+        aria-label="Drag to reorder"
       />
 
       {/* Title */}
@@ -291,21 +316,26 @@ function NoteCard({
               if (isEnterSubmit(e)) submitTitle();
               if (e.key === 'Escape') { setTitleDraft(note.title); setEditingTitle(false); }
             }}
-            className={cn('flex-1 text-[13px] font-semibold bg-transparent focus:outline-none border-b border-current/30', config.text)}
+            className={cn('flex-1 text-sm font-semibold bg-transparent focus:outline-none border-b border-current/30', config.text)}
           />
         ) : (
           <button
             onClick={() => { setEditingTitle(true); setTitleDraft(note.title); }}
-            className={cn('flex-1 text-left text-[13px] font-semibold leading-snug', config.text)}
+            className={cn('flex-1 text-left text-sm font-semibold leading-snug', config.text)}
           >
             {note.title}
           </button>
         )}
         <button
           onClick={() => onDelete()}
-          className={cn('flex-shrink-0 text-[9px] transition-colors mt-0.5', cn('opacity-30 hover:opacity-70', config.text))}
+          aria-label="Delete note"
+          className={cn(
+            'flex-shrink-0 -mr-1 -mt-1 p-1.5 rounded-full transition-colors',
+            'text-current/40 hover:text-current hover:bg-current/10',
+            config.text,
+          )}
         >
-          <X size={13} />
+          <X size={14} />
         </button>
       </div>
 
@@ -325,10 +355,11 @@ function NoteCard({
             : item.text;
           return (
             <div key={item.id} className="group/item">
-              <div className="flex items-start gap-1.5">
+              <div className="flex items-start gap-2">
                 <button
                   onClick={() => onToggleItem(item.id)}
-                  className={cn('flex-shrink-0 w-4 h-4 rounded-full border-[1.5px] flex items-center justify-center mt-0.5 transition-colors hover:bg-current/10', config.text, 'border-current/60')}
+                  aria-label="Toggle item"
+                  className={cn('flex-shrink-0 w-[18px] h-[18px] rounded-full border-[1.5px] flex items-center justify-center mt-[3px] transition-colors hover:bg-current/10', config.text, 'border-current/60')}
                 />
                 {editingItemId === item.id ? (
                   <input
@@ -340,79 +371,98 @@ function NoteCard({
                       if (isEnterSubmit(e)) submitItemEdit(item.id, item.text);
                       if (e.key === 'Escape') { setItemDraft(item.text); setEditingItemId(null); }
                     }}
-                    className={cn('flex-1 text-[12px] leading-snug bg-transparent focus:outline-none border-b border-current/20', config.text)}
+                    className={cn('flex-1 text-[13px] leading-snug bg-transparent focus:outline-none border-b border-current/20', config.text)}
                   />
                 ) : (
                   <button
                     onClick={() => { setEditingItemId(item.id); setItemDraft(item.text); }}
-                    className={cn('flex-1 text-left text-[12px] leading-snug', config.text)}
+                    className={cn('flex-1 text-left text-[13px] leading-snug', config.text)}
                   >
                     {itemDisplayText}
                   </button>
                 )}
-                {/* Expand toggle: always visible if has attachments, hover-only otherwise */}
+                {/* Expand toggle: always visible if has attachments, hover-only otherwise.
+                    sm: prefix keeps hover-only fade on pointer devices; on touch it stays
+                    at opacity-40 so the affordance is discoverable without hover. */}
                 <button
                   onClick={() => setExpandedItemId(prev => prev === item.id ? null : item.id)}
+                  aria-label="Links & images"
                   className={cn(
-                    'flex-shrink-0 transition-opacity relative',
+                    'flex-shrink-0 p-1 -m-1 rounded transition-opacity relative',
                     config.text,
                     hasAttachments
                       ? 'opacity-60 hover:opacity-100'
-                      : 'opacity-0 group-hover/item:opacity-35 hover:!opacity-70'
+                      : 'opacity-40 sm:opacity-0 sm:group-hover/item:opacity-40 hover:!opacity-80'
                   )}
                   title="Links & images"
                 >
                   {expandedItemId === item.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                   {hasAttachments && expandedItemId !== item.id && (
-                    <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-current opacity-80" />
+                    <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-current opacity-80" />
                   )}
                 </button>
                 <button
                   onClick={() => onDeleteItem(item.id)}
-                  className={cn('flex-shrink-0 opacity-0 group-hover/item:opacity-40 hover:!opacity-80 transition-opacity', config.text)}
+                  aria-label="Delete item"
+                  className={cn(
+                    'flex-shrink-0 p-1 -m-1 rounded transition-opacity',
+                    'opacity-40 sm:opacity-0 sm:group-hover/item:opacity-40 hover:!opacity-80 hover:text-destructive',
+                    config.text,
+                  )}
                 >
-                  <X size={12} />
+                  <X size={14} />
                 </button>
               </div>
               {expandedItemId === item.id && (
-                <div className="ml-[22px] mt-1.5 space-y-1.5">
+                <div className="ml-[26px] mt-1.5 space-y-1.5">
                   {hasAttachments && (
                     <div className="grid min-w-0 gap-1.5">
                       {(item.links || []).map(link => {
                         let domain = '';
                         try { domain = new URL(link.url).hostname.replace(/^www\./, ''); } catch {}
                         return (
-                          <div key={link.url} className={cn('group/link flex min-w-0 max-w-full items-center gap-2 rounded-[11px] bg-black/[0.055] px-2 py-1.5 transition-colors hover:bg-black/[0.08]', config.text)}>
-                            <img src={`https://www.google.com/s2/favicons?domain=${domain}&sz=24`} alt="" className="h-4 w-4 flex-shrink-0 rounded-[5px] bg-white/55 object-cover opacity-90" />
+                          <div key={link.url} className={cn('group/link flex min-w-0 max-w-full items-center gap-2 rounded-[11px] bg-current/[0.06] px-2 py-1.5 transition-colors hover:bg-current/[0.1]', config.text)}>
+                            <img
+                              src={`https://www.google.com/s2/favicons?domain=${domain}&sz=24`}
+                              alt=""
+                              loading="lazy"
+                              onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
+                              className="h-4 w-4 flex-shrink-0 rounded-[5px] bg-white/55 object-cover"
+                            />
                             <a href={link.url} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 hover:opacity-100">
-                              <span className="block truncate text-[11px] font-medium leading-none opacity-82">
+                              <span className="block truncate text-xs font-medium leading-tight">
                                 {link.title || domain}
                               </span>
-                              <span className="mt-0.5 block truncate text-[9.5px] leading-none opacity-35">
+                              <span className="mt-0.5 block truncate text-xs leading-tight opacity-55">
                                 {domain}
                               </span>
                             </a>
-                            <button onClick={() => onRemoveItemLink(item.id, link.url)} className="flex-shrink-0 opacity-35 transition-opacity hover:opacity-100">
-                              <X size={9} />
+                            <button
+                              onClick={() => onRemoveItemLink(item.id, link.url)}
+                              aria-label="Remove link"
+                              className="flex-shrink-0 p-1 -m-1 rounded opacity-40 transition-opacity hover:opacity-100"
+                            >
+                              <X size={12} />
                             </button>
                           </div>
                         );
                       })}
                       {(item.images || []).map((image, index) => (
-                        <div key={`${item.id}-image-${index}`} className="group relative w-full overflow-hidden rounded-xl border border-black/10">
+                        <div key={`${item.id}-image-${index}`} className="group relative w-full overflow-hidden rounded-xl border border-black/10 dark:border-white/10">
                           <button
                             onClick={() => onRemoveItemImage(item.id, image)}
-                            className="absolute right-1.5 top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-black/40 text-white hover:bg-black/60"
+                            aria-label="Remove image"
+                            className="absolute right-1.5 top-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70"
                           >
-                            <X size={10} />
+                            <X size={12} />
                           </button>
-                          <img src={image} alt="" className="h-[100px] w-full object-cover" />
+                          <img src={image} alt="" loading="lazy" className="h-[100px] w-full object-cover" />
                         </div>
                       ))}
                     </div>
                   )}
-                  <div className="flex min-w-0 items-center gap-1.5 rounded-[10px] bg-black/[0.025] px-2 py-1">
-                    <Link2 size={11} className={cn('flex-shrink-0 opacity-45', config.text)} />
+                  <div className="flex min-w-0 items-center gap-1.5 rounded-[10px] bg-current/[0.04] px-2 py-1.5">
+                    <Link2 size={12} className={cn('flex-shrink-0 opacity-55', config.text)} />
                     <input
                       value={linkDrafts[item.id] || ''}
                       onChange={e => setLinkDrafts(prev => ({ ...prev, [item.id]: e.target.value }))}
@@ -421,14 +471,15 @@ function NoteCard({
                         if (isEnterSubmit(e)) { e.preventDefault(); void submitItemLink(item.id); }
                       }}
                       placeholder={(item.links?.length || 0) > 0 ? 'Paste another link...' : 'Paste a link...'}
-                      className={cn('min-w-0 flex-1 bg-transparent text-[10.5px] focus:outline-none placeholder:opacity-30', config.text)}
+                      className={cn('min-w-0 flex-1 bg-transparent text-xs focus:outline-none placeholder:opacity-40', config.text)}
                     />
                     <button
                       onClick={() => void submitItemLink(item.id)}
                       disabled={addingLinkForId === item.id || !(linkDrafts[item.id] || '').trim()}
-                      className={cn('opacity-45 disabled:opacity-20 hover:opacity-90 transition-opacity', config.text)}
+                      aria-label="Add link"
+                      className={cn('p-1 -m-1 rounded opacity-55 disabled:opacity-25 hover:opacity-90 transition-opacity', config.text)}
                     >
-                      <Plus size={12} />
+                      <Plus size={14} />
                     </button>
                   </div>
                 </div>
@@ -439,25 +490,27 @@ function NoteCard({
 
         {/* Done items */}
         {doneItems.map(item => (
-          <div key={item.id} className="opacity-40 group/item">
-            <div className="flex items-start gap-1.5">
+          <div key={item.id} className="opacity-45 group/item">
+            <div className="flex items-start gap-2">
               <button
                 onClick={() => onToggleItem(item.id)}
-                className={cn('flex-shrink-0 w-4 h-4 rounded-full border flex items-center justify-center mt-0.5', config.text, 'border-current/50 bg-current/10')}
+                aria-label="Toggle item"
+                className={cn('flex-shrink-0 w-[18px] h-[18px] rounded-full border flex items-center justify-center mt-[3px]', config.text, 'border-current/50 bg-current/10')}
               >
-                <Check size={8} className={config.text} />
+                <Check size={10} className={config.text} />
               </button>
               <button
                 onClick={() => { setEditingItemId(item.id); setItemDraft(item.text); }}
-                className={cn('flex-1 text-left text-[12px] leading-snug line-through', config.text)}
+                className={cn('flex-1 text-left text-[13px] leading-snug line-through', config.text)}
               >
                 {item.text}
               </button>
               <button
                 onClick={() => onDeleteItem(item.id)}
-                className={cn('flex-shrink-0 opacity-0 group-hover/item:opacity-60 transition-opacity', config.text)}
+                aria-label="Delete item"
+                className={cn('flex-shrink-0 p-1 -m-1 rounded opacity-0 sm:group-hover/item:opacity-60 transition-opacity', config.text)}
               >
-                <X size={12} />
+                <X size={14} />
               </button>
             </div>
           </div>
@@ -473,14 +526,15 @@ function NoteCard({
           onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => { if (isEnterSubmit(e)) submitItem(); }}
           onPaste={(e) => { void handleAddItemPaste(e); }}
           placeholder={config.addItem}
-          className={cn('flex-1 text-[11px] bg-transparent focus:outline-none placeholder:opacity-35', config.text)}
+          className={cn('flex-1 text-xs bg-transparent focus:outline-none placeholder:opacity-45', config.text)}
         />
         <button
           onClick={submitItem}
           disabled={!draft.trim()}
-          className={cn('w-5 h-5 rounded-full flex items-center justify-center transition-all disabled:opacity-20', config.header, config.text)}
+          aria-label="Add item"
+          className={cn('w-6 h-6 rounded-full flex items-center justify-center transition-all disabled:opacity-25', config.header, config.text)}
         >
-          <Plus size={12} />
+          <Plus size={14} />
         </button>
       </div>
     </div>
@@ -546,11 +600,9 @@ export function StickyNotesView() {
 
   const activeTab = tabs.find(t => t.id === activeTabId) ?? tabs[0];
   const palette = activeTab ? COLOR_PALETTES[activeTab.colorIndex % COLOR_PALETTES.length] : COLOR_PALETTES[0];
-  const rotatePool = ROTATE_POOLS[activeTab ? tabs.indexOf(activeTab) % ROTATE_POOLS.length : 0];
 
   const config: StyleConfig = {
     ...palette,
-    rotate: rotatePool,
     label: activeTab?.name ?? '',
     sublabel: '',
     notePlaceholder: `New note in ${activeTab?.name ?? 'this tab'}…`,
@@ -628,8 +680,8 @@ export function StickyNotesView() {
                   }}
                   onDragEnd={() => setDraggedTabId(null)}
                   className={cn(
-                    'group/tab flex items-center gap-1 rounded-full border transition-all cursor-grab active:cursor-grabbing',
-                    isActive ? cn(pal.bg, pal.border, pal.text, 'shadow-sm px-2 py-1') : 'text-muted-foreground border-border bg-card hover:text-foreground px-2.5 py-1',
+                    'group/tab flex items-center gap-1.5 rounded-full border transition-all cursor-grab active:cursor-grabbing px-2.5 py-1',
+                    isActive ? cn(pal.bg, pal.border, pal.text, 'shadow-sm') : 'text-muted-foreground border-border bg-card hover:text-foreground',
                     draggedTabId === tab.id && 'opacity-50'
                   )}
                 >
@@ -638,6 +690,7 @@ export function StickyNotesView() {
                     onClick={() => handleCycleColor(tab.id)}
                     className={cn('w-2 h-2 rounded-full flex-shrink-0', pal.header)}
                     title={lang === 'zh' ? '点击切换颜色' : 'Click to change color'}
+                    aria-label={lang === 'zh' ? '切换颜色' : 'Change color'}
                   />
                   {/* Tab name — click to activate, double-click to rename */}
                   {editingTabId === tab.id ? (
@@ -663,19 +716,19 @@ export function StickyNotesView() {
                     </button>
                   )}
                   {count > 0 && (
-                    <span className={cn('text-[10px] font-semibold min-w-[14px] text-center', isActive ? '' : 'text-muted-foreground')}>
+                    <span className={cn('text-xs font-semibold min-w-[16px] text-center tabular-nums', isActive ? '' : 'text-muted-foreground')}>
                       {count}
                     </span>
                   )}
-                  {/* Delete tab — show on hover */}
+                  {/* Delete tab — show on hover on pointer devices, always visible on touch */}
                   {tabs.length > 1 && (
                     <button
                       onClick={e => { e.stopPropagation(); handleDeleteTab(tab.id); }}
-                      className={cn('opacity-0 group-hover/tab:opacity-40 hover:!opacity-80 transition-opacity flex-shrink-0', isActive ? pal.text : 'text-muted-foreground')}
+                      className={cn('p-0.5 -m-0.5 rounded transition-opacity flex-shrink-0 opacity-40 sm:opacity-0 sm:group-hover/tab:opacity-40 hover:!opacity-80', isActive ? pal.text : 'text-muted-foreground')}
                       title={lang === 'zh' ? '删除标签' : 'Delete tab'}
                       aria-label={lang === 'zh' ? '删除标签' : 'Delete tab'}
                     >
-                      <X size={10} />
+                      <X size={12} />
                     </button>
                   )}
                 </div>
@@ -684,10 +737,10 @@ export function StickyNotesView() {
             {/* Add tab */}
             <button
               onClick={handleAddTab}
-              className="flex items-center gap-1 px-2 py-1 rounded-full border border-dashed border-border text-[11px] text-muted-foreground/50 hover:text-muted-foreground hover:border-border/80 transition-colors"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full border border-dashed border-border text-xs text-muted-foreground/60 hover:text-muted-foreground hover:border-border/80 transition-colors"
               aria-label={lang === 'zh' ? '新建标签' : 'New tab'}
             >
-              <Plus size={11} />
+              <Plus size={12} />
             </button>
           </div>
         }
@@ -703,10 +756,7 @@ export function StickyNotesView() {
             hint={lang === 'zh' ? '在下方输入便签名,按 Enter 创建。' : 'Type a note name below and press Enter to create one.'}
           />
         ) : (
-          <div
-            className="[column-gap:1.25rem] [column-width:230px]"
-            style={{ columnFill: 'balance' }}
-          >
+          <div className="[column-gap:1.25rem] [column-width:260px]">
             {filtered.map(note => {
               return (
                 <div

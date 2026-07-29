@@ -448,12 +448,15 @@ export type Database = {
           habit_category: string | null
           id: string
           is_completed: boolean
+          is_recurring: boolean
           links: Json | null
           parent_due_id: string | null
           photos: string[]
           plan_ended_at: string | null
           plan_started_at: string | null
           progress: number
+          promoted_to_habit_id: string | null
+          recurrence_source_id: string | null
           show_in_recap_daily: boolean
           sort_order: number
           tags: string[]
@@ -472,12 +475,15 @@ export type Database = {
           habit_category?: string | null
           id?: string
           is_completed?: boolean
+          is_recurring?: boolean
           links?: Json | null
           parent_due_id?: string | null
           photos?: string[]
           plan_ended_at?: string | null
           plan_started_at?: string | null
           progress?: number
+          promoted_to_habit_id?: string | null
+          recurrence_source_id?: string | null
           show_in_recap_daily?: boolean
           sort_order?: number
           tags?: string[]
@@ -496,12 +502,15 @@ export type Database = {
           habit_category?: string | null
           id?: string
           is_completed?: boolean
+          is_recurring?: boolean
           links?: Json | null
           parent_due_id?: string | null
           photos?: string[]
           plan_ended_at?: string | null
           plan_started_at?: string | null
           progress?: number
+          promoted_to_habit_id?: string | null
+          recurrence_source_id?: string | null
           show_in_recap_daily?: boolean
           sort_order?: number
           tags?: string[]

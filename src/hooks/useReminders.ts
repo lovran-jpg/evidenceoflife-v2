@@ -45,7 +45,7 @@ export function useReminders() {
     if (!canUseDb || !user) return;
     setLoading(true);
     try {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('reminders')
         .select('*')
         .eq('user_id', user.id)
@@ -77,7 +77,7 @@ export function useReminders() {
 
     const packedDescription = `${TYPE_PREFIX}${reminderType}] ${description || ''}`.trim();
 
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from('reminders')
       .insert({
         user_id: user.id,
@@ -109,7 +109,7 @@ export function useReminders() {
   ) => {
     if (!canUseDb || !user) return null;
     const packedDescription = `${TYPE_PREFIX}${reminderType}] ${description || ''}`.trim();
-    const { data, error } = await (supabase as any)
+    const { data, error } = await supabase
       .from('reminders')
       .insert({
         user_id: user.id,
@@ -134,7 +134,7 @@ export function useReminders() {
 
   const deleteReminder = useCallback(async (id: string) => {
     if (!canUseDb) return;
-    await (supabase as any).from('reminders').delete().eq('id', id);
+    await supabase.from('reminders').delete().eq('id', id);
     setReminders(prev => prev.filter(r => r.id !== id));
   }, [canUseDb]);
 
@@ -142,7 +142,7 @@ export function useReminders() {
     const reminder = reminders.find(r => r.id === id);
     if (!reminder || !canUseDb) return;
     const newActive = !reminder.is_active;
-    await (supabase as any).from('reminders').update({ is_active: newActive }).eq('id', id);
+    await supabase.from('reminders').update({ is_active: newActive }).eq('id', id);
     setReminders(prev => prev.map(r => r.id === id ? { ...r, is_active: newActive } : r));
   }, [reminders, canUseDb]);
 
@@ -151,11 +151,14 @@ export function useReminders() {
     if (!canUseDb || !user || reminders.length === 0) return;
 
     const tick = async () => {
+      if (document.visibilityState !== 'visible') return;
       const now = new Date();
+      let firedAny = false;
       for (const r of reminders) {
         if (!r.is_active) continue;
         const due = new Date(r.next_reminder_at);
         if (due > now) continue;
+        firedAny = true;
 
         const type = r.reminder_type || 'browser';
         const message = r.description || r.title;
@@ -186,7 +189,7 @@ export function useReminders() {
         const nextAt = new Date(now);
         nextAt.setDate(nextAt.getDate() + Math.max(1, r.interval_days));
 
-        await (supabase as any)
+        await supabase
           .from('reminders')
           .update({
             last_reminded_at: now.toISOString(),
@@ -195,7 +198,7 @@ export function useReminders() {
           .eq('id', r.id);
       }
 
-      fetchReminders();
+      if (firedAny) fetchReminders();
     };
 
     const timer = window.setInterval(() => {

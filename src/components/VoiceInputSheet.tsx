@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { Mic, MicOff, X, Loader2, ArrowRight, ChevronDown, ChevronUp, Check, Calendar, Repeat, Clock } from 'lucide-react';
+import { Mic, Square, X, Loader2, ArrowRight, ChevronDown, ChevronUp, Check, Calendar, Repeat, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -42,6 +42,41 @@ interface ChatMessage {
   queryAnswer?: string;
 }
 
+interface SimpleSpeechRecognitionAlternative {
+  transcript: string;
+}
+
+interface SimpleSpeechRecognitionResult {
+  isFinal: boolean;
+  0: SimpleSpeechRecognitionAlternative;
+}
+
+interface SimpleSpeechRecognitionEvent {
+  resultIndex: number;
+  results: ArrayLike<SimpleSpeechRecognitionResult>;
+}
+
+interface SimpleSpeechRecognitionErrorEvent {
+  error?: string;
+}
+
+interface SimpleSpeechRecognition {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onresult: ((event: SimpleSpeechRecognitionEvent) => void) | null;
+  onend: (() => void) | null;
+  onerror: ((event: SimpleSpeechRecognitionErrorEvent) => void) | null;
+  start: () => void;
+  stop: () => void;
+}
+
+type SpeechRecognitionCtor = new () => SimpleSpeechRecognition;
+type SpeechCapableWindow = Window & {
+  SpeechRecognition?: SpeechRecognitionCtor;
+  webkitSpeechRecognition?: SpeechRecognitionCtor;
+};
+
 const FILLER_WORDS_RE = /[，。]?\s*(?:嗯|啊|呃|ne|那个|就是说|就是|然后呢|然后|好的|对的|对|额|哦|哎|呢)+[，。]?\s*/gi;
 
 function cleanFillerWords(text: string): string {
@@ -66,10 +101,11 @@ export function VoiceInputSheet({ open, onOpenChange, onAddMoment, onAddTodo, on
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showOriginalId, setShowOriginalId] = useState<string | null>(null);
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SimpleSpeechRecognition | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const accumulatedRef = useRef('');
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startListeningRef = useRef<() => void>(() => {});
   const conversationHistoryRef = useRef<ConversationEntry[]>([]);
   const isSupported = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
 
@@ -80,7 +116,7 @@ export function VoiceInputSheet({ open, onOpenChange, onAddMoment, onAddTodo, on
       setInterimText('');
       accumulatedRef.current = '';
       conversationHistoryRef.current = [];
-      setTimeout(() => startListeningInternal(), 100);
+      setTimeout(() => startListeningRef.current(), 100);
     } else {
       recognitionRef.current?.stop();
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
@@ -210,14 +246,19 @@ export function VoiceInputSheet({ open, onOpenChange, onAddMoment, onAddTodo, on
 
   const startListeningInternal = useCallback(() => {
     if (!isSupported) { toast.error('你的浏览器不支持语音识别'); return; }
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const speechWindow = window as SpeechCapableWindow;
+    const SpeechRecognition = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast.error('你的浏览器不支持语音识别');
+      return;
+    }
     const recognition = new SpeechRecognition();
     recognition.lang = 'zh-CN';
     recognition.continuous = true;
     recognition.interimResults = true;
     accumulatedRef.current = '';
 
-    recognition.onresult = (event: any) => {
+    recognition.onresult = (event: SimpleSpeechRecognitionEvent) => {
       let interim = '';
       let finalText = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -245,13 +286,15 @@ export function VoiceInputSheet({ open, onOpenChange, onAddMoment, onAddTodo, on
 
     recognition.onend = () => {
       if (accumulatedRef.current && recognitionRef.current) {
-        try { recognition.start(); return; } catch { }
+        try { recognition.start(); return; } catch {
+          // Restart can fail when browser speech service is not ready.
+        }
       }
       setIsListening(false);
       recognitionRef.current = null;
     };
 
-    recognition.onerror = (e: any) => {
+    recognition.onerror = (e: SimpleSpeechRecognitionErrorEvent) => {
       if (e.error === 'no-speech') return;
       setIsListening(false);
       recognitionRef.current = null;
@@ -261,6 +304,10 @@ export function VoiceInputSheet({ open, onOpenChange, onAddMoment, onAddTodo, on
     recognition.start();
     setIsListening(true);
   }, [isSupported, stopListening]);
+
+  useEffect(() => {
+    startListeningRef.current = startListeningInternal;
+  }, [startListeningInternal]);
 
   const toggleListening = useCallback(() => {
     if (isListening) stopListening();
@@ -331,10 +378,22 @@ export function VoiceInputSheet({ open, onOpenChange, onAddMoment, onAddTodo, on
   };
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[85vh]">
+    <Drawer open={open} onOpenChange={onOpenChange} shouldScaleBackground={false}>
+      <DrawerContent className="max-h-[80vh]" overlayClassName="bg-black/45">
         <DrawerTitle className="sr-only">语音输入</DrawerTitle>
-        <div className="flex flex-col px-4 pb-4 pt-2" style={{ maxHeight: 'calc(85vh - 40px)' }}>
+        <div className="flex flex-col px-4 pb-4 pt-2" style={{ maxHeight: 'calc(80vh - 40px)' }}>
+          {/* Header: label + explicit close so the sheet is obviously dismissible */}
+          <div className="flex items-center justify-between pb-1.5">
+            <span className="text-[13px] font-medium text-muted-foreground">{t('chatbot.title') || '语音输入'}</span>
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              aria-label="Close"
+              className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <X size={16} />
+            </button>
+          </div>
           {/* Chat messages */}
           <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-2 min-h-0 max-h-[50vh] pb-2">
             {chatMessages.map(msg => {
@@ -546,13 +605,16 @@ export function VoiceInputSheet({ open, onOpenChange, onAddMoment, onAddTodo, on
               }}
             />
             <button onClick={toggleListening}
+              type="button"
+              aria-label={isListening ? (t('chatbot.stopListening') || 'Stop listening') : (t('chatbot.startListening') || 'Start voice input')}
+              title={isListening ? (t('chatbot.stopListening') || 'Stop listening') : (t('chatbot.startListening') || 'Start voice input')}
               className={cn(
                 "flex items-center justify-center w-10 h-10 rounded-full transition-all",
                 isListening
                   ? "bg-destructive text-destructive-foreground animate-pulse"
                   : "border border-border hover:border-primary/30 text-muted-foreground hover:text-foreground"
               )}>
-              {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+              {isListening ? <Square size={14} className="fill-current" /> : <Mic size={16} />}
             </button>
           </div>
         </div>
