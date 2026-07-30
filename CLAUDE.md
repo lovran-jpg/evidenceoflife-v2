@@ -148,7 +148,7 @@ supabase/
 
 <!-- 每轮 agent 在这里覆写。格式：3 行 markdown。 -->
 
-- **做了啥**：完成 Idea001 的最后一条 `优先级对齐提示`：`TodayView.tsx` 在 recap 区新增 `Priority Alignment` 提示卡，直接把当天 todo 的 `sort_order` 当作优先级代理，比较前 2 个任务拿到了多少任务计时，并提示前排是否真正启动/被后排分流。
-- **卡在哪**：无功能阻塞。验收链路通过（`tsc 0 / vitest 180 / build`）；构建仍只有历史性 chunk > 500kB warning。浏览器自动化里的普通 locator click/scroll 仍偶发稳定性问题，这轮继续用 JS click + 文本快照完成真机验证。
-- **下一步**：Idea001 与 Idea002 backlog 都已全部打勾。下一轮先回 `tasks.md` Queue 看是否还有新任务；若 Queue 为空，就按 `CLAUDE.md` 规则检查 `tasks.md ## Notes` 是否还有未拆的新备忘，否则报“队列空、收工”。
+- **做了啥**：继续从递延项推进，完成 `StickyNotesView 第六刀`（hover-only 操作在键盘焦点态可见）：item 展开/删除、done 删除、tab 删除按钮都补 `sm:group-focus-within:*:opacity-100`，让键盘导航时隐藏操作不再只依赖 hover。只改 `src/components/views/StickyNotesView.tsx`。
+- **卡在哪**：无阻塞。验收链路通过（`npx tsc --noEmit -p tsconfig.app.json` 退出 0，`npm test -- --run`=22/180 通过，`npm run build` 通过）；仍仅有历史性 chunk > 500kB warning。`http://localhost:8080/demo-app` Notes 面板已真机截图核对，tab 行删除 X 可见性提升。
+- **下一步**：若继续 `go`，可做 StickyNotes 下一刀：把 item 区隐藏操作在无 hover 的 keyboard 路径下做更明显的状态过渡（例如 focus-within 时提高 text alpha），并补一轮对比度复核。
 

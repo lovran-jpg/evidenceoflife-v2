@@ -7,6 +7,114 @@
 
 ## Queue
 
+- [x] [P2][done] **polish(StickyNotesView 第六刀): hover-only 操作在键盘焦点态可见**
+  - 来源：第五刀后的递延项（keyboard discoverability）。目标：保持 pointer 端 hover 语义，同时让键盘导航时隐藏操作可见
+  - 动作：仅改 `src/components/views/StickyNotesView.tsx`
+    - item 的展开按钮/删除按钮新增 `sm:group-focus-within/item:opacity-100`
+    - done item 删除按钮新增 `sm:group-focus-within/item:opacity-100`
+    - tab 删除按钮新增 `sm:group-focus-within/tab:opacity-100`
+    - 不改交互逻辑，仅补可见性触发条件
+  - 验收：
+    - `rg -n "group-focus-within/item:opacity-100|group-focus-within/tab:opacity-100" src/components/views/StickyNotesView.tsx` 命中新规则
+    - `npx tsc --noEmit -p tsconfig.app.json` 通过
+    - `npm test -- --run` 通过
+    - `npm run build` 通过
+    - Browser 真机：`http://localhost:8080/demo-app` Notes 面板截图可见 tab 删除操作在当前态可发现
+  - 范围限制：只动 `StickyNotesView.tsx` 与台账；不动 schema/hooks/tokens
+  - **验收输出**：
+    - `rg -n "group-focus-within/item:opacity-100|group-focus-within/tab:opacity-100" src/components/views/StickyNotesView.tsx`：**4** 处命中
+    - `npx tsc --noEmit -p tsconfig.app.json`：退出 0
+    - `npm test -- --run`：**22 files / 180 tests passed**
+    - `npm run build`：✓ built in 11.98s（仅预存 chunk > 500kB warning）
+    - Browser 真机：Notes 面板截图已核对（tab 行删除 X 在当前态可见，键盘可发现性提升）
+
+- [x] [P2][done] **polish(StickyNotesView 第五刀): 字号语义化收敛**
+  - 来源：第四刀完成后的递延项（Typography maintainability）。目标：不改视觉值，只把分散字号 class 收敛到语义常量，降低后续改版成本
+  - 动作：仅改 `src/components/views/StickyNotesView.tsx`
+    - 新增 `STICKY_TYPE` 语义字号常量（`noteTitle` / `itemBody` / `meta` / `tabLabel` / `tabCount` / `composer`）
+    - 将标题、正文、辅助文本、tab 名称与计数、底部新建输入的字号类统一改为常量引用
+    - 保留现有字号值（`text-sm`、`text-[13px]`、`text-xs`）不变，避免视觉漂移
+  - 验收：
+    - `rg -n "STICKY_TYPE" src/components/views/StickyNotesView.tsx` 命中新常量与调用点
+    - `npx tsc --noEmit -p tsconfig.app.json` 通过
+    - `npm test -- --run` 通过
+    - `npm run build` 通过
+    - Browser 真机：`http://localhost:8080/demo-app` Notes 面板截图与上一刀相比无异常漂移
+  - 范围限制：只动 `StickyNotesView.tsx` 与台账；不改 schema/hooks/tokens；不改交互结构
+  - **验收输出**：
+    - `git diff --stat src/components/views/StickyNotesView.tsx`：`+67 / -41`（1 file changed）
+    - `rg -n "STICKY_TYPE|text-\[11px\]|text-\[13px\]|text-xs|text-sm" src/components/views/StickyNotesView.tsx`：`STICKY_TYPE` 定义 + 多处引用命中；`text-[11px]` 已清零
+    - `npx tsc --noEmit -p tsconfig.app.json`：退出 0
+    - `npm test -- --run`：**22 files / 180 tests passed**
+    - `npm run build`：✓ built in 10.10s（仅预存 chunk > 500kB warning）
+    - Browser 真机：Notes 面板截图已核对（视觉稳定，无字体级别意外变化）
+
+- [x] [P2][done] **polish(StickyNotesView 第四刀): keyboard focus 可见性强化**
+  - 来源：`StickyNotesView` 递延项（a11y/键盘可用性）。第三刀触控靶放大后，本轮补齐 `focus-visible` 可见反馈，避免 `focus:outline-none` 下键盘用户失去位置感
+  - 动作：仅改 `src/components/views/StickyNotesView.tsx`
+    - NoteCard 内新增统一 `focusRing` / `focusField` class 常量，覆盖 title/item/link/add 等按钮与输入
+    - 卡片容器增加 `focus-within:ring-2`，底部新建条增加 `focus-within:ring-2`
+    - tabs 与 Add tab / Add note 按钮引入 `shellFocusRing`，键盘 Tab 时有稳定 halo
+    - 保持现有布局与数据流，不动 hooks/schema/tokens
+  - 验收：
+    - `rg -n "focus-visible:ring|focus-within:ring" src/components/views/StickyNotesView.tsx` 命中新增焦点样式
+    - `npx tsc --noEmit -p tsconfig.app.json` 通过
+    - `npm test -- --run` 通过
+    - `npm run build` 通过
+    - Browser 真机：`http://localhost:8080/demo-app` Notes 面板中，键盘 Tab 后 tab 名称按钮可见焦点环
+  - 范围限制：只动 `StickyNotesView.tsx` 与台账；不改视觉主题、不改信息架构
+  - **验收输出**：
+    - `git diff --stat src/components/views/StickyNotesView.tsx`：`+56 / -40`（1 file changed）
+    - `rg -n "focus-visible:ring|focus-within:ring" src/components/views/StickyNotesView.tsx | Measure-Object`：`focus-ring hits: 5`
+    - `npx tsc --noEmit -p tsconfig.app.json`：退出 0
+    - `npm test -- --run`：**22 files / 180 tests passed**
+    - `npm run build`：✓ built in 8.27s（仅预存 chunk > 500kB warning）
+    - Browser 真机：Notes 面板截图已核对（Tab 后 `When I'm Free` 名称按钮出现清晰焦点环）
+
+- [x] [P2][done] **polish(StickyNotesView 第三刀): 触控靶放大（密度友好版）**
+  - 来源：`StickyNotesView redesign 第一刀` 递延项中的 `44pt 触控靶`，先做不破版面的密度友好版本
+  - 动作：仅改 `src/components/views/StickyNotesView.tsx`
+    - item checkbox `18px -> 20px`（active/done 两处）
+    - item 行操作（展开/删除）从 `p-1 -m-1` 升到 `p-2 -m-2`
+    - link 行操作（移除/新增）从 `p-1 -m-1` 升到 `p-1.5 -m-1.5`
+    - note 顶部删除按钮 `p-1.5 -> p-2`；底部 Add item 按钮 `6x6 -> 8x8`
+    - tabs 提升到 `min-h-9`；颜色点由 2px 纯点改为 `7x7` 可点击圆按钮内嵌 2.5px 色点；tab 删除按钮命中区扩大
+  - 验收：
+    - `grep -nE "h-5 w-5|p-2 -m-2|p-1.5 -m-1.5|min-h-9|h-8 w-8" src/components/views/StickyNotesView.tsx` 命中新增触控靶类
+    - `npx tsc --noEmit -p tsconfig.app.json` 通过
+    - `npm test -- --run` 通过
+    - `npm run build` 通过
+    - Browser 真机：`http://localhost:8080/demo-app` 的 Notes 面板布局未挤坏，tab/按钮可点区域显著增大
+  - 范围限制：不改 schema / hooks API；不动 tokens.css；不改信息架构
+  - **验收输出**：
+    - `grep -nE "h-5 w-5|p-2 -m-2|p-1.5 -m-1.5|min-h-9|h-8 w-8" src/components/views/StickyNotesView.tsx`：**13** 处命中
+    - `npx tsc --noEmit -p tsconfig.app.json`：`TSC_OK`
+    - `npm test -- --run`：**22 files / 180 tests passed**
+    - `npm run build`：✓ built in 10.24s（仅预存 chunk > 500kB warning）
+    - `git diff --stat src/components/views/StickyNotesView.tsx`：`+40 / -31`（1 file changed）
+    - Browser 真机：Notes 面板截图已核对（触控靶增大后版面保持稳定）
+
+- [x] [P2][done] **polish(StickyNotesView 第二刀): opacity 语义化 + tabs 活跃态增强**
+  - 来源：`StickyNotesView redesign 第一刀` 的递延项（P2-07 opacity 淡化语义 + tabs 活动态可读性）
+  - 动作：仅改 `src/components/views/StickyNotesView.tsx`
+    - 把文本可读性相关的整体 `opacity-*` 淡化改为 `text-current/*` 与 `placeholder:text-current/*`（保留 hover 显隐所需的 `opacity-0 -> opacity-100`）
+    - Done item 去掉整行 `opacity-45`，改为文字/图标单独 alpha，避免整块一起发灰
+    - tabs 行加容器底板（`rounded-2xl border bg-card/60`），active tab 增 `ring-1 ring-current/15`，count 改为胶囊数字，提升暗色下状态辨识
+  - 验收：
+    - `grep -nE "placeholder:opacity-|\bopacity-45\b|\bopacity-55\b" src/components/views/StickyNotesView.tsx` 无命中
+    - `npx tsc --noEmit -p tsconfig.app.json` 通过
+    - `npm test -- --run` 通过
+    - `npm run build` 通过
+    - Browser 真机：`http://localhost:8080/demo-app` 打开 Notes，看到 tabs 新底板 + active ring + 更清晰计数胶囊
+  - 范围限制：不改 schema / hooks API；不动 tokens.css；只做 Notes 视图二次 polish
+  - **验收输出**：
+    - `grep -nE "placeholder:opacity-|\bopacity-45\b|\bopacity-55\b" src/components/views/StickyNotesView.tsx`：**0** 命中
+    - `npx tsc --noEmit -p tsconfig.app.json`：`TSC_OK`
+    - `npm test -- --run`：**22 files / 180 tests passed**
+    - `npm run build`：✓ built in 9.73s（仅预存 chunk > 500kB warning）
+    - `git diff --stat`：`StickyNotesView.tsx | 57`（**+32 / -25**）
+    - Browser 真机：Notes 面板截图已核对（tabs 顶部容器底板、active ring、计数胶囊已生效）
+
 - [x] [P3][done] **feature(Idea001): Today recap 补 priority alignment 提示**
   - 来源：Idea Backlog 001 最后一条切片 `优先级对齐提示`
   - 动作：不新增 schema；直接把 Today 当天 todo 的 `sort_order` 视为现成优先级代理，在 `TodayView.tsx` 的 recap 区给一条简短 alignment 提示，判断前排任务是否真正拿到了当天任务计时
@@ -589,6 +697,26 @@
     - Timeline block（PlanTimelineView）本轮未挂，用户明确说"先做 tasklist"
 
 ## Roundtable
+
+- `[07-29] Reviewer→Builder: 放行 polish(StickyNotesView 第六刀)——hover-only 操作已补键盘焦点态可见：item/tab 的隐藏删除/展开按钮新增 group-focus-within 触发，机检 tsc 0 / vitest 180 / build 通过，真机截图可见 tab 删除 X 的可发现性提升。范围克制：仅 StickyNotesView，准予 [done]。`
+- `[07-29] Builder→Reviewer: polish(StickyNotesView 第六刀) 完成——只动 StickyNotesView：在 hover-only 控件加 group-focus-within 显隐，保持鼠标端行为不变并补齐键盘可发现性。demo-app Notes 面板已截图复核。请核对验收链路与范围。`
+- `[07-29] Planner→Designer: 第五刀后继续收口可用性细节，优先补 hover-only 控件在 keyboard 路径下的可发现性，避免“只有悬浮才看得见”问题。`
+
+- `[07-29] Reviewer→Builder: 放行 polish(StickyNotesView 第五刀)——字号语义化已收口：新增 STICKY_TYPE 并把 title/body/meta/tab/composer 的字号 class 集中管理，视觉值保持不变，真机截图无漂移。机检链路 tsc 0 / vitest 180 / build 通过。范围克制：仅 StickyNotesView，准予 [done]。`
+- `[07-29] Builder→Reviewer: polish(StickyNotesView 第五刀) 完成——只动 StickyNotesView：把分散的 text-sm/text-xs/text-[13px] 收敛到 STICKY_TYPE 语义常量，便于后续统一调字号；未改交互结构与主题。demo-app Notes 面板已截图复核。请核对验收链路与范围。`
+- `[07-29] Planner→Designer: 第四刀完成后继续做低风险维护性优化，先把 StickyNotes 字号从散点类名收敛成语义常量，保证下一轮调字级只改一处。`
+
+- `[07-29] Reviewer→Builder: 放行 polish(StickyNotesView 第四刀)——键盘焦点可见性已收口：NoteCard 内交互控件与 tabs/新增按钮补齐 focus-visible ring，卡片与底部输入条有 focus-within ring，且真机截图确认 Tab 后焦点环可辨。机检链路 tsc 0 / vitest 180 / build 通过。范围克制：仅 StickyNotesView，准予 [done]。`
+- `[07-29] Builder→Reviewer: polish(StickyNotesView 第四刀) 完成——只动 StickyNotesView：新增统一 focusRing/focusField/shellFocusRing，修复 focus:outline-none 场景下键盘定位弱的问题；布局和主题未改。demo-app Notes 面板已用键盘 Tab 截图复核焦点环。请核对验收链路与范围。`
+- `[07-29] Planner→Designer: Queue 清空后继续拆 StickyNotes 递延项，先补低风险高收益的 keyboard focus 可见性，优先可用性不做视觉大改。`
+
+- `[07-29] Reviewer→Builder: 放行 polish(StickyNotesView 第三刀)——触控靶放大已收口：item 与 tab 的高频操作按钮命中区整体上调（p-2/-m-2、p-1.5/-m-1.5、min-h-9、h-8 w-8），且 Notes 面板真机截图确认版面未挤坏。机检链路 tsc OK / vitest 180 / build 通过。范围克制：仅 StickyNotesView，准予 [done]。`
+- `[07-29] Builder→Reviewer: polish(StickyNotesView 第三刀) 完成——只动 StickyNotesView，做密度友好的触控靶放大，不改信息架构。已在 demo-app Notes 面板真机截图复核视觉稳定。请核对验收与范围。`
+- `[07-29] Planner→Designer: 第二刀完成后继续拆递延项，优先做“触控靶放大但不破密度”的第三刀；目标是可点性提升而非强推 44pt 导致 masonry 失衡。`
+
+- `[07-29] Reviewer→Builder: 放行 polish(StickyNotesView 第二刀)——递延项收口完成：可读性相关 opacity 已改成 text/placeholder alpha 语义（grep 对 placeholder:opacity/opacity-45/opacity-55 = 0），Done 行不再整块发灰；tabs 新增容器底板 + active ring + count 胶囊，暗色状态可辨性提升。机检：tsc OK / vitest 180 / build 通过。范围克制：仅 StickyNotesView，准予 [done]。`
+- `[07-29] Builder→Reviewer: polish(StickyNotesView 第二刀) 完成——只动 StickyNotesView：文本淡化从 opacity 迁到 text-current alpha，Done 行拆分 alpha，tabs 活态加底板+ring+count capsule。真机在 demo-app Notes 面板已截图核对。请复查验收链路与范围限制。`
+- `[07-29] Planner→Designer: Queue 为空但 Notes 里有明确递延项，先拆一刀低风险高收益的 UI polish：优先做 opacity 语义化 + tabs 活动态辨识，不动 schema/tokens。`
 
 - `[07-29] Reviewer→Builder: 放行 feature(Idea001 priority-alignment)——TodayView 已在真实 recap 入口补上 Priority Alignment 提示，直接复用 sort_order 作为当天优先级代理，不新增 schema。demo-app 文本快照可见 PRIORITY ALIGNMENT，并给出 67% top-items share；机检链路：tsc 0 / vitest 180 / build 通过。范围克制：仅 TodayView + 台账，未碰 hooks API 与跨天分析。准予 [done]。`
 - `[07-29] Builder→Reviewer: feature(Idea001 priority-alignment) 完成——Today recap 新增一张轻量提示卡：取当天前 2 个 todo（按 sort_order）作为优先级代理，比较它们吃掉了多少任务计时，并提示前排是否真正启动/被后排分流。demo 数据下显示 top 2 拿到 67% 任务计时。请核对验收链路与范围限制。`

@@ -63,6 +63,15 @@ type StyleConfig = {
   label: string; sublabel: string; notePlaceholder: string; addItem: string; confirmDelete: string;
 };
 
+const STICKY_TYPE = {
+  noteTitle: 'text-sm font-semibold',
+  itemBody: 'text-[13px] leading-snug',
+  meta: 'text-xs',
+  tabLabel: 'text-xs font-medium',
+  tabCount: 'text-xs font-semibold',
+  composer: 'text-sm font-medium',
+} as const;
+
 const DEFAULT_TABS: Tab[] = [
   { id: 'free-time', name: "When I'm Free", colorIndex: 0 },
   { id: 'reminder', name: 'Reminders', colorIndex: 1 },
@@ -145,6 +154,8 @@ function NoteCard({
   const [linkDrafts, setLinkDrafts] = useState<Record<string, string>>({});
   const [addingLinkForId, setAddingLinkForId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current/35 focus-visible:ring-offset-1 focus-visible:ring-offset-transparent';
+  const focusField = 'focus-visible:outline-none focus-visible:border-current/60';
 
   const buildLinkPreview = async (rawValue: string): Promise<MomentLinkPreview | null> => {
     const url = normalizeUrl(rawValue);
@@ -289,7 +300,7 @@ function NoteCard({
   return (
     <div
       className={cn(
-        'group/card relative flex flex-col gap-2 rounded-lg shadow-sm p-3 transition-shadow duration-200 hover:shadow-md',
+        'group/card relative flex flex-col gap-2 rounded-lg shadow-sm p-3 transition-shadow duration-200 hover:shadow-md focus-within:ring-2 focus-within:ring-current/15',
         config.bg, config.border, 'border',
       )}
     >
@@ -318,12 +329,12 @@ function NoteCard({
               if (isEnterSubmit(e)) submitTitle();
               if (e.key === 'Escape') { setTitleDraft(note.title); setEditingTitle(false); }
             }}
-            className={cn('flex-1 text-sm font-semibold bg-transparent focus:outline-none border-b border-current/30', config.text)}
+            className={cn('flex-1 bg-transparent border-b border-current/30', STICKY_TYPE.noteTitle, focusField, config.text)}
           />
         ) : (
           <button
             onClick={() => { setEditingTitle(true); setTitleDraft(note.title); }}
-            className={cn('flex-1 text-left text-sm font-semibold leading-snug', config.text)}
+            className={cn('flex-1 rounded-sm px-0.5 text-left leading-snug', STICKY_TYPE.noteTitle, focusRing, config.text)}
           >
             {note.title}
           </button>
@@ -332,7 +343,8 @@ function NoteCard({
           onClick={() => onDelete()}
           aria-label="Delete note"
           className={cn(
-            'flex-shrink-0 -mr-1 -mt-1 p-1.5 rounded-full transition-colors',
+            'flex-shrink-0 -mr-1 -mt-1 p-2 rounded-full transition-colors',
+            focusRing,
             'text-current/40 hover:text-current hover:bg-current/10',
             config.text,
           )}
@@ -342,7 +354,7 @@ function NoteCard({
       </div>
 
       {/* Divider */}
-      <div className="h-px opacity-20 bg-current" />
+      <div className="h-px bg-current/20" />
 
       {/* Active items */}
       <div className="flex flex-col gap-1">
@@ -361,7 +373,7 @@ function NoteCard({
                 <button
                   onClick={() => onToggleItem(item.id)}
                   aria-label="Toggle item"
-                  className={cn('flex-shrink-0 w-[18px] h-[18px] rounded-full border-[1.5px] flex items-center justify-center mt-[3px] transition-colors hover:bg-current/10', config.text, 'border-current/60')}
+                  className={cn('mt-[2px] flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors hover:bg-current/10', focusRing, config.text, 'border-current/60')}
                 />
                 {editingItemId === item.id ? (
                   <input
@@ -373,12 +385,12 @@ function NoteCard({
                       if (isEnterSubmit(e)) submitItemEdit(item.id, item.text);
                       if (e.key === 'Escape') { setItemDraft(item.text); setEditingItemId(null); }
                     }}
-                    className={cn('flex-1 text-[13px] leading-snug bg-transparent focus:outline-none border-b border-current/20', config.text)}
+                    className={cn('flex-1 bg-transparent border-b border-current/20', STICKY_TYPE.itemBody, focusField, config.text)}
                   />
                 ) : (
                   <button
                     onClick={() => { setEditingItemId(item.id); setItemDraft(item.text); }}
-                    className={cn('flex-1 text-left text-[13px] leading-snug', config.text)}
+                    className={cn('flex-1 rounded-sm px-0.5 text-left', STICKY_TYPE.itemBody, focusRing, config.text)}
                   >
                     {itemDisplayText}
                   </button>
@@ -390,25 +402,27 @@ function NoteCard({
                   onClick={() => setExpandedItemId(prev => prev === item.id ? null : item.id)}
                   aria-label="Links & images"
                   className={cn(
-                    'flex-shrink-0 p-1 -m-1 rounded transition-opacity relative',
+                    'flex-shrink-0 p-2 -m-2 rounded transition-[opacity,color] relative',
+                    focusRing,
                     config.text,
                     hasAttachments
-                      ? 'opacity-60 hover:opacity-100'
-                      : 'opacity-40 sm:opacity-0 sm:group-hover/item:opacity-40 hover:!opacity-80'
+                      ? 'text-current/70 hover:text-current'
+                      : 'text-current/45 sm:opacity-0 sm:group-hover/item:opacity-100 sm:group-focus-within/item:opacity-100 hover:!text-current/80'
                   )}
                   title="Links & images"
                 >
                   {expandedItemId === item.id ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                   {hasAttachments && expandedItemId !== item.id && (
-                    <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-current opacity-80" />
+                    <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-current/80" />
                   )}
                 </button>
                 <button
                   onClick={() => onDeleteItem(item.id)}
                   aria-label="Delete item"
                   className={cn(
-                    'flex-shrink-0 p-1 -m-1 rounded transition-opacity',
-                    'opacity-40 sm:opacity-0 sm:group-hover/item:opacity-40 hover:!opacity-80 hover:text-destructive',
+                    'flex-shrink-0 p-2 -m-2 rounded transition-[opacity,color]',
+                    focusRing,
+                    'text-current/45 sm:opacity-0 sm:group-hover/item:opacity-100 sm:group-focus-within/item:opacity-100 hover:!text-destructive',
                     config.text,
                   )}
                 >
@@ -431,18 +445,18 @@ function NoteCard({
                               onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
                               className="h-4 w-4 flex-shrink-0 rounded-[5px] bg-white/55 object-cover"
                             />
-                            <a href={link.url} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 hover:opacity-100">
-                              <span className="block truncate text-xs font-medium leading-tight">
+                            <a href={link.url} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 text-current/90 hover:text-current">
+                              <span className={cn('block truncate font-medium leading-tight', STICKY_TYPE.meta)}>
                                 {link.title || domain}
                               </span>
-                              <span className="mt-0.5 block truncate text-xs leading-tight opacity-55">
+                              <span className={cn('mt-0.5 block truncate leading-tight text-current/55', STICKY_TYPE.meta)}>
                                 {domain}
                               </span>
                             </a>
                             <button
                               onClick={() => onRemoveItemLink(item.id, link.url)}
                               aria-label="Remove link"
-                              className="flex-shrink-0 p-1 -m-1 rounded opacity-40 transition-opacity hover:opacity-100"
+                              className={cn('flex-shrink-0 p-1.5 -m-1.5 rounded text-current/45 transition-colors hover:text-current', focusRing)}
                             >
                               <X size={12} />
                             </button>
@@ -454,7 +468,7 @@ function NoteCard({
                           <button
                             onClick={() => onRemoveItemImage(item.id, image)}
                             aria-label="Remove image"
-                            className="absolute right-1.5 top-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70"
+                            className="absolute right-1.5 top-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/65"
                           >
                             <X size={12} />
                           </button>
@@ -464,7 +478,7 @@ function NoteCard({
                     </div>
                   )}
                   <div className="flex min-w-0 items-center gap-1.5 rounded-[10px] bg-current/[0.04] px-2 py-1.5">
-                    <Link2 size={12} className={cn('flex-shrink-0 opacity-55', config.text)} />
+                    <Link2 size={12} className={cn('flex-shrink-0 text-current/55', config.text)} />
                     <input
                       value={linkDrafts[item.id] || ''}
                       onChange={e => setLinkDrafts(prev => ({ ...prev, [item.id]: e.target.value }))}
@@ -473,13 +487,13 @@ function NoteCard({
                         if (isEnterSubmit(e)) { e.preventDefault(); void submitItemLink(item.id); }
                       }}
                       placeholder={(item.links?.length || 0) > 0 ? 'Paste another link...' : 'Paste a link...'}
-                      className={cn('min-w-0 flex-1 bg-transparent text-xs focus:outline-none placeholder:opacity-40', config.text)}
+                      className={cn('min-w-0 flex-1 bg-transparent placeholder:text-current/40', STICKY_TYPE.meta, focusField, config.text)}
                     />
                     <button
                       onClick={() => void submitItemLink(item.id)}
                       disabled={addingLinkForId === item.id || !(linkDrafts[item.id] || '').trim()}
                       aria-label="Add link"
-                      className={cn('p-1 -m-1 rounded opacity-55 disabled:opacity-25 hover:opacity-90 transition-opacity', config.text)}
+                      className={cn('p-1.5 -m-1.5 rounded text-current/55 disabled:text-current/25 hover:text-current/90 transition-colors', focusRing, config.text)}
                     >
                       <Plus size={14} />
                     </button>
@@ -492,25 +506,25 @@ function NoteCard({
 
         {/* Done items */}
         {doneItems.map(item => (
-          <div key={item.id} className="opacity-45 group/item">
+          <div key={item.id} className="group/item">
             <div className="flex items-start gap-2">
               <button
                 onClick={() => onToggleItem(item.id)}
                 aria-label="Toggle item"
-                className={cn('flex-shrink-0 w-[18px] h-[18px] rounded-full border flex items-center justify-center mt-[3px]', config.text, 'border-current/50 bg-current/10')}
+                className={cn('mt-[2px] flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border', focusRing, config.text, 'border-current/50 bg-current/10')}
               >
-                <Check size={10} className={config.text} />
+                <Check size={10} className={cn('text-current/75', config.text)} />
               </button>
               <button
                 onClick={() => { setEditingItemId(item.id); setItemDraft(item.text); }}
-                className={cn('flex-1 text-left text-[13px] leading-snug line-through', config.text)}
+                className={cn('flex-1 rounded-sm px-0.5 text-left line-through text-current/55 hover:text-current/70', STICKY_TYPE.itemBody, focusRing, config.text)}
               >
                 {item.text}
               </button>
               <button
                 onClick={() => onDeleteItem(item.id)}
                 aria-label="Delete item"
-                className={cn('flex-shrink-0 p-1 -m-1 rounded opacity-0 sm:group-hover/item:opacity-60 transition-opacity', config.text)}
+                className={cn('flex-shrink-0 p-2 -m-2 rounded text-current/45 sm:opacity-0 sm:group-hover/item:opacity-100 sm:group-focus-within/item:opacity-100 transition-[opacity,color] hover:text-destructive', focusRing, config.text)}
               >
                 <X size={14} />
               </button>
@@ -528,13 +542,13 @@ function NoteCard({
           onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => { if (isEnterSubmit(e)) submitItem(); }}
           onPaste={(e) => { void handleAddItemPaste(e); }}
           placeholder={config.addItem}
-          className={cn('flex-1 text-xs bg-transparent focus:outline-none placeholder:opacity-45', config.text)}
+          className={cn('flex-1 bg-transparent placeholder:text-current/45', STICKY_TYPE.meta, focusField, config.text)}
         />
         <button
           onClick={submitItem}
           disabled={!draft.trim()}
           aria-label="Add item"
-          className={cn('w-6 h-6 rounded-full flex items-center justify-center transition-all disabled:opacity-25', config.header, config.text)}
+          className={cn('h-8 w-8 rounded-full flex items-center justify-center transition-all disabled:opacity-25', focusRing, config.header, config.text)}
         >
           <Plus size={14} />
         </button>
@@ -578,6 +592,7 @@ export function StickyNotesView() {
   const [newNoteTitle, setNewNoteTitle] = useState('');
   const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
   const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
+  const shellFocusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--surface-soft))]';
 
   // Migrate from old category order if needed
   useEffect(() => {
@@ -657,7 +672,7 @@ export function StickyNotesView() {
         title={t('notes.header')}
         subtitle={lang === 'zh' ? '小清单、图片和需要记住的事。' : 'Small lists, images, and things to remember.'}
         secondaryRow={
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border/55 bg-card/60 px-2 py-1.5 dark:border-border/60 dark:bg-card/45">
             {tabs.map(tab => {
               const pal = COLOR_PALETTES[tab.colorIndex % COLOR_PALETTES.length];
               const count = notes.filter(n => n.category === tab.id).reduce((s, n) => s + n.items.filter(it => !it.done).length, 0);
@@ -684,18 +699,22 @@ export function StickyNotesView() {
                   }}
                   onDragEnd={() => setDraggedTabId(null)}
                   className={cn(
-                    'group/tab flex items-center gap-1.5 rounded-full border transition-all cursor-grab active:cursor-grabbing px-2.5 py-1',
-                    isActive ? cn(pal.bg, pal.border, pal.text, 'shadow-sm') : 'text-muted-foreground border-border bg-card hover:text-foreground',
+                    'group/tab flex min-h-9 items-center gap-1.5 rounded-full border transition-all cursor-grab active:cursor-grabbing px-2.5 py-1',
+                    isActive
+                      ? cn(pal.bg, pal.border, pal.text, 'shadow-sm ring-1 ring-current/15')
+                      : 'text-muted-foreground border-border/70 bg-background/70 hover:text-foreground hover:border-border',
                     draggedTabId === tab.id && 'opacity-50'
                   )}
                 >
                   {/* Color dot — click to cycle color */}
                   <button
                     onClick={() => handleCycleColor(tab.id)}
-                    className={cn('w-2 h-2 rounded-full flex-shrink-0', pal.header)}
+                    className={cn('flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full hover:bg-current/10 transition-colors', shellFocusRing, pal.text)}
                     title={lang === 'zh' ? '点击切换颜色' : 'Click to change color'}
                     aria-label={lang === 'zh' ? '切换颜色' : 'Change color'}
-                  />
+                  >
+                    <span className={cn('h-2.5 w-2.5 rounded-full', pal.header)} />
+                  </button>
                   {/* Tab name — click to activate, double-click to rename */}
                   {editingTabId === tab.id ? (
                     <input
@@ -707,20 +726,26 @@ export function StickyNotesView() {
                         if (e.key === 'Enter') handleRenameTab(tab.id);
                         if (e.key === 'Escape') setEditingTabId(null);
                       }}
-                      className={cn('text-xs font-medium bg-transparent focus:outline-none w-20 border-b border-current/30', pal.text)}
+                      className={cn('w-20 border-b border-current/30 bg-transparent focus-visible:outline-none focus-visible:border-current/60', STICKY_TYPE.tabLabel, pal.text)}
                       onClick={e => e.stopPropagation()}
                     />
                   ) : (
                     <button
                       onClick={() => setActiveTabId(tab.id)}
                       onDoubleClick={() => { setEditingTabId(tab.id); setTabDraft(tab.name); }}
-                      className={cn('text-xs font-medium', isActive ? pal.text : '')}
+                      className={cn('rounded-sm px-0.5', STICKY_TYPE.tabLabel, shellFocusRing, isActive ? pal.text : '')}
                     >
                       {tab.name}
                     </button>
                   )}
                   {count > 0 && (
-                    <span className={cn('text-xs font-semibold min-w-[16px] text-center tabular-nums', isActive ? '' : 'text-muted-foreground')}>
+                    <span
+                      className={cn(
+                        'min-w-[18px] rounded-full px-1.5 py-0.5 text-center tabular-nums',
+                        STICKY_TYPE.tabCount,
+                        isActive ? 'bg-current/12 text-current' : 'bg-muted text-muted-foreground',
+                      )}
+                    >
                       {count}
                     </span>
                   )}
@@ -728,7 +753,7 @@ export function StickyNotesView() {
                   {tabs.length > 1 && (
                     <button
                       onClick={e => { e.stopPropagation(); handleDeleteTab(tab.id); }}
-                      className={cn('p-0.5 -m-0.5 rounded transition-opacity flex-shrink-0 opacity-40 sm:opacity-0 sm:group-hover/tab:opacity-40 hover:!opacity-80', isActive ? pal.text : 'text-muted-foreground')}
+                      className={cn('p-1.5 -m-1.5 rounded transition-[opacity,color] flex-shrink-0 text-current/45 sm:opacity-0 sm:group-hover/tab:opacity-100 sm:group-focus-within/tab:opacity-100 hover:text-current/80', shellFocusRing, isActive ? pal.text : 'text-muted-foreground')}
                       title={lang === 'zh' ? '删除标签' : 'Delete tab'}
                       aria-label={lang === 'zh' ? '删除标签' : 'Delete tab'}
                     >
@@ -741,7 +766,7 @@ export function StickyNotesView() {
             {/* Add tab */}
             <button
               onClick={handleAddTab}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-full border border-dashed border-border text-xs text-muted-foreground/60 hover:text-muted-foreground hover:border-border/80 transition-colors"
+              className={cn('flex min-h-9 items-center gap-1 rounded-full border border-dashed border-border/85 px-2.5 py-1 text-muted-foreground/70 transition-colors hover:text-foreground hover:border-border', STICKY_TYPE.tabLabel, shellFocusRing)}
               aria-label={lang === 'zh' ? '新建标签' : 'New tab'}
             >
               <Plus size={12} />
@@ -801,7 +826,7 @@ export function StickyNotesView() {
 
       <div className="flex-shrink-0 bg-gradient-to-t from-[hsl(var(--surface-soft))] via-[hsl(var(--surface-soft)/0.96)] to-[hsl(var(--surface-soft)/0)] px-5 pb-4 pt-3">
         <div className="rounded-2xl bg-background/70 p-1 backdrop-blur-xl shadow-[0_18px_44px_hsl(var(--foreground)/0.1)]">
-          <div className="flex min-h-[44px] items-center gap-2 rounded-[18px] border border-border bg-card px-3 py-2 transition-colors focus-within:border-foreground/20">
+          <div className="flex min-h-[44px] items-center gap-2 rounded-[18px] border border-border bg-card px-3 py-2 transition-colors focus-within:border-foreground/20 focus-within:ring-2 focus-within:ring-foreground/12">
             <span className={cn('flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full', palette.header, palette.text)}>
               <Plus size={14} />
             </span>
@@ -810,13 +835,14 @@ export function StickyNotesView() {
               onChange={e => setNewNoteTitle(e.target.value)}
               onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => { if (isEnterSubmit(e)) handleAddNote(); }}
               placeholder={config.notePlaceholder}
-              className="min-w-0 flex-1 bg-transparent text-sm font-medium text-foreground focus:outline-none placeholder:text-muted-foreground placeholder:opacity-70"
+              className={cn('min-w-0 flex-1 bg-transparent text-foreground focus-visible:outline-none placeholder:text-muted-foreground/70', STICKY_TYPE.composer)}
             />
             <button
               onClick={handleAddNote}
               disabled={!newNoteTitle.trim()}
               className={cn(
                 'flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full transition-all hover:brightness-95 disabled:opacity-30',
+                shellFocusRing,
                 palette.header,
                 palette.text,
               )}
