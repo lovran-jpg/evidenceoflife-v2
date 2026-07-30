@@ -31,7 +31,9 @@ security PR is approved for deployment.
 | P0-T3 | Full-history secret scan (gitleaks or equivalent) | Done — clean (175 commits, 0 leaks) |
 | P0-T4 | Credential / private-data history check | Done — no history exposure |
 | P0-T5 | Rotation decision request if exposure found | Not required — maintainer decided no rotation (local-only `.env`) |
-| P0-T6 | Distribution restriction while findings open | Active |
+| P0-T6 | Distribution restriction while findings open | Done — recorded and active |
+
+**P0 complete.** Proceeding to P1 (security hardening) and P2 (repository hygiene).
 
 ## Notes
 
