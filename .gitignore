@@ -41,6 +41,15 @@ supabase/.temp/
 .workbuddy/
 openclaw-*.md
 
+# Maintainer / agent scratch (not part of the product surface)
+.agent-handoff/
+.agents/
+.claude/
+Scratchpad/
+tasks.md
+loop.sh
+CLAUDE.md
+
 # Playwright
 test-results/
 playwright-report/
