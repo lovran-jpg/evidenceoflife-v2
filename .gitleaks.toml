@@ -1,0 +1,23 @@
+# gitleaks configuration for evidenceoflife-v2
+#
+# Extends the gitleaks default ruleset. The only allowlist entry is the local,
+# gitignored `.env` file, which holds real development credentials by design and
+# is never committed. This was verified during P0-T3:
+#   - not tracked (`git ls-files .env` empty)
+#   - gitignored (`git check-ignore .env` -> .env)
+#   - absent from full history on all branches (`git log --all -- .env` empty)
+#   - full-history scan clean: 175 commits, 0 leaks
+#
+# Do NOT add allowlist entries for tracked source files. Committed secrets must
+# always fail the scan.
+
+title = "evidenceoflife gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Local gitignored .env carries dev credentials by design and is never committed."
+paths = [
+  '''(^|/)\.env$''',
+]

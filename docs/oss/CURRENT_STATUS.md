@@ -28,9 +28,9 @@ security PR is approved for deployment.
 |------|-------------|-------|
 | P0-T1 | Declare freeze | Done (this file) |
 | P0-T2 | Record exact baseline | Done (`BASELINE.json`) |
-| P0-T3 | Full-history secret scan (gitleaks or equivalent) | Blocked — scanner not installed |
-| P0-T4 | Credential / private-data history check | Pending P0-T3 |
-| P0-T5 | Rotation decision request if exposure found | Conditional |
+| P0-T3 | Full-history secret scan (gitleaks or equivalent) | Done — clean (175 commits, 0 leaks) |
+| P0-T4 | Credential / private-data history check | Done — no history exposure |
+| P0-T5 | Rotation decision request if exposure found | Not required — maintainer decided no rotation (local-only `.env`) |
 | P0-T6 | Distribution restriction while findings open | Active |
 
 ## Notes

@@ -37,10 +37,13 @@
     "blocking_in_ci": false
   },
   "secret_scan": {
-    "tool": "gitleaks",
-    "status": "not_run",
-    "reason": "scanner not installed in environment",
-    "findings": null
+    "tool": "gitleaks 8.30.1",
+    "status": "clean",
+    "history_commits_scanned": 175,
+    "history_leaks": 0,
+    "worktree_leaks": 0,
+    "allowlisted_local_env": true,
+    "findings": []
   },
   "open_security_findings": [
     "OAuth state on main is not cryptographically signed",
