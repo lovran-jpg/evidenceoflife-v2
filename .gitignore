@@ -40,3 +40,9 @@ supabase/.temp/
 # Local reference / scratch docs (not part of the product)
 .workbuddy/
 openclaw-*.md
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
