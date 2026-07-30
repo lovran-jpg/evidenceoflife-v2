@@ -1,0 +1,55 @@
+{
+  "baseline_version": "1.0",
+  "recorded_at": "2026-07-30T00:00:00+08:00",
+  "recorded_on_branch": "oss/p0-planning-baseline",
+  "repository": {
+    "full_name": "Cyriellewu/evidenceoflife-v2",
+    "default_branch": "main"
+  },
+  "main": {
+    "head_sha": "68f3fe736b8fafbff1495f64c293c175e946c00e",
+    "head_short": "68f3fe7",
+    "ci_conclusion": "success"
+  },
+  "security_pr": {
+    "number": 1,
+    "title": "Pre-public hardening: private photos, OAuth signing, edge auth",
+    "head_ref": "oss/pre-public-hardening",
+    "head_short": "0ee402e",
+    "base_ref": "main",
+    "mergeable": "CONFLICTING",
+    "changed_files": 56,
+    "additions": 665,
+    "deletions": 5623,
+    "divergence_vs_main": {
+      "behind": 1,
+      "ahead": 1
+    }
+  },
+  "tests": {
+    "test_files": 22,
+    "tests_passing": 180,
+    "framework": "vitest"
+  },
+  "lint": {
+    "errors": 0,
+    "warnings": 53,
+    "blocking_in_ci": false
+  },
+  "secret_scan": {
+    "tool": "gitleaks 8.30.1",
+    "status": "clean",
+    "history_commits_scanned": 175,
+    "history_leaks": 0,
+    "worktree_leaks": 0,
+    "allowlisted_local_env": true,
+    "findings": []
+  },
+  "open_security_findings": [
+    "OAuth state on main is not cryptographically signed",
+    "Redirect destination handling needs strict allowlist",
+    "Moment photo storage privacy hardening not merged",
+    "Some edge functions use verify_jwt=false and need per-endpoint review",
+    "PR #1 mixes security changes with repo cleanup and is CONFLICTING"
+  ]
+}
