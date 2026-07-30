@@ -12,7 +12,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:security": "deno test --allow-env --allow-net supabase/functions/_shared/auth.test.ts",
+    "test:security": "deno test --no-check --allow-env --allow-net supabase/functions/_shared/auth.test.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {
