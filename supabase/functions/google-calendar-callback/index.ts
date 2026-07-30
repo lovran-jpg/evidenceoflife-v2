@@ -50,13 +50,16 @@ Deno.serve(async (req) => {
 
     const tokenData = await tokenRes.json();
     if (!tokenRes.ok) {
-      console.error("Token exchange failed:", tokenData);
-      return new Response(`Token exchange failed: ${JSON.stringify(tokenData)}`, { status: 400 });
+      // Do not log or echo the provider payload: it can contain sensitive
+      // authorization details. Log only the HTTP status.
+      console.error("Google token exchange returned non-OK status:", tokenRes.status);
+      return new Response("Token exchange failed", { status: 400 });
     }
 
     const { access_token, refresh_token, expires_in } = tokenData;
     if (!access_token || !expires_in) {
-      console.error("Token exchange returned incomplete payload:", tokenData);
+      // Never log the raw token payload.
+      console.error("Token exchange returned incomplete payload (missing access_token or expires_in)");
       return new Response("Google did not return a usable access token", { status: 400 });
     }
 
