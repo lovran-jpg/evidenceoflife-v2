@@ -19,19 +19,52 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Lint currently has a large pre-existing error baseline (~273 errors,
-      # mostly @typescript-eslint/no-explicit-any). Kept non-blocking until the
-      # debt is burned down so CI reflects real type/test/build health.
-      # Flip continue-on-error to false once `npm run lint` is clean.
-      - name: Lint (non-blocking baseline)
+      # Lint baseline is 0 errors (53 warnings, mostly react-hooks/react-refresh).
+      # Blocking on errors; warnings are tracked but do not fail CI.
+      - name: Lint
         run: npm run lint
-        continue-on-error: true
 
       - name: Type check
-        run: npx tsc --noEmit -p tsconfig.app.json
+        run: npm run typecheck
 
       - name: Test
         run: npm test
 
       - name: Build
         run: npm run build
+
+  security-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Edge-function auth unit tests
+        run: |
+          if [ -f supabase/functions/_shared/auth.test.ts ]; then
+            npm run test:security
+          else
+            echo "auth.test.ts not present on this ref (delivered by the security PR); skipping."
+          fi
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Demo smoke tests
+        run: npm run test:e2e
