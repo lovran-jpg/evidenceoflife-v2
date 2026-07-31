@@ -1,0 +1,51 @@
+# Evidence of Life — llms.txt
+# Compact map for coding agents. Prefer this file before deep exploration.
+# Full index: /llms-full.txt | Human docs: /README.md | Agent rules: /AGENTS.md
+
+> Evidence of Life is a private personal life-management SPA: plan the day, capture moments, track dues/habits, map places, sync Google Calendar. Not therapy.
+
+## Stack
+- Frontend: Vite 5, React 18, TypeScript 5, Tailwind 3, shadcn/ui, TanStack Query, React Router
+- Backend: Supabase Auth + Postgres (RLS) + Storage + Deno edge functions
+- Tests: Vitest (`npm test`), Playwright demo smoke (`npm run test:e2e`), Deno auth tests (`npm run test:security`)
+- Dev server: http://localhost:8080 (demo: /demo-app)
+
+## Critical constraints
+- SWC does not type-check — always run `npm run typecheck` after TS changes
+- Do not invent features, APIs, or metrics
+- Do not commit secrets; only `.env.example` is tracked
+- Feature PRs must not change migrations / RLS / auth / storage policies
+- Verify UI claims on `/demo-app` before reporting success
+
+## Entry points
+- src/main.tsx — bootstrap
+- src/App.tsx — routes, auth gates
+- src/pages/Index.tsx — authenticated shell
+- src/pages/PublicDemo.tsx — synthetic demo
+- src/pages/Landing.tsx — marketing landing
+- src/integrations/supabase/client.ts — Supabase client (requires VITE_SUPABASE_*)
+
+## Core domains
+- src/hooks/useAuth.tsx — session / demo mode
+- src/hooks/useTodos.ts — plan tasks + timers + demo data
+- src/hooks/useMoments.ts — moments CRUD
+- src/hooks/useDues.ts / useDueReminders.ts — dues
+- src/hooks/usePlaces.ts — map places
+- src/hooks/useGoogleCalendar.ts — calendar sync client
+- src/lib/momentPhotos.ts — private storage paths + signed URLs
+- src/lib/autoSchedule.ts — scheduling helpers
+- src/components/views/PlanView.tsx / PlanTimelineView.tsx — plan UI
+- src/components/views/TodayView.tsx — today / recap
+- src/components/views/MapView.tsx — map
+- src/components/StorageImage.tsx — signed photo display
+
+## Edge functions (supabase/functions/)
+- _shared/auth.ts — requireUser, OAuth state HMAC, image-proxy allowlist
+- google-calendar-auth|callback|sync — Calendar OAuth
+- geo, smart-input, link-preview, image-proxy, life-replay
+
+## Docs
+- README.md — product overview
+- docs/oss/self-hosting.md — deploy
+- docs/SECURITY_MODEL.md — trust boundaries
+- AGENTS.md / .codex/instructions.md / .cursor/rules/ — agent policy

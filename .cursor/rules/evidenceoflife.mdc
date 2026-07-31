@@ -1,0 +1,35 @@
+---
+description: Evidence of Life — stack, safety boundaries, and verification for coding agents
+alwaysApply: true
+---
+
+# Evidence of Life agent rules
+
+You are working in **evidenceoflife-v2**: Vite 5 + React 18 + TypeScript + Tailwind 3 + Supabase.
+
+## Always
+
+- Read `llms.txt` / `AGENTS.md` for map and policy.
+- Run `npm run typecheck` after TS changes (SWC does not type-check builds).
+- Run `npm test` after logic changes.
+- Do not fabricate features, APIs, metrics, or green CI.
+- Never commit secrets; use `.env.example` only as the template.
+- Keep diffs small; one concern per change.
+- Prefer existing HSL design tokens; dark mode is primary.
+- Verify UI on `http://localhost:8080/demo-app` before claiming visual success.
+
+## Separate review required
+
+Treat these as security-sensitive — do not mix into unrelated feature PRs:
+
+- `supabase/migrations/**`
+- Auth (`useAuth`, Auth pages)
+- Edge auth / OAuth (`supabase/functions/_shared/**`, `google-calendar-*`)
+- Storage privacy (`momentPhotos`, `StorageImage`, photo bucket policies)
+
+## Do not
+
+- Invent integrations that are not in the repo (e.g. ntfy)
+- Weaken JWT / HMAC OAuth / private photo signed-URL model without explicit task + tests
+- Refactor large view files when a local fix suffices
+- Add markdown docs unless asked (except when the task is documentation)

@@ -1,0 +1,102 @@
+# Evidence of Life — llms-full.txt
+# Expanded agent index. Keep facts aligned with the repository; do not fabricate APIs.
+
+## Product
+Evidence of Life (evidenceoflife-v2) is a full-stack personal life management app:
+plan the day on a timeline, run focus timers, capture moments (notes/photos/places/tags),
+track dues and habits, browse calendar/year/map views, optionally sync Google Calendar.
+Synthetic public demo: `/demo-app` (no real Supabase required for UI smoke).
+
+Positioning: private memory / planned-vs-actual execution. Not medical therapy.
+
+## Runtime commands
+```
+npm install
+cp .env.example .env   # VITE_SUPABASE_URL + VITE_SUPABASE_PUBLISHABLE_KEY for real data
+npm run dev            # http://localhost:8080
+npm run typecheck
+npm test
+npm run lint
+npm run test:e2e
+npm run test:security  # needs Deno
+npm run build
+```
+
+## Frontend map
+
+### Pages (`src/pages/`)
+| Path | Role |
+| --- | --- |
+| Landing.tsx | Marketing + embedded demo frame |
+| Auth.tsx / AuthCallback.tsx | Supabase auth UI + OAuth callback |
+| Index.tsx | Main authenticated app shell (tabs) |
+| PublicDemo.tsx | Forces demo user + English + Index publicDemo |
+| NotFound.tsx | 404 |
+
+### Views (`src/components/views/`)
+| File | Role |
+| --- | --- |
+| PlanView.tsx | Plan list / segments / capture |
+| PlanTimelineView.tsx | Day timeline blocks |
+| TodayView.tsx | Today modes + recap |
+| CalendarView.tsx / LifeCalendar.tsx | Calendar + year grid |
+| MapView.tsx | Leaflet map of places |
+| DuesView.tsx / HabitsView.tsx | Dues + habits |
+| StickyNotesView.tsx | Sticky notes |
+| LinksView.tsx | Link hub |
+| ProfileView.tsx | Settings / profile |
+| ICSImportManager.tsx | ICS import helper |
+
+### Hooks (`src/hooks/`)
+Auth: useAuth.tsx  
+Data: useTodos, useMoments, useDues, useDueReminders, usePlaces, useLinks, useStickyNotes, useImportedEvents, useGoogleCalendar, useProfile, useReminders, useLifeReminder  
+UX: useLanguage, useTheme, useAccentColor, useSpeechRecognition, useSpotlight  
+
+### Lib highlights (`src/lib/`)
+momentPhotos.ts — upload path + signed URL resolve  
+autoSchedule.ts / freeRegions.ts / recurringTodos.ts / carryTodos.ts — planning math  
+exportEvidence.ts — user data export  
+analytics.ts — optional GA4 / Amplitude  
+linkUtils.ts — URL normalize + image-proxy URL builder  
+
+## Backend map
+
+### Migrations
+`supabase/migrations/` — schema, RLS, storage policies. Latest hardening includes private `moment-photos` and service-role-only `google_calendar_tokens` writes.
+
+### Edge functions
+| Function | Auth model | Purpose |
+| --- | --- | --- |
+| geo | user JWT | Nominatim proxy / place classify |
+| smart-input | user JWT | optional AI classify |
+| link-preview | user JWT | OG / site preview |
+| image-proxy | anon apikey + origin allowlist | fetch remote images for cards |
+| life-replay | user JWT | optional AI day narrative |
+| google-calendar-auth | user JWT | start OAuth; HMAC state |
+| google-calendar-callback | signed state | token exchange; allowlisted redirect |
+| google-calendar-sync | user JWT | import events |
+
+Shared helpers: `supabase/functions/_shared/auth.ts` (+ `auth.test.ts`).
+
+## Security boundaries (do not weaken casually)
+- Browser: anon key + user JWT only
+- Photos: private bucket; paths in DB; short-lived signed URLs for display
+- Calendar tokens: written by service role in edge functions only
+- OAuth state: HMAC + expiry + redirect origin allowlist
+- See docs/SECURITY_MODEL.md
+
+## Test layout
+- Unit: `src/test/*.test.ts` (Vitest)
+- E2E smoke: `e2e/demo-smoke.spec.ts` (Playwright, injects dummy VITE_* in config)
+- Deno: `supabase/functions/_shared/auth.test.ts`
+
+## CI
+`.github/workflows/ci.yml` — lint, typecheck, unit tests, build, security-tests, e2e  
+Also: codeql.yml, secret-scan.yml (gitleaks), dependabot.yml
+
+## Human / agent policy files
+- AGENTS.md
+- .codex/instructions.md
+- .cursor/rules/evidenceoflife.mdc
+- .github/copilot-instructions.md (design + timeline hard rules)
+- CONTRIBUTING.md
