@@ -7,7 +7,16 @@ and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2
 
 ## [Unreleased]
 
+### Changed
+- README rewritten for public OSS / portfolio presentation (overview, architecture,
+  AI-assisted development workflow, accurate feature list).
+- LICENSE copyright line set to legal name `Cyrielle Wu`.
+- `package.json` metadata: description, repository links, `engines.node`, version `0.1.0`.
+- Screenshot asset path moved to `docs/screenshots/demo-preview.png`.
+
 ### Added
+- `docs/screenshots/` with demo preview and capture guidelines.
+- Draft `docs/oss/release-notes-v1.0.0.draft.md` (gated — not a tagged release).
 - Open-source foundation: MIT `LICENSE`, `CONTRIBUTING`, `CODE_OF_CONDUCT`,
   `SECURITY`, `PRIVACY`, issue/PR templates, and contributor-facing docs.
 - Self-hosting guide (`docs/oss/self-hosting.md`) and expanded `.env.example`.
@@ -20,11 +29,6 @@ and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2
 - `image-proxy` requires anon `apikey` and Origin/Referer allowlist.
 - Removed tracked maintainer/agent scratch from the product tree.
 
-### Changed
-- README getting-started now includes `npm install`, demo path, and OSS links.
-- CI typecheck uses `npm run typecheck`; Node 20 pinned via `.nvmrc`.
-
 > Note: Prior history exists in git commits but was not tracked in a changelog.
-> The first tagged release should summarize the current feature set (Today,
-> Recap, Dues, Habits, Map, Calendar, Year, Notes, Links, Google Calendar sync)
-> rather than reconstruct every past commit.
+> The first tagged release should summarize the current feature set rather than
+> reconstruct every past commit. See `docs/oss/release-notes-v1.0.0.draft.md`.
