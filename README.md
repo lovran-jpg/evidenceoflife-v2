@@ -1,6 +1,20 @@
 # Evidence of Life
 
+[![MIT License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Vite](https://img.shields.io/badge/Vite-5-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
+[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-3-38BDF8?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%2B%20Auth-3FCF8E?logo=supabase&logoColor=white)](https://supabase.com/)
+[![CI](https://github.com/Cyriellewu/evidenceoflife-v2/actions/workflows/ci.yml/badge.svg)](https://github.com/Cyriellewu/evidenceoflife-v2/actions/workflows/ci.yml)
+
 > A private memory system to record what you've done. Not therapy — evidence of a life well-lived.
+
+**[Live demo](https://evidenceoflife.app/demo-app)** · **[Self-hosting guide](docs/oss/self-hosting.md)** · **[Security model](docs/SECURITY_MODEL.md)**
+
+<p align="center">
+  <img src="docs/assets/demo-preview.png" alt="Evidence of Life public demo — plan timeline, focus sessions, and daily recap" width="100%" />
+</p>
 
 Evidence of Life is a daily life-tracking web app. You capture *moments* (what happened), plan your day, track longer-term *dues* and habits, and see your life across a calendar, a map of the places you've been, and a year-at-a-glance grid.
 
@@ -21,7 +35,7 @@ Evidence of Life is a daily life-tracking web app. You capture *moments* (what h
 - **UI:** shadcn/ui (Radix UI), Tailwind CSS, Recharts, Leaflet
 - **Data & state:** TanStack Query, React Router
 - **Backend:** Supabase (Postgres, Auth, Storage, Edge Functions)
-- **Testing:** Vitest, Testing Library
+- **Testing:** Vitest, Testing Library, Playwright (demo smoke)
 
 ## Getting Started
 
@@ -54,6 +68,8 @@ Full backend setup (migrations, Auth, edge functions, Google Calendar): see [doc
 | `npm run lint` | Run ESLint (non-blocking in CI until debt is cleared) |
 | `npm test` | Run the test suite once |
 | `npm run test:watch` | Run tests in watch mode |
+| `npm run test:e2e` | Playwright demo smoke tests |
+| `npm run test:security` | Deno unit tests for edge-function auth helpers |
 
 ## Project Structure
 
