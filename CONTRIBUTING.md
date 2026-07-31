@@ -46,6 +46,9 @@ npm run lint        # eslint — advisory in CI until the debt is cleared
 - Do not change database migrations, RLS, auth, or storage policies in a feature
   PR — those are reviewed separately.
 
+Coding agents: see [AGENTS.md](AGENTS.md) and [llms.txt](llms.txt) for repository
+map, safety boundaries, and required verification commands.
+
 ## Design conventions
 
 - Styling is driven by HSL CSS variables in `src/index.css` +

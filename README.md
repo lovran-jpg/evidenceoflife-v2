@@ -12,7 +12,22 @@
 
 > Not therapy. Evidence of a life well-lived.
 
-**[Live demo](https://evidenceoflife.app/demo-app)** · **[Self-hosting](docs/oss/self-hosting.md)** · **[Security model](docs/SECURITY_MODEL.md)** · **[Contributing](CONTRIBUTING.md)**
+**[Live demo](https://evidenceoflife.app/demo-app)** · **[Self-hosting](docs/oss/self-hosting.md)** · **[Security model](docs/SECURITY_MODEL.md)** · **[Contributing](CONTRIBUTING.md)** · **[Agents](AGENTS.md)**
+
+## For AI coding agents
+
+Machine-readable and agent-policy entrypoints (no product behavior change):
+
+| File | Purpose |
+| --- | --- |
+| [`llms.txt`](llms.txt) | Compact project map |
+| [`llms-full.txt`](llms-full.txt) | Expanded module / security index |
+| [`AGENTS.md`](AGENTS.md) | Shared agent policy + verification gates |
+| [`.codex/instructions.md`](.codex/instructions.md) | Codex-oriented instructions |
+| [`.cursor/rules/evidenceoflife.mdc`](.cursor/rules/evidenceoflife.mdc) | Cursor always-on rules |
+| [`.cursorrules`](.cursorrules) | Legacy Cursor entrypoint |
+
+Agents should verify TypeScript with `npm run typecheck` (SWC does not type-check) and avoid inventing features or claiming unrun tests.
 
 ## Screenshots
 

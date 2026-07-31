@@ -17,6 +17,8 @@ and this project aims to follow [Semantic Versioning](https://semver.org/spec/v2
 ### Added
 - `docs/screenshots/` with demo preview and capture guidelines.
 - Draft `docs/oss/release-notes-v1.0.0.draft.md` (gated — not a tagged release).
+- Agent-native context: `llms.txt`, `llms-full.txt`, `AGENTS.md`,
+  `.codex/instructions.md`, `.cursor/rules/evidenceoflife.mdc`, `.cursorrules`.
 - Open-source foundation: MIT `LICENSE`, `CONTRIBUTING`, `CODE_OF_CONDUCT`,
   `SECURITY`, `PRIVACY`, issue/PR templates, and contributor-facing docs.
 - Self-hosting guide (`docs/oss/self-hosting.md`) and expanded `.env.example`.

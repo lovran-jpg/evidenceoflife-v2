@@ -1,0 +1,12 @@
+# Legacy Cursor rules entrypoint
+
+Prefer `.cursor/rules/evidenceoflife.mdc` and `AGENTS.md`.
+
+This file exists for tools that still read `.cursorrules`.
+
+- Stack: Vite + React 18 + TypeScript + Tailwind 3 + Supabase
+- Always: `npm run typecheck` after TS changes; `npm test` after logic changes
+- No secrets; no fabricated features/results
+- Demo verification: http://localhost:8080/demo-app
+- Security-sensitive: migrations, auth, edge OAuth/auth helpers, photo storage
+- Full policy: AGENTS.md | Map: llms.txt

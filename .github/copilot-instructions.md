@@ -7,8 +7,8 @@ Toolkit, tuned for THIS project's stack and the dark-mode aesthetic we settled o
 
 - React 18.3 + TypeScript 5.8, Vite 5 with `@vitejs/plugin-react-swc`.
 - **SWC does NOT type-check at build time.** After any TS change, validate with
-  `npx tsc --noEmit -p tsconfig.app.json` (expect exit 0) and `npm test`
-  (expect `Tests 51 passed (51)`).
+  `npx tsc --noEmit -p tsconfig.app.json` / `npm run typecheck` (expect exit 0) and
+  `npm test` (expect the suite to pass; count drifts over time — do not hardcode).
 - **Tailwind v3.4** (NOT v4 — there is no `@theme` block; use `tailwind.config.ts`).
 - shadcn/ui components live in `src/components/ui/`; Radix primitives underneath.
 - Styling is driven by **HSL CSS variables** in `src/index.css` (`--primary`,
