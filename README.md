@@ -8,99 +8,192 @@
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%2B%20Auth-3FCF8E?logo=supabase&logoColor=white)](https://supabase.com/)
 [![CI](https://github.com/Cyriellewu/evidenceoflife-v2/actions/workflows/ci.yml/badge.svg)](https://github.com/Cyriellewu/evidenceoflife-v2/actions/workflows/ci.yml)
 
-> A private memory system to record what you've done. Not therapy — evidence of a life well-lived.
+**A full-stack personal life management platform** for planning the day, capturing what actually happened, and revisiting habits, places, and memories — privately, without a social feed.
 
-**[Live demo](https://evidenceoflife.app/demo-app)** · **[Self-hosting guide](docs/oss/self-hosting.md)** · **[Security model](docs/SECURITY_MODEL.md)**
+> Not therapy. Evidence of a life well-lived.
+
+**[Live demo](https://evidenceoflife.app/demo-app)** · **[Self-hosting](docs/oss/self-hosting.md)** · **[Security model](docs/SECURITY_MODEL.md)** · **[Contributing](CONTRIBUTING.md)**
+
+## Screenshots
 
 <p align="center">
-  <img src="docs/assets/demo-preview.png" alt="Evidence of Life public demo — plan timeline, focus sessions, and daily recap" width="100%" />
+  <img src="docs/screenshots/demo-preview.png" alt="Evidence of Life public demo — plan list, focus progress, and day timeline" width="100%" />
 </p>
 
-Evidence of Life is a daily life-tracking web app. You capture *moments* (what happened), plan your day, track longer-term *dues* and habits, and see your life across a calendar, a map of the places you've been, and a year-at-a-glance grid.
+Additional captures (map, calendar, habits) can be added under [`docs/screenshots/`](docs/screenshots/). See that folder for naming guidelines. Prefer the synthetic `/demo-app` so no real personal data is published.
+
+## Overview
+
+**Problem.** Most productivity apps remember what you *planned*. Journals wait for you to rewrite what *happened*. Between calendars, timers, photos, and chat history, ordinary days become hard to reconstruct.
+
+**What this project does.** Evidence of Life connects planning and memory in one private SPA: you plan the day on a timeline, run focus sessions, attach moments (notes, photos, places, tags), track longer-term dues and habits, and browse history by time and map.
+
+**Who it is for.** Individuals who want a self-hosted or privately hosted personal system — especially people who think in planned-vs-actual time and want an archive they own. Positioning is **design goals for ADHD-friendly execution**, not medical treatment.
 
 ## Features
 
-- **Today** — Plan your day on a timeline and record moments as they happen, with photos, locations, tags, and focus timers.
-- **Recap** — Review what you actually did each day.
-- **Dues & Habits** — Track deadlines, multi-step goals, and recurring habits with streaks.
-- **Sticky Notes & Link Hub** — Lightweight checklists and saved links with previews.
-- **Map** — See the places you've visited, auto-categorized (restaurant, coffee, park, museum…).
-- **Calendar & Year View** — Browse history by day, month, and year.
-- **Google Calendar sync** — Import external events into your timeline.
-- **Smart input** — AI-assisted classification of free-text and voice input into moments, plans, or dues.
+Implemented in the current codebase (nothing invented):
+
+- **Today / Plan dashboard** — day timeline, task planning, focus timers, planned-vs-actual views
+- **Recap** — review what you actually did; optional AI “life replay” narrative when configured
+- **Moments** — free-form capture with photos, locations, tags, mood, and links
+- **Dues & habits** — deadlines, multi-step goals, recurring habits and streaks
+- **Sticky notes** — lightweight personal checklists
+- **Link hub** — saved links with server-side preview metadata
+- **Map** — visited places with category hints (restaurant, coffee, park, museum…)
+- **Calendar & year views** — browse history by day, month, and year-at-a-glance
+- **Google Calendar sync** — OAuth import of external events into the timeline
+- **Authentication** — Supabase Auth (email and/or providers you configure)
+- **Reminders** — in-app / browser notification reminders (and email-typed due reminders in the product UI)
+- **Smart input** — optional AI-assisted classification of free text / voice into moments, plans, or dues
+- **Public synthetic demo** — `/demo-app` runs without a real backend for UI exploration
+- **Evidence export** — JSON export helpers for user-owned data
 
 ## Tech Stack
 
-- **Frontend:** Vite, React 18, TypeScript
-- **UI:** shadcn/ui (Radix UI), Tailwind CSS, Recharts, Leaflet
-- **Data & state:** TanStack Query, React Router
-- **Backend:** Supabase (Postgres, Auth, Storage, Edge Functions)
-- **Testing:** Vitest, Testing Library, Playwright (demo smoke)
+### Frontend
 
-## Getting Started
+- React 18 + TypeScript
+- Vite 5
+- Tailwind CSS + shadcn/ui (Radix primitives)
+- React Router, TanStack Query
+- Recharts, Leaflet (map), date-fns
 
-Requires Node.js 20+ (18+ may work) and npm.
+### Backend
+
+- Supabase Auth, Postgres, Storage
+- Supabase Edge Functions (Deno): `geo`, `smart-input`, `link-preview`, `image-proxy`, `life-replay`, `google-calendar-*`
+- Row Level Security on personal tables; private photo bucket with signed URLs
+
+### Integrations
+
+- **Google Calendar API** — OAuth connect + sync (HMAC-signed OAuth `state`, redirect allowlist)
+- **Optional AI gateway** — `LOVABLE_API_KEY` for smart-input / life-replay (omit to disable)
+- **Optional analytics** — Amplitude / GA4 public measurement IDs via `VITE_*` (client-side only)
+
+## Architecture
+
+```mermaid
+flowchart TB
+  User[User / Browser]
+  SPA[React + TypeScript SPA<br/>Vite · Tailwind · TanStack Query]
+  SB[Supabase]
+  PG[(PostgreSQL + RLS)]
+  ST[(Storage<br/>moment-photos)]
+  EF[Edge Functions<br/>Deno]
+  GCal[Google Calendar API]
+  AI[Optional AI gateway]
+
+  User --> SPA
+  SPA -->|anon key + user JWT| SB
+  SB --> PG
+  SB --> ST
+  SPA -->|functions.invoke| EF
+  EF --> PG
+  EF --> GCal
+  EF -.-> AI
+```
+
+Static hosting (e.g. Vercel) serves the SPA. Auth, data, and most server logic live in the operator’s Supabase project.
+
+## Development Workflow
+
+This repository was built as a spare-time, single-maintainer project with substantial help from AI coding assistants (including Cursor / Codex-class tools) for:
+
+- implementing and iterating product features in React + TypeScript
+- debugging type errors, tests, and CI failures
+- refactoring hooks and view components without changing product intent
+- drafting security hardening (edge auth helpers, OAuth state signing) and OSS docs
+- accelerating PR-sized batches of documentation and quality-gate work
+
+Human review remains the gate for merges, security-sensitive paths, and release decisions. AI did not replace ownership of architecture or privacy trade-offs.
+
+## Local Development
+
+### Requirements
+
+- Node.js **20+** (see `.nvmrc`; 18+ may work)
+- npm
+- Optional: [Supabase CLI](https://supabase.com/docs/guides/cli) for migrations and function deploy
+- Optional: Deno (for `npm run test:security`)
+
+### Install & run (UI)
 
 ```sh
-# 1. Install dependencies
 npm install
-
-# 2. Configure environment
-cp .env.example .env   # then fill in your Supabase project values
-
-# 3. Start the dev server (http://localhost:8080)
+cp .env.example .env
+# fill VITE_SUPABASE_URL + VITE_SUPABASE_PUBLISHABLE_KEY for full data features
 npm run dev
 ```
 
-**Try without Supabase:** open [http://localhost:8080/demo-app](http://localhost:8080/demo-app) for the synthetic public demo.
+Open [http://localhost:8080](http://localhost:8080).
 
-Full backend setup (migrations, Auth, edge functions, Google Calendar): see [docs/oss/self-hosting.md](docs/oss/self-hosting.md).
+**Backend-free UI:** [http://localhost:8080/demo-app](http://localhost:8080/demo-app) uses synthetic sample data.
 
-## Scripts
+### Environment variables
 
-| Command | Description |
-| --- | --- |
-| `npm run dev` | Start the Vite dev server with HMR |
-| `npm run build` | Production build |
-| `npm run build:dev` | Development-mode build |
-| `npm run preview` | Preview the production build locally |
-| `npm run typecheck` | TypeScript check (`tsconfig.app.json`) |
-| `npm run lint` | Run ESLint (non-blocking in CI until debt is cleared) |
-| `npm test` | Run the test suite once |
-| `npm run test:watch` | Run tests in watch mode |
-| `npm run test:e2e` | Playwright demo smoke tests |
-| `npm run test:security` | Deno unit tests for edge-function auth helpers |
+Client (Vite) — see [`.env.example`](.env.example):
+
+| Variable | Required for | Notes |
+| --- | --- | --- |
+| `VITE_SUPABASE_URL` | real auth/data | Project URL |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | real auth/data | Anon / publishable key only |
+| `VITE_SUPABASE_PROJECT_ID` | convenience | Project ref |
+| `VITE_AMPLITUDE_API_KEY` / `VITE_GA_MEASUREMENT_ID` | optional | Public analytics IDs |
+
+Edge secrets (via `supabase secrets set`, never in the browser): `SUPABASE_SERVICE_ROLE_KEY`, `APP_URL`, `ALLOWED_REDIRECT_ORIGINS`, `OAUTH_STATE_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, optional `LOVABLE_API_KEY`.
+
+Full migration + Auth + function deploy steps: [docs/oss/self-hosting.md](docs/oss/self-hosting.md).
+
+### Quality commands
+
+```sh
+npm run typecheck
+npm test
+npm run lint
+npm run test:e2e          # Playwright demo smoke
+npm run test:security     # Deno edge auth unit tests (needs Deno)
+npm run build
+```
 
 ## Project Structure
 
 ```
 src/
-  components/       Reusable UI and feature components
-    ui/             shadcn/ui primitives
-    views/          Top-level screens (Today, Map, Calendar, Dues…)
-  hooks/            Data hooks (moments, dues, todos, places, auth…)
-  integrations/     Supabase client and generated types
-  lib/              Pure utilities (time math, tagging, colors…)
-  pages/            Route entry points
-  types/            Shared TypeScript types
+  components/     UI + feature views (Today, Plan, Map, Calendar, Dues…)
+  hooks/          Data hooks (moments, todos, dues, places, auth…)
+  integrations/   Supabase client + generated types
+  lib/            Pure helpers (scheduling, photos, export…)
+  pages/          Routes (Landing, Auth, App, PublicDemo)
 supabase/
-  functions/        Deno edge functions (geo, smart-input, link-preview…)
-  migrations/       SQL migrations
+  functions/      Deno edge functions
+  migrations/     SQL migrations (RLS, storage, schema)
+docs/
+  oss/            Self-hosting, roadmap, release drafts
+  screenshots/    README visuals
+  SECURITY_MODEL.md
+e2e/              Playwright smoke tests
 ```
 
-## Environment Variables
+## Future Improvements
 
-See [`.env.example`](.env.example). All client variables are prefixed with `VITE_`. The Supabase **publishable** key is safe to expose in the browser; never commit service-role keys or other secrets.
+Realistic, non-binding direction (also tracked in [docs/oss/roadmap.md](docs/oss/roadmap.md)):
+
+- Live-DB RLS verification and complete account deletion coverage
+- Stronger regression tests around timers, timezone rollover, and calendar sync
+- Contributor onboarding: curated good-first issues and third-party self-host verification
+- First tagged release with finalized notes (drafts live under `docs/oss/`)
+
+**Non-goals:** medical/therapeutic claims; fake adoption metrics; growth-hacking the public repo.
 
 ## Contributing & community
 
-- [CONTRIBUTING.md](CONTRIBUTING.md) — local setup and PR gates
+- [CONTRIBUTING.md](CONTRIBUTING.md)
 - [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
-- [SECURITY.md](SECURITY.md) — private vulnerability reporting
-- [PRIVACY.md](PRIVACY.md) — data-handling notes for operators
+- [SECURITY.md](SECURITY.md)
+- [PRIVACY.md](PRIVACY.md)
 - [LICENSE](LICENSE) — MIT
-- [docs/oss/roadmap.md](docs/oss/roadmap.md)
 
 ## Deployment
 
-The app is a static SPA. `vercel.json` rewrites all routes to `index.html` for client-side routing. Build with `npm run build` and deploy the `dist/` directory to any static host. Supabase edge functions deploy separately via the Supabase CLI.
+The app is a static SPA (`vercel.json` rewrites to `index.html`). Build with `npm run build` and host `dist/`. Deploy Supabase edge functions separately with the Supabase CLI.
