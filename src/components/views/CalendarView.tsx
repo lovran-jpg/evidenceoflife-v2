@@ -211,6 +211,9 @@ export function CalendarView({ dayRecords, getMomentsForDate, onAddMoment, onEdi
     
     effectiveTodos.forEach((t) => {
       if (t.date.startsWith('_due_')) return;
+      // Only surface scheduled or tracked tasks on the calendar; unscheduled
+      // backlog items have no time anchor and belong to the task list, not here.
+      if (!t.plan_started_at && !t.timer_started_at) return;
       const existing = map.get(t.date) || [];
       const workType = getWorkType({ entity: 'todo', id: t.id, title: t.title, tags: t.tags });
       const color = getActivityAccentColor({ title: t.title, tags: t.tags, isDarkMode })
