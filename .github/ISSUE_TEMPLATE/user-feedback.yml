@@ -1,0 +1,57 @@
+name: User feedback
+description: Share a real problem or observation from using Evidence of Life
+labels: ["user-feedback"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping turn real usage into product evidence. Focus on the
+        problem you experienced, not a pre-chosen solution. Please keep any
+        personal or location data out of this issue.
+  - type: input
+    id: source
+    attributes:
+      label: Feedback source
+      description: How you use the product (e.g. daily planning, focus timer, map). Keep it anonymous.
+    validations:
+      required: false
+  - type: textarea
+    id: problem
+    attributes:
+      label: Observed problem
+      description: What did you actually struggle with or notice?
+    validations:
+      required: true
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: Frequency or repetition
+      description: How often does this come up?
+      options:
+        - Once
+        - Occasionally
+        - Often
+        - Every day
+    validations:
+      required: false
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Current workaround
+      description: What do you do today to get around it?
+    validations:
+      required: false
+  - type: textarea
+    id: implication
+    attributes:
+      label: Product implication
+      description: Optional. What do you think this means for the product?
+    validations:
+      required: false
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Optional. What would "resolved" look like for you?
+    validations:
+      required: false

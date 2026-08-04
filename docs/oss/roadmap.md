@@ -32,3 +32,21 @@
 - No medical/therapeutic claims. Positioning is design goals for ADHD-friendly
   execution, not treatment.
 - No growth-hacking, fake activity, or vanity metrics.
+
+## Product direction (exploratory)
+
+Ideas that extend the core list → timeline → actual → map → recap model. These are
+directions, not commitments, and each is a personal reflection aid rather than a
+validated health measurement.
+
+- **Plan-versus-actual overlay** — a side-by-side or layered timeline that makes the
+  gap between intention and reality immediately visible.
+- **Contextual day replay** — reconstruct a day from calendar, focus sessions,
+  moments, photos, and places, with clear source indicators.
+- **Place patterns** — surface focus, routines, and repeated memories by location so
+  the map is analytically useful rather than decorative.
+- **Short-window planning** — filters and suggestions for 5-, 15-, and 30-minute
+  openings to support fragmented time and task initiation.
+- **Time-estimation reflection** — planned versus actual duration over time, framed
+  as a personal pattern, not a score.
+

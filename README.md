@@ -1,5 +1,11 @@
 # Evidence of Life
 
+> **See where your time went. Remember where life happened.**
+
+Evidence of Life is an ADHD-friendly visual planning and life-memory system that combines task lists with a draggable daily timeline, planned-versus-actual tracking, and map-based moments. Instead of keeping plans, activities, photos, and places in separate tools, it connects them into one private record of lived time.
+
+**[Live demo](https://evidenceoflife-v2.vercel.app/demo-app)** · **[Self-hosting](docs/oss/self-hosting.md)** · **[Security model](docs/SECURITY_MODEL.md)** · **[Contributing](CONTRIBUTING.md)** · **[Agents](AGENTS.md)**
+
 [![MIT License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Vite](https://img.shields.io/badge/Vite-5-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev/)
@@ -8,11 +14,7 @@
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%2B%20Auth-3FCF8E?logo=supabase&logoColor=white)](https://supabase.com/)
 [![CI](https://github.com/Cyriellewu/evidenceoflife-v2/actions/workflows/ci.yml/badge.svg)](https://github.com/Cyriellewu/evidenceoflife-v2/actions/workflows/ci.yml)
 
-**A full-stack personal life management platform** for planning the day, capturing what actually happened, and revisiting habits, places, and memories — privately, without a social feed.
-
-> Not therapy. Evidence of a life well-lived.
-
-**[Live demo](https://evidenceoflife-v2.vercel.app/demo-app)** · **[Self-hosting](docs/oss/self-hosting.md)** · **[Security model](docs/SECURITY_MODEL.md)** · **[Contributing](CONTRIBUTING.md)** · **[Agents](AGENTS.md)**
+> Designed around challenges commonly experienced by people with ADHD and time-blindness. It is **not** a diagnostic, clinical, or treatment tool.
 
 ## For AI coding agents
 
@@ -44,6 +46,38 @@ Additional captures (map, calendar, habits) can be added under [`docs/screenshot
 **What this project does.** Evidence of Life connects planning and memory in one private SPA: you plan the day on a timeline, run focus sessions, attach moments (notes, photos, places, tags), track longer-term dues and habits, and browse history by time and map.
 
 **Who it is for.** Individuals who want a self-hosted or privately hosted personal system — especially people who think in planned-vs-actual time and want an archive they own. Positioning is **design goals for ADHD-friendly execution**, not medical treatment.
+## Why it's different
+
+Most productivity tools record what you *intend* to do. Journals record memories
+*after* they happen. Evidence of Life connects both.
+
+- **Lists show what** — capture tasks, habits, deadlines, and intentions without forcing everything into today's schedule.
+- **Timelines reveal when** — drag tasks into visible time blocks, see whether the day is realistic, and rearrange plans as life changes.
+- **Actual records show where time went** — compare intended activity with focus sessions, completed work, delays, interruptions, and unexpected moments.
+- **Maps preserve where life happened** — attach photos and moments to locations, leaving a personal trace across neighborhoods, cities, and the globe.
+
+## ADHD-friendly by design
+
+| Challenge | Product response |
+| --- | --- |
+| Time feels abstract | A visible daily timeline externalizes time. |
+| Long lists feel overwhelming | Tasks can be placed into concrete time windows. |
+| Plans change frequently | Drag-and-drop rescheduling avoids rebuilding the day. |
+| Small time windows are hard to use | Visible gaps make short tasks easier to identify and start. |
+| The day is hard to remember later | Calendar events, focus sessions, photos, and places preserve context. |
+| Deviation feels like failure | Planned and actual activity are both retained without judgment. |
+| Memories feel disconnected | Moments are organized through both time and place. |
+
+See [docs/PRODUCT_PHILOSOPHY.md](docs/PRODUCT_PHILOSOPHY.md) for the full model.
+
+## Early validation
+
+Evidence of Life has been tested by approximately **30–40 early users** and has
+evolved through direct, informal feedback — especially around visual timeline
+planning, drag-and-drop scheduling, lower-friction capture, reminders, understanding
+where time goes, and map-based memory. Earlier feedback was not consistently archived
+as public issues, so these themes are presented as a qualitative summary rather than
+formal metrics. See [docs/USER_FEEDBACK.md](docs/USER_FEEDBACK.md).
 
 ## Features
 
@@ -204,7 +238,9 @@ Realistic, non-binding direction (also tracked in [docs/oss/roadmap.md](docs/oss
 
 ## Contributing & community
 
-- [CONTRIBUTING.md](CONTRIBUTING.md)
+- [CONTRIBUTING.md](CONTRIBUTING.md) — local setup and PR gates
+- [docs/PRODUCT_PHILOSOPHY.md](docs/PRODUCT_PHILOSOPHY.md) — the list → timeline → actual → map → recap model
+- [docs/USER_FEEDBACK.md](docs/USER_FEEDBACK.md) — how real usage shaped the product
 - [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 - [SECURITY.md](SECURITY.md)
 - [PRIVACY.md](PRIVACY.md)
