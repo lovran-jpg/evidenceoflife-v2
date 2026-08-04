@@ -239,7 +239,10 @@ export function DayView({ date, dayRecords, todos, importedEvents, onTimeSlotCli
       });
 
     todos
-      .filter(t => t.date === dateStr && !t.date.startsWith('_due_'))
+      // Only place todos that have a real time anchor (planned or tracked) on the
+      // grid. Unscheduled backlog tasks have no time and would otherwise stack at
+      // their creation time.
+      .filter(t => t.date === dateStr && !t.date.startsWith('_due_') && (t.plan_started_at || t.timer_started_at))
       .forEach(t => {
         const display = getTodoDisplayTime(t);
         const workType = getWorkType({ entity: 'todo', id: t.id, title: t.title, tags: t.tags });
