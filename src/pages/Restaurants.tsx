@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link, Route, Routes, useNavigate, useParams } from 'react-router-dom';
+import { Link, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { ArrowLeft, ChevronRight, Plus } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { restaurants } from '@/lib/restaurants';
 import { restaurantVisits } from '@/lib/restaurantVisits';
+import { restaurantVisitPhotos, validateVisitFiles, VisitPhotoError } from '@/lib/restaurantVisitPhotos';
 import type { Restaurant, RestaurantVisit } from '@/lib/restaurantDomain';
 
 const detailPath = (id: string) => `/restaurants/${id}`;
@@ -34,6 +35,27 @@ function BackLink({ to, label }: { to: string; label: string }) {
 
 function ErrorNotice({ message }: { message: string }) {
   return <p role="alert" className="rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">{message}</p>;
+}
+
+function VisitPhoto({ userId, path }: { userId: string; path: string }) {
+  const [url, setUrl] = useState('');
+  useEffect(() => {
+    let active = true;
+    setUrl('');
+    void restaurantVisitPhotos.signedUrl(userId, path).then(value => { if (active) setUrl(value); }).catch(() => { if (active) setUrl(''); });
+    return () => { active = false; };
+  }, [userId, path]);
+  return url ? <a href={url} target="_blank" rel="noreferrer" aria-label="Otvori fotografiju"><img src={url} alt="Fotografija posjeta" className="h-24 w-24 rounded-lg object-cover" /></a> : <span className="flex h-24 w-24 items-center justify-center rounded-lg bg-muted text-xs">Fotografija nije dostupna</span>;
+}
+
+function LocalPhoto({ file }: { file: File }) {
+  const [url, setUrl] = useState('');
+  useEffect(() => {
+    const objectUrl = URL.createObjectURL(file);
+    setUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [file]);
+  return url ? <img src={url} alt={file.name} className="h-24 w-24 rounded-lg object-cover" /> : null;
 }
 
 function RestaurantList({ userId }: { userId: string }) {
@@ -128,6 +150,8 @@ function NewRestaurant({ userId }: { userId: string }) {
 }
 
 function RestaurantDetail({ userId }: { userId: string }) {
+  const location = useLocation();
+  const cleanupWarning = (location.state as { cleanupWarning?: string } | null)?.cleanupWarning;
   const { restaurantId } = useParams();
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [visits, setVisits] = useState<RestaurantVisit[]>([]);
@@ -162,14 +186,15 @@ function RestaurantDetail({ userId }: { userId: string }) {
   }, [restaurantId, userId]);
 
   async function deleteVisit(id: string) {
-    if (!window.confirm('Trajno obrisati ovaj posjet?')) return;
+    if (!window.confirm('Trajno obrisati ovaj posjet i njegove fotografije?')) return;
     setError('');
     setDeletingId(id);
     try {
-      await restaurantVisits.delete(userId, id);
+      await restaurantVisitPhotos.delete(userId, id);
       setVisits(current => current.filter(visit => visit.id !== id));
     } catch (cause) {
-      setError(`Posjet nije obrisan. ${errorText(cause)}`);
+      if (cause instanceof VisitPhotoError && cause.committed) setVisits(current => current.filter(visit => visit.id !== id));
+      setError(cause instanceof VisitPhotoError && cause.committed ? errorText(cause) : `Posjet nije obrisan. ${errorText(cause)}`);
     } finally {
       setDeletingId(null);
     }
@@ -179,6 +204,7 @@ function RestaurantDetail({ userId }: { userId: string }) {
     <BackLink to="/restaurants" label="Svi restorani" />
     {loading ? <p role="status">Učitavanje restorana…</p> : null}
     {error ? <ErrorNotice message={error} /> : null}
+    {cleanupWarning ? <ErrorNotice message={cleanupWarning} /> : null}
     {!loading && !restaurant && !error ? <p role="alert">Restoran nije pronađen.</p> : null}
     {restaurant ? <>
       <h1 className="break-words text-3xl font-semibold">{restaurant.name}</h1>
@@ -191,7 +217,7 @@ function RestaurantDetail({ userId }: { userId: string }) {
           {visit.what_i_ate ? <p className="mt-2 break-words">Što sam jeo: {visit.what_i_ate}</p> : null}
           {visit.note ? <p className="mt-2 whitespace-pre-wrap break-words text-muted-foreground">{visit.note}</p> : null}
           {visit.rating != null ? <p className="mt-2 text-sm">Ocjena: {visit.rating}/5</p> : null}
-          {visit.photos.length > 0 ? <p className="mt-2 text-sm text-muted-foreground">Fotografija: {visit.photos.length}</p> : null}
+          {visit.photos.length > 0 ? <div className="mt-3 flex max-w-full gap-2 overflow-x-auto pb-2">{visit.photos.map((path, index) => <VisitPhoto key={`${path}-${index}`} userId={userId} path={path} />)}</div> : null}
           <div className="mt-4 flex gap-2 border-t pt-3">
             <Button asChild variant="outline" className="min-h-11 flex-1"><Link to={`${detailPath(restaurant.id)}/visits/${visit.id}/edit`}>Uredi</Link></Button>
             <Button type="button" variant="outline" className="min-h-11 flex-1 text-destructive" disabled={deletingId === visit.id} onClick={() => void deleteVisit(visit.id)}>Obriši</Button>
@@ -211,6 +237,8 @@ function VisitForm({ userId, edit }: { userId: string; edit: boolean }) {
   const [whatIAte, setWhatIAte] = useState('');
   const [note, setNote] = useState('');
   const [rating, setRating] = useState('');
+  const [existingPhotos, setExistingPhotos] = useState<string[]>([]);
+  const [newPhotos, setNewPhotos] = useState<File[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -233,6 +261,7 @@ function VisitForm({ userId, edit }: { userId: string; edit: boolean }) {
             setWhatIAte(visit.what_i_ate ?? '');
             setNote(visit.note ?? '');
             setRating(visit.rating?.toString() ?? '');
+            setExistingPhotos(visit.photos);
           }
         }
         if (active) setRestaurant(found);
@@ -258,10 +287,14 @@ function VisitForm({ userId, edit }: { userId: string; edit: boolean }) {
       rating: rating ? Number(rating) : null,
     };
     try {
-      if (edit && visitId) await restaurantVisits.update(userId, visitId, values);
-      else await restaurantVisits.create(userId, { place_id: restaurant.id, ...values });
+      if (edit && visitId) await restaurantVisitPhotos.update(userId, visitId, values, existingPhotos, newPhotos);
+      else await restaurantVisitPhotos.create(userId, { place_id: restaurant.id, ...values }, newPhotos);
       navigate(detailPath(restaurant.id), { replace: true });
     } catch (cause) {
+      if (cause instanceof VisitPhotoError && cause.committed) {
+        navigate(detailPath(restaurant.id), { replace: true, state: { cleanupWarning: errorText(cause) } });
+        return;
+      }
       setError(`Posjet nije spremljen. ${errorText(cause)}`);
       setSaving(false);
     }
@@ -280,6 +313,19 @@ function VisitForm({ userId, edit }: { userId: string; edit: boolean }) {
         <div className="space-y-2"><Label htmlFor="visit-food">Što sam jeo</Label><Input id="visit-food" className="h-12" value={whatIAte} onChange={event => setWhatIAte(event.target.value)} /></div>
         <div className="space-y-2"><Label htmlFor="visit-note">Dojam / bilješka</Label><Textarea id="visit-note" className="min-h-28 text-base" value={note} onChange={event => setNote(event.target.value)} /></div>
         <div className="space-y-2"><Label htmlFor="visit-rating">Ocjena</Label><select id="visit-rating" className="h-12 w-full rounded-md border border-input bg-background px-3 text-base" value={rating} onChange={event => setRating(event.target.value)}><option value="">Bez ocjene</option>{[1, 2, 3, 4, 5].map(value => <option key={value} value={value}>{value} / 5</option>)}</select></div>
+        <div className="space-y-3">
+          <Label htmlFor="visit-photos">Fotografije (do 10, svaka do 5 MB)</Label>
+          <Input id="visit-photos" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif" multiple className="h-12 pt-2" onChange={event => {
+            const selected = Array.from(event.target.files ?? []);
+            try { validateVisitFiles(selected, existingPhotos.length + newPhotos.length); setNewPhotos(current => [...current, ...selected]); setError(''); }
+            catch (cause) { setError(errorText(cause)); }
+            event.target.value = '';
+          }} />
+          {(existingPhotos.length > 0 || newPhotos.length > 0) ? <div className="flex max-w-full gap-3 overflow-x-auto pb-2">
+            {existingPhotos.map((path, index) => <div key={`${path}-${index}`} className="shrink-0"><VisitPhoto userId={userId} path={path} /><Button type="button" variant="outline" className="mt-1 min-h-11 w-full" onClick={() => setExistingPhotos(current => current.filter((_, i) => i !== index))}>Ukloni</Button></div>)}
+            {newPhotos.map((file, index) => <div key={`${file.name}-${index}`} className="shrink-0"><LocalPhoto file={file} /><Button type="button" variant="outline" className="mt-1 min-h-11 w-full" onClick={() => setNewPhotos(current => current.filter((_, i) => i !== index))}>Ukloni</Button></div>)}
+          </div> : null}
+        </div>
         <div className="sticky bottom-4 pt-3"><Button size="lg" className="h-12 w-full rounded-xl shadow-lg" disabled={saving}>{saving ? 'Spremanje…' : edit ? 'Spremi izmjene' : 'Spremi posjet'}</Button></div>
       </form>
     </> : null}

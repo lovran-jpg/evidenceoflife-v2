@@ -34,6 +34,7 @@ export function createRestaurantVisitService(db: typeof supabase = supabase) {
       requireRating(input.rating);
       requireCanonicalPhotos(userId, input.photos ?? []);
       const { data, error } = await db.from('visits').insert({
+        ...(input.id ? { id: input.id } : {}),
         user_id: userId, place_id: input.place_id, date: input.date,
         moment_id: null, what_i_ate: input.what_i_ate ?? null,
         note: input.note ?? null, rating: input.rating ?? null, photos: input.photos ?? [],
@@ -47,7 +48,8 @@ export function createRestaurantVisitService(db: typeof supabase = supabase) {
       if (changes.place_id !== undefined) await requireRestaurant(userId, changes.place_id);
       if (changes.date !== undefined) requireIsoDate(changes.date);
       if (changes.rating !== undefined) requireRating(changes.rating);
-      if (changes.photos !== undefined) requireCanonicalPhotos(userId, changes.photos);
+      // Existing legacy data: values may be retained, but never introduced by a new write.
+      if (changes.photos !== undefined) requireCanonicalPhotos(userId, changes.photos.filter(path => !current.photos.includes(path)));
       const { data, error } = await db.from('visits').update(changes)
         .eq('id', id).eq('user_id', userId).select('*').maybeSingle();
       if (error) throw databaseError('Could not update visit', error);

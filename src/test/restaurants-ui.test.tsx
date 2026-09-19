@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import type { Restaurant, RestaurantVisit } from '@/lib/restaurantDomain';
 import Restaurants from '@/pages/Restaurants';
+import { restaurantVisitPhotos } from '@/lib/restaurantVisitPhotos';
 
 const alice = '11111111-1111-4111-8111-111111111111';
 const bob = '22222222-2222-4222-8222-222222222222';
@@ -59,6 +60,31 @@ vi.mock('@/lib/restaurantVisits', () => ({
   },
 }));
 
+vi.mock('@/lib/restaurantVisitPhotos', () => ({
+  VisitPhotoError: class VisitPhotoError extends Error { committed = false; },
+  validateVisitFiles: vi.fn(),
+  restaurantVisitPhotos: {
+    create: vi.fn(async (userId: string, input: Partial<RestaurantVisit> & { place_id: string; date: string }) => {
+      const item = { id: `visit-${++state.sequence}`, user_id: userId, created_at: '2026-09-19T00:00:00Z',
+        moment_id: null, photos: [], note: null, what_i_ate: null, rating: null, ...input } as RestaurantVisit;
+      state.visits.push(item);
+      return item;
+    }),
+    update: vi.fn(async (userId: string, id: string, changes: Partial<RestaurantVisit>, retained: string[]) => {
+      const item = state.visits.find(visit => visit.id === id && visit.user_id === userId);
+      if (!item) throw new Error('Visit not found');
+      Object.assign(item, changes, { photos: retained });
+      return item;
+    }),
+    delete: vi.fn(async (userId: string, id: string) => {
+      const index = state.visits.findIndex(item => item.id === id && item.user_id === userId);
+      if (index < 0) throw new Error('Visit not found');
+      state.visits.splice(index, 1);
+    }),
+    signedUrl: vi.fn(async (_userId: string, path: string) => path),
+  },
+}));
+
 function addRestaurant(id: string, name: string, userId = alice, category = 'restaurant') {
   state.restaurants.push({
     id, name, user_id: userId, category, city_id: null, lat: null, lng: null,
@@ -96,6 +122,23 @@ beforeEach(() => {
 });
 
 describe('Restaurant V1 routes', () => {
+  it('offers multiple local photos and lets a selected photo be removed before saving', async () => {
+    addRestaurant('one', 'Bistro');
+    const createObjectURL = vi.fn(() => 'blob:preview');
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal('URL', Object.assign(URL, { createObjectURL, revokeObjectURL }));
+    open('/restaurants/one/visits/new');
+    const picker = await screen.findByLabelText(/Fotografije/);
+    const first = new File(['one'], 'one.jpg', { type: 'image/jpeg' });
+    const second = new File(['two'], 'two.jpg', { type: 'image/jpeg' });
+    fireEvent.change(picker, { target: { files: [first, second] } });
+    expect(await screen.findAllByRole('button', { name: 'Ukloni' })).toHaveLength(2);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Ukloni' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Spremi posjet' }));
+    await waitFor(() => expect(restaurantVisitPhotos.create).toHaveBeenCalledWith(alice, expect.objectContaining({ place_id: 'one' }), [second]));
+    vi.unstubAllGlobals();
+  });
+
   it('lists only own restaurants, sorts by latest visit, and keeps equal names separate by ID', async () => {
     addRestaurant('old', 'Bistro');
     addRestaurant('recent', 'Bistro');

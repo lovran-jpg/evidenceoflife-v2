@@ -7,8 +7,8 @@ export type RestaurantInput = Pick<Restaurant, 'name'> &
   Partial<Pick<Restaurant, 'city_id' | 'lat' | 'lng'>>;
 export type RestaurantChanges = Partial<RestaurantInput>;
 export type VisitInput = Pick<RestaurantVisit, 'place_id' | 'date'> &
-  Partial<Pick<RestaurantVisit, 'what_i_ate' | 'note' | 'rating' | 'photos'>>;
-export type VisitChanges = Partial<VisitInput>;
+  Partial<Pick<RestaurantVisit, 'id' | 'what_i_ate' | 'note' | 'rating' | 'photos'>>;
+export type VisitChanges = Partial<Pick<RestaurantVisit, 'place_id' | 'date' | 'what_i_ate' | 'note' | 'rating' | 'photos'>>;
 
 export class RestaurantServiceError extends Error {
   constructor(
