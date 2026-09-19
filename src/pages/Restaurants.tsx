@@ -11,24 +11,12 @@ import { restaurants } from '@/lib/restaurants';
 import { restaurantVisits } from '@/lib/restaurantVisits';
 import { restaurantVisitPhotos, validateVisitFiles, VisitPhotoError } from '@/lib/restaurantVisitPhotos';
 import { optimizeRestaurantPhotos, type OptimizedPhoto } from '@/lib/optimizeRestaurantPhoto';
+import { RestaurantShell as Page } from '@/components/RestaurantShell';
+import { RestaurantVisitPhoto as VisitPhoto } from '@/components/RestaurantVisitPhoto';
 import type { Restaurant, RestaurantVisit } from '@/lib/restaurantDomain';
 
 const detailPath = (id: string) => `/restaurants/${id}`;
 const errorText = (error: unknown) => error instanceof Error ? error.message : 'Pokušajte ponovno.';
-
-function Page({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="min-h-dvh min-w-0 bg-background text-foreground">
-      <header className="border-b border-border/70 bg-background/95 px-4 py-4">
-        <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
-          <Link to="/restaurants" className="text-lg font-semibold">Dnevnik restorana</Link>
-          <Link to="/app" className="rounded-lg px-3 py-2 text-sm text-muted-foreground hover:text-foreground">Stara aplikacija</Link>
-        </div>
-      </header>
-      <main className="mx-auto w-full max-w-2xl min-w-0 px-4 pb-28 pt-6">{children}</main>
-    </div>
-  );
-}
 
 function BackLink({ to, label }: { to: string; label: string }) {
   return <Link to={to} className="mb-6 inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft size={18} />{label}</Link>;
@@ -36,17 +24,6 @@ function BackLink({ to, label }: { to: string; label: string }) {
 
 function ErrorNotice({ message }: { message: string }) {
   return <p role="alert" className="rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">{message}</p>;
-}
-
-function VisitPhoto({ userId, path }: { userId: string; path: string }) {
-  const [url, setUrl] = useState('');
-  useEffect(() => {
-    let active = true;
-    setUrl('');
-    void restaurantVisitPhotos.signedUrl(userId, path).then(value => { if (active) setUrl(value); }).catch(() => { if (active) setUrl(''); });
-    return () => { active = false; };
-  }, [userId, path]);
-  return url ? <a href={url} target="_blank" rel="noreferrer" aria-label="Otvori fotografiju"><img src={url} alt="Fotografija posjeta" className="h-24 w-24 rounded-lg object-cover" /></a> : <span className="flex h-24 w-24 items-center justify-center rounded-lg bg-muted text-xs">Fotografija nije dostupna</span>;
 }
 
 function LocalPhoto({ file }: { file: File }) {
