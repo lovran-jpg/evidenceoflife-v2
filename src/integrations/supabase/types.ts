@@ -365,31 +365,31 @@ export type Database = {
       places: {
         Row: {
           category: string
-          city_id: string
+          city_id: string | null
           created_at: string
           id: string
-          lat: number
-          lng: number
+          lat: number | null
+          lng: number | null
           name: string
           user_id: string
         }
         Insert: {
           category?: string
-          city_id: string
+          city_id?: string | null
           created_at?: string
           id?: string
-          lat: number
-          lng: number
+          lat?: number | null
+          lng?: number | null
           name: string
           user_id: string
         }
         Update: {
           category?: string
-          city_id?: string
+          city_id?: string | null
           created_at?: string
           id?: string
-          lat?: number
-          lng?: number
+          lat?: number | null
+          lng?: number | null
           name?: string
           user_id?: string
         }

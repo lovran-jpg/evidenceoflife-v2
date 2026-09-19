@@ -33,10 +33,17 @@ function fakeDatabase() {
           row[key] === value));
         let result: Record<string, unknown>[] = matching;
         if (action === 'insert') {
+          if (table === 'places' && payload.city_id != null && payload.city_id !== `city-${payload.user_id}`) {
+            return { data: null, error: { message: 'place and city ownership mismatch' } };
+          }
           const row = { id: `record-${++sequence}`, created_at: '2026-09-19T00:00:00Z', ...payload };
           rows.push(row);
           result = [row];
         } else if (action === 'update') {
+          if (table === 'places' && payload.city_id != null &&
+              matching.some(row => payload.city_id !== `city-${row.user_id}`)) {
+            return { data: null, error: { message: 'place and city ownership mismatch' } };
+          }
           matching.forEach(row => Object.assign(row, payload));
         } else if (action === 'delete') {
           matching.forEach(row => rows.splice(rows.indexOf(row), 1));
@@ -78,6 +85,32 @@ async function restaurantFor(db: ReturnType<typeof fakeDatabase>, userId = alice
 }
 
 describe('Restaurant and RestaurantVisit services', () => {
+  it('creates a name-only restaurant with null location and preserves located places', async () => {
+    const db = fakeDatabase();
+    const service = createRestaurantService(db.client);
+    const nameOnly = await service.create(alice, { name: '  Bistro  ' });
+    const located = await restaurantFor(db);
+
+    expect(nameOnly).toMatchObject({
+      name: 'Bistro', category: 'restaurant', user_id: alice,
+      city_id: null, lat: null, lng: null,
+    });
+    expect(located).toMatchObject({ city_id: `city-${alice}`, lat: 45.8, lng: 16 });
+    expect((await service.get(alice, nameOnly.id))?.id).toBe(nameOnly.id);
+    expect((await service.list(alice)).map(item => item.id)).toContain(located.id);
+  });
+
+  it('rejects linking a restaurant to another user’s city', async () => {
+    const db = fakeDatabase();
+    const service = createRestaurantService(db.client);
+    await expect(service.create(alice, { name: 'Bistro', city_id: `city-${bob}` }))
+      .rejects.toMatchObject({ code: 'database' });
+    const restaurant = await service.create(alice, { name: 'Bistro' });
+    await expect(service.update(alice, restaurant.id, { city_id: `city-${bob}` }))
+      .rejects.toMatchObject({ code: 'database' });
+    expect((await service.get(alice, restaurant.id))?.city_id).toBeNull();
+  });
+
   it('keeps restaurants with the same name separate by ID and owner', async () => {
     const db = fakeDatabase();
     const service = createRestaurantService(db.client);

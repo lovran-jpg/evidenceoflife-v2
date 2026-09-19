@@ -21,6 +21,7 @@ export function createRestaurantService(db: typeof supabase = supabase) {
     async create(userId: string, input: RestaurantInput): Promise<Restaurant> {
       const { data, error } = await db.from('places').insert({
         ...input, name: requireName(input.name), category: 'restaurant', user_id: userId,
+        city_id: input.city_id ?? null, lat: input.lat ?? null, lng: input.lng ?? null,
       }).select('*').single();
       if (error) throw databaseError('Could not create restaurant', error);
       return data;
