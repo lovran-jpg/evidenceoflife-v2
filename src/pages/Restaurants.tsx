@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { ArrowLeft, ChevronRight, Plus } from 'lucide-react';
@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { restaurants } from '@/lib/restaurants';
 import { restaurantVisits } from '@/lib/restaurantVisits';
 import { restaurantVisitPhotos, validateVisitFiles, VisitPhotoError } from '@/lib/restaurantVisitPhotos';
+import { optimizeRestaurantPhotos, type OptimizedPhoto } from '@/lib/optimizeRestaurantPhoto';
 import type { Restaurant, RestaurantVisit } from '@/lib/restaurantDomain';
 
 const detailPath = (id: string) => `/restaurants/${id}`;
@@ -238,7 +239,9 @@ function VisitForm({ userId, edit }: { userId: string; edit: boolean }) {
   const [note, setNote] = useState('');
   const [rating, setRating] = useState('');
   const [existingPhotos, setExistingPhotos] = useState<string[]>([]);
-  const [newPhotos, setNewPhotos] = useState<File[]>([]);
+  const [newPhotos, setNewPhotos] = useState<OptimizedPhoto[]>([]);
+  const [preparing, setPreparing] = useState(false);
+  const preparingRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -277,7 +280,7 @@ function VisitForm({ userId, edit }: { userId: string; edit: boolean }) {
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (saving || !restaurant) return;
+    if (saving || preparingRef.current || !restaurant) return;
     setError('');
     setSaving(true);
     const values = {
@@ -287,8 +290,9 @@ function VisitForm({ userId, edit }: { userId: string; edit: boolean }) {
       rating: rating ? Number(rating) : null,
     };
     try {
-      if (edit && visitId) await restaurantVisitPhotos.update(userId, visitId, values, existingPhotos, newPhotos);
-      else await restaurantVisitPhotos.create(userId, { place_id: restaurant.id, ...values }, newPhotos);
+      const files = newPhotos.map(photo => photo.file);
+      if (edit && visitId) await restaurantVisitPhotos.update(userId, visitId, values, existingPhotos, files);
+      else await restaurantVisitPhotos.create(userId, { place_id: restaurant.id, ...values }, files);
       navigate(detailPath(restaurant.id), { replace: true });
     } catch (cause) {
       if (cause instanceof VisitPhotoError && cause.committed) {
@@ -315,18 +319,30 @@ function VisitForm({ userId, edit }: { userId: string; edit: boolean }) {
         <div className="space-y-2"><Label htmlFor="visit-rating">Ocjena</Label><select id="visit-rating" className="h-12 w-full rounded-md border border-input bg-background px-3 text-base" value={rating} onChange={event => setRating(event.target.value)}><option value="">Bez ocjene</option>{[1, 2, 3, 4, 5].map(value => <option key={value} value={value}>{value} / 5</option>)}</select></div>
         <div className="space-y-3">
           <Label htmlFor="visit-photos">Fotografije (do 10, svaka do 5 MB)</Label>
-          <Input id="visit-photos" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif" multiple className="h-12 pt-2" onChange={event => {
+          <Input id="visit-photos" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" multiple disabled={saving || preparing} className="h-12 pt-2" onChange={event => {
             const selected = Array.from(event.target.files ?? []);
-            try { validateVisitFiles(selected, existingPhotos.length + newPhotos.length); setNewPhotos(current => [...current, ...selected]); setError(''); }
-            catch (cause) { setError(errorText(cause)); }
             event.target.value = '';
+            if (!selected.length || preparingRef.current) return;
+            preparingRef.current = true;
+            setPreparing(true);
+            setError('');
+            void (async () => {
+              try {
+                if (existingPhotos.length + newPhotos.length + selected.length > 10) throw new Error('Najviše 10 fotografija po posjetu.');
+                const prepared = await optimizeRestaurantPhotos(selected);
+                validateVisitFiles(prepared.map(photo => photo.file), existingPhotos.length + newPhotos.length);
+                setNewPhotos(current => [...current, ...prepared]);
+              } catch (cause) { setError(errorText(cause)); }
+              finally { preparingRef.current = false; setPreparing(false); }
+            })();
           }} />
+          {preparing ? <p role="status" className="text-sm text-muted-foreground">Priprema fotografija…</p> : null}
           {(existingPhotos.length > 0 || newPhotos.length > 0) ? <div className="flex max-w-full gap-3 overflow-x-auto pb-2">
             {existingPhotos.map((path, index) => <div key={`${path}-${index}`} className="shrink-0"><VisitPhoto userId={userId} path={path} /><Button type="button" variant="outline" className="mt-1 min-h-11 w-full" onClick={() => setExistingPhotos(current => current.filter((_, i) => i !== index))}>Ukloni</Button></div>)}
-            {newPhotos.map((file, index) => <div key={`${file.name}-${index}`} className="shrink-0"><LocalPhoto file={file} /><Button type="button" variant="outline" className="mt-1 min-h-11 w-full" onClick={() => setNewPhotos(current => current.filter((_, i) => i !== index))}>Ukloni</Button></div>)}
+            {newPhotos.map((photo, index) => <div key={`${photo.file.name}-${index}`} className="shrink-0"><LocalPhoto file={photo.file} /><p className="mt-1 text-xs text-muted-foreground">{(photo.originalBytes / 1048576).toFixed(1)} → {(photo.optimizedBytes / 1048576).toFixed(1)} MB</p><Button type="button" variant="outline" className="mt-1 min-h-11 w-full" onClick={() => setNewPhotos(current => current.filter((_, i) => i !== index))}>Ukloni</Button></div>)}
           </div> : null}
         </div>
-        <div className="sticky bottom-4 pt-3"><Button size="lg" className="h-12 w-full rounded-xl shadow-lg" disabled={saving}>{saving ? 'Spremanje…' : edit ? 'Spremi izmjene' : 'Spremi posjet'}</Button></div>
+        <div className="sticky bottom-4 pt-3"><Button size="lg" className="h-12 w-full rounded-xl shadow-lg" disabled={saving || preparing}>{preparing ? 'Priprema fotografija…' : saving ? 'Spremanje…' : edit ? 'Spremi izmjene' : 'Spremi posjet'}</Button></div>
       </form>
     </> : null}
   </Page>;

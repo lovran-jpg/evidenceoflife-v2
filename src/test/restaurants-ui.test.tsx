@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-rou
 import type { Restaurant, RestaurantVisit } from '@/lib/restaurantDomain';
 import Restaurants from '@/pages/Restaurants';
 import { restaurantVisitPhotos } from '@/lib/restaurantVisitPhotos';
+import { optimizeRestaurantPhotos } from '@/lib/optimizeRestaurantPhoto';
 
 const alice = '11111111-1111-4111-8111-111111111111';
 const bob = '22222222-2222-4222-8222-222222222222';
@@ -16,6 +17,12 @@ const state = vi.hoisted(() => ({
 
 vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({ user: { id: state.userId }, isDemo: false }),
+}));
+
+vi.mock('@/lib/optimizeRestaurantPhoto', () => ({
+  optimizeRestaurantPhotos: vi.fn(async (files: File[]) => files.map(file => ({
+    file, width: 1000, height: 1000, originalBytes: file.size, optimizedBytes: file.size, quality: 0.82,
+  }))),
 }));
 
 vi.mock('@/lib/restaurants', () => ({
@@ -119,6 +126,7 @@ beforeEach(() => {
   state.visits = [];
   state.sequence = 0;
   vi.restoreAllMocks();
+  vi.clearAllMocks();
 });
 
 describe('Restaurant V1 routes', () => {
@@ -137,6 +145,20 @@ describe('Restaurant V1 routes', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Spremi posjet' }));
     await waitFor(() => expect(restaurantVisitPhotos.create).toHaveBeenCalledWith(alice, expect.objectContaining({ place_id: 'one' }), [second]));
     vi.unstubAllGlobals();
+  });
+
+  it('blocks saving while preparing and reports a failed photo without uploading', async () => {
+    addRestaurant('one', 'Bistro');
+    let rejectPreparation!: (error: Error) => void;
+    vi.mocked(optimizeRestaurantPhotos).mockImplementationOnce(() => new Promise((_, reject) => { rejectPreparation = reject; }));
+    open('/restaurants/one/visits/new');
+    const picker = await screen.findByLabelText(/Fotografije/);
+    fireEvent.change(picker, { target: { files: [new File(['bad'], 'bad.heic', { type: 'image/heic' })] } });
+    expect(within(picker.parentElement!).getByRole('status')).toHaveTextContent('Priprema fotografija');
+    expect(screen.getByRole('button', { name: 'Priprema fotografija…' })).toBeDisabled();
+    rejectPreparation(new Error('Fotografija „bad.heic” nije pripremljena.'));
+    expect(await screen.findByRole('alert')).toHaveTextContent('bad.heic');
+    expect(restaurantVisitPhotos.create).not.toHaveBeenCalled();
   });
 
   it('lists only own restaurants, sorts by latest visit, and keeps equal names separate by ID', async () => {
