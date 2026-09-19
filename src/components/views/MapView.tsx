@@ -120,35 +120,17 @@ const normalizeMunicipalityDistrict = (name: string, isZh: boolean): string => {
 
 interface TileSource {
   url: string;
-  subdomains: string;
   maxZoom: number;
   className: string;
 }
 
-// Ordered list of basemap providers. The first that loads wins; if many of its
-// tiles fail (e.g. the host is blocked on this network — tile.openstreetmap.org
-// is unreachable from mainland China), we fall through to the next one. Carto's
-// dark basemap is primary: it rides a widely-reachable CDN and matches the dark UI.
-const TILE_SOURCES: TileSource[] = [
-  {
-    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    subdomains: 'abcd',
-    maxZoom: 20,
-    className: 'map-tiles-dark',
-  },
-  {
-    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-    subdomains: 'abcd',
-    maxZoom: 20,
-    className: 'map-tiles-light',
-  },
-  {
-    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    subdomains: 'abc',
-    maxZoom: 19,
-    className: 'map-tiles-light',
-  },
-];
+// CARTO's unkeyed tiles now return an "API KEY REQUIRED" image. Use the
+// standard OpenStreetMap tile endpoint with its existing visible attribution.
+const TILE_SOURCE: TileSource = {
+  url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  maxZoom: 19,
+  className: 'map-tiles-light',
+};
 
 function addResilientTiles(map: L.Map) {
   // Attach a single basemap layer and NEVER tear it down. Earlier versions
@@ -157,10 +139,9 @@ function addResilientTiles(map: L.Map) {
   // touch an already-removed layer and throw asynchronously — which blacked out
   // the whole view after jumping between world & city a few times. The tile
   // hosts are reachable, so a plain persistent layer is both simpler and stable.
-  const src = TILE_SOURCES[0];
+  const src = TILE_SOURCE;
   L.tileLayer(src.url, {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    subdomains: src.subdomains,
     maxZoom: src.maxZoom,
     className: src.className,
   }).addTo(map);
