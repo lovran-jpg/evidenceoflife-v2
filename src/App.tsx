@@ -16,6 +16,7 @@ const AuthCallback = lazy(() => import("./pages/AuthCallback"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Landing = lazy(() => import("./pages/Landing"));
 const PublicDemo = lazy(() => import("./pages/PublicDemo"));
+const Restaurants = lazy(() => import("./pages/Restaurants"));
 
 const queryClient = new QueryClient();
 
@@ -83,6 +84,7 @@ const App = () => (
                     <Route path="/auth" element={<AuthRoute><Auth /></AuthRoute>} />
                     <Route path="/auth/callback" element={<AuthCallback />} />
                     <Route path="/app" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+                    <Route path="/restaurants/*" element={<ProtectedRoute><Restaurants /></ProtectedRoute>} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>
