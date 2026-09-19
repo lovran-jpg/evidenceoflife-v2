@@ -35,21 +35,7 @@
       })();
     </script>
 
-    <!-- Google Analytics (GA4) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-79TNDG3J2Z"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-79TNDG3J2Z');
-    </script>
-
-    <!-- Amplitude Analytics + Session Replay -->
-    <script src="https://cdn.amplitude.com/script/3669e7e2394507d4697b01747a277f18.js"></script>
-    <script>
-      window.amplitude.add(window.sessionReplay.plugin({sampleRate: 1}));
-      window.amplitude.init('3669e7e2394507d4697b01747a277f18', {"fetchRemoteConfig":true,"autocapture":true});
-    </script>
+    <!-- Optional analytics are configured through VITE_* in src/lib/analytics.ts. -->
 
     <meta property="og:title" content="Evidence of Life — Keep the evidence of your days" />
     <meta property="og:description" content="Plan your day, capture what actually happened, and revisit your life through a private calendar, map, photos, places, and notes." />
