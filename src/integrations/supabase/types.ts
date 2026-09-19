@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.1"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -178,6 +178,130 @@ export type Database = {
         }
         Relationships: []
       }
+      link_groups: {
+        Row: {
+          collapsed: boolean
+          created_at: string
+          id: string
+          sort_order: number
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          collapsed?: boolean
+          created_at?: string
+          id?: string
+          sort_order?: number
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          collapsed?: boolean
+          created_at?: string
+          id?: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      link_items: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          preview_image: string | null
+          section_id: string
+          site_name: string | null
+          sort_order: number
+          title: string
+          updated_at: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          preview_image?: string | null
+          section_id: string
+          site_name?: string | null
+          sort_order?: number
+          title: string
+          updated_at?: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          preview_image?: string | null
+          section_id?: string
+          site_name?: string | null
+          sort_order?: number
+          title?: string
+          updated_at?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "link_items_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "link_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      link_sections: {
+        Row: {
+          collapsed: boolean
+          created_at: string
+          group_id: string
+          id: string
+          photos: string[]
+          sort_order: number
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          collapsed?: boolean
+          created_at?: string
+          group_id: string
+          id?: string
+          photos?: string[]
+          sort_order?: number
+          title?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          collapsed?: boolean
+          created_at?: string
+          group_id?: string
+          id?: string
+          photos?: string[]
+          sort_order?: number
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "link_sections_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "link_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       moments: {
         Row: {
           created_at: string
@@ -185,6 +309,7 @@ export type Database = {
           emoji: string | null
           id: string
           is_special: boolean
+          links: Json
           location_category: string | null
           location_lat: number | null
           location_lng: number | null
@@ -203,6 +328,7 @@ export type Database = {
           emoji?: string | null
           id?: string
           is_special?: boolean
+          links?: Json
           location_category?: string | null
           location_lat?: number | null
           location_lng?: number | null
@@ -221,6 +347,7 @@ export type Database = {
           emoji?: string | null
           id?: string
           is_special?: boolean
+          links?: Json
           location_category?: string | null
           location_lat?: number | null
           location_lng?: number | null
@@ -274,6 +401,13 @@ export type Database = {
             referencedRelation: "cities"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "places_city_id_user_id_fkey"
+            columns: ["city_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id", "user_id"]
+          },
         ]
       }
       profiles: {
@@ -321,6 +455,45 @@ export type Database = {
           user_id?: string
           wake_hour?: number
           wake_minute?: number
+        }
+        Relationships: []
+      }
+      reminders: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          interval_days: number
+          is_active: boolean
+          last_reminded_at: string | null
+          next_reminder_at: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          interval_days?: number
+          is_active?: boolean
+          last_reminded_at?: string | null
+          next_reminder_at: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          interval_days?: number
+          is_active?: boolean
+          last_reminded_at?: string | null
+          next_reminder_at?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -401,45 +574,6 @@ export type Database = {
         }
         Relationships: []
       }
-      reminders: {
-        Row: {
-          created_at: string
-          description: string | null
-          id: string
-          interval_days: number
-          is_active: boolean
-          last_reminded_at: string | null
-          next_reminder_at: string
-          title: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          interval_days?: number
-          is_active?: boolean
-          last_reminded_at?: string | null
-          next_reminder_at: string
-          title: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          interval_days?: number
-          is_active?: boolean
-          last_reminded_at?: string | null
-          next_reminder_at?: string
-          title?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       todos: {
         Row: {
           created_at: string
@@ -450,6 +584,7 @@ export type Database = {
           is_completed: boolean
           is_recurring: boolean
           links: Json | null
+          note: string | null
           parent_due_id: string | null
           photos: string[]
           plan_ended_at: string | null
@@ -477,6 +612,7 @@ export type Database = {
           is_completed?: boolean
           is_recurring?: boolean
           links?: Json | null
+          note?: string | null
           parent_due_id?: string | null
           photos?: string[]
           plan_ended_at?: string | null
@@ -504,6 +640,7 @@ export type Database = {
           is_completed?: boolean
           is_recurring?: boolean
           links?: Json | null
+          note?: string | null
           parent_due_id?: string | null
           photos?: string[]
           plan_ended_at?: string | null
@@ -530,6 +667,20 @@ export type Database = {
             referencedRelation: "todos"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "todos_promoted_to_habit_id_fkey"
+            columns: ["promoted_to_habit_id"]
+            isOneToOne: false
+            referencedRelation: "todos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "todos_recurrence_source_id_fkey"
+            columns: ["recurrence_source_id"]
+            isOneToOne: false
+            referencedRelation: "todos"
+            referencedColumns: ["id"]
+          },
         ]
       }
       visits: {
@@ -541,7 +692,9 @@ export type Database = {
           note: string | null
           photos: string[]
           place_id: string
+          rating: number | null
           user_id: string
+          what_i_ate: string | null
         }
         Insert: {
           created_at?: string
@@ -551,7 +704,9 @@ export type Database = {
           note?: string | null
           photos?: string[]
           place_id: string
+          rating?: number | null
           user_id: string
+          what_i_ate?: string | null
         }
         Update: {
           created_at?: string
@@ -561,7 +716,9 @@ export type Database = {
           note?: string | null
           photos?: string[]
           place_id?: string
+          rating?: number | null
           user_id?: string
+          what_i_ate?: string | null
         }
         Relationships: [
           {
@@ -572,11 +729,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "visits_moment_id_user_id_fkey"
+            columns: ["moment_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "moments"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
             foreignKeyName: "visits_place_id_fkey"
             columns: ["place_id"]
             isOneToOne: false
             referencedRelation: "places"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visits_place_id_user_id_fkey"
+            columns: ["place_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "places"
+            referencedColumns: ["id", "user_id"]
           },
         ]
       }
@@ -604,12 +775,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -633,11 +804,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -658,11 +829,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -683,11 +854,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -700,11 +871,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

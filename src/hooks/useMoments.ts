@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Moment, DayRecord, MomentLinkPreview } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
-import type { Database } from '@/integrations/supabase/types';
+import type { Database, Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { fetchAllMoments, isMissingMomentLinksColumn, uploadPhotos } from '@/hooks/moments/data';
@@ -261,7 +261,7 @@ export function useMoments() {
       .from('moments')
       .insert({
         ...baseInsert,
-        links: moment.links || [],
+        links: (moment.links || []) as unknown as Json,
       })
       .select()
       .single());
@@ -387,7 +387,7 @@ export function useMoments() {
       timer_ended_at: moment.timer_ended_at || null,
       timer_seconds: moment.timer_seconds || 0,
     };
-    let { error } = await supabase.from('moments').insert({ ...baseInsert, links: moment.links || [] });
+    let { error } = await supabase.from('moments').insert({ ...baseInsert, links: (moment.links || []) as unknown as Json });
     if (error && isMissingMomentLinksColumn(error)) {
       ({ error } = await supabase.from('moments').insert(baseInsert));
     }

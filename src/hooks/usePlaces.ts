@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
 
 export interface City {
@@ -12,23 +13,18 @@ export interface City {
 
 export interface Place {
   id: string;
-  city_id: string;
+  city_id: string | null;
   name: string;
   category: string;
-  lat: number;
-  lng: number;
+  lat: number | null;
+  lng: number | null;
 }
 
-export interface Visit {
-  id: string;
-  place_id: string;
-  moment_id: string | null;
-  date: string;
-  note: string | null;
-  photos: string[];
-}
+export type Visit = Pick<Tables<'visits'>, 'id' | 'place_id' | 'moment_id' | 'date' | 'note' | 'photos' | 'what_i_ate' | 'rating'>;
 
-export interface PlaceWithVisits extends Place {
+type MappedPlace = Place & { city_id: string; lat: number; lng: number };
+
+export interface PlaceWithVisits extends MappedPlace {
   visits: Visit[];
   cityName: string;
 }
@@ -72,7 +68,7 @@ export function usePlaces() {
 
       const result: CityWithPlaces[] = rawCities.map((c) => {
         const cPlaces = rawPlaces
-          .filter((p) => p.city_id === c.id)
+          .filter((p): p is MappedPlace => p.city_id === c.id && p.lat !== null && p.lng !== null)
           .map((p) => ({
             ...p,
             cityName: c.name,
@@ -148,7 +144,8 @@ export function usePlaces() {
       .eq('city_id', cityId);
     const existingFromDb = ((existingRows || []) as Pick<Place, 'id' | 'name' | 'lat' | 'lng' | 'category'>[]).find(p => sameName(p.name, name));
     if (existingFromDb) {
-      const moved = Math.abs(existingFromDb.lat - lat) > 0.00001 || Math.abs(existingFromDb.lng - lng) > 0.00001;
+      const moved = existingFromDb.lat === null || existingFromDb.lng === null
+        || Math.abs(existingFromDb.lat - lat) > 0.00001 || Math.abs(existingFromDb.lng - lng) > 0.00001;
       if (moved || existingFromDb.category !== category || existingFromDb.name !== name) {
         await supabase
           .from('places')
