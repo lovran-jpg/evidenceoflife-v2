@@ -15,6 +15,9 @@ export interface GoogleMarkerObject {
 
 export interface GoogleMapsLibrary {
   Map: new (element: HTMLElement, options: { center: GooglePoint; zoom: number; mapId: string; mapTypeControl: boolean; streetViewControl: boolean }) => GoogleMapObject;
+}
+
+export interface GoogleCoreLibrary {
   LatLngBounds: new () => GoogleBoundsObject;
 }
 
@@ -50,6 +53,7 @@ export interface GooglePlacesLibrary {
 }
 
 interface GoogleMapsApi {
+  importLibrary(name: 'core'): Promise<GoogleCoreLibrary>;
   importLibrary(name: 'maps'): Promise<GoogleMapsLibrary>;
   importLibrary(name: 'marker'): Promise<GoogleMarkerLibrary>;
   importLibrary(name: 'places'): Promise<GooglePlacesLibrary>;

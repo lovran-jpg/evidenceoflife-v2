@@ -18,22 +18,24 @@ function GoogleRestaurantMap({ items, onSelect }: { items: MappedRestaurant[]; o
     const markerCleanup: Array<() => void> = [];
     setError('');
     void loadGoogleMaps().then(async google => {
-      const [maps, markerLibrary] = await Promise.all([google.importLibrary('maps'), google.importLibrary('marker')]);
+      const [maps, markerLibrary, core] = await Promise.all([
+        google.importLibrary('maps'), google.importLibrary('marker'), google.importLibrary('core'),
+      ]);
       if (!active || !container.current) return;
       const map = new maps.Map(container.current, {
         center: { lat: items[0].lat, lng: items[0].lng }, zoom: 12, mapId,
         mapTypeControl: false, streetViewControl: false,
       });
-      const bounds = new maps.LatLngBounds();
+      const bounds = items.length > 1 ? new core.LatLngBounds() : null;
       for (const item of items) {
         const position = { lat: item.lat, lng: item.lng };
         const marker = new markerLibrary.AdvancedMarkerElement({ map, position, title: item.restaurant.name });
         const listener = marker.addListener('click', () => onSelect(item.restaurant.id));
         // Retain the marker itself for cleanup without exposing it to React state.
         markerCleanup.push(() => { listener.remove(); marker.map = null; });
-        bounds.extend(position);
+        bounds?.extend(position);
       }
-      if (items.length > 1) map.fitBounds(bounds, 48);
+      if (bounds) map.fitBounds(bounds, 48);
     }).catch(cause => { if (active) setError(cause instanceof Error ? cause.message : 'Google karta nije dostupna.'); });
     return () => { active = false; markerCleanup.forEach(cleanup => cleanup()); };
   }, [items, onSelect]);
