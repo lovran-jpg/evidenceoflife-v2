@@ -6,6 +6,7 @@ import Restaurants from '@/pages/Restaurants';
 import { restaurantVisitPhotos } from '@/lib/restaurantVisitPhotos';
 import { optimizeRestaurantPhotos } from '@/lib/optimizeRestaurantPhoto';
 import { restaurantDeletion } from '@/lib/restaurantDeletion';
+import { restaurants } from '@/lib/restaurants';
 
 const alice = '11111111-1111-4111-8111-111111111111';
 const bob = '22222222-2222-4222-8222-222222222222';
@@ -58,6 +59,7 @@ vi.mock('@/lib/restaurants', () => ({
 }));
 
 vi.mock('@/lib/restaurantDeletion', () => ({
+  RestaurantDeletionError: class RestaurantDeletionError extends Error {},
   restaurantDeletion: {
     delete: vi.fn(async (userId: string, restaurantId: string) => {
       const index = state.restaurants.findIndex(item => item.user_id === userId && item.id === restaurantId);
@@ -208,8 +210,10 @@ describe('Restaurant V1 routes', () => {
 
   it('keeps the restaurant and shows the cleanup state when deletion fails', async () => {
     addRestaurant('one', 'Bistro');
-    vi.mocked(restaurantDeletion.delete).mockRejectedValueOnce(new Error(
+    const { RestaurantDeletionError } = await import('@/lib/restaurantDeletion');
+    vi.mocked(restaurantDeletion.delete).mockRejectedValueOnce(new RestaurantDeletionError(
       'Restoran nije obrisan jer čišćenje fotografija nije potpuno uspjelo. Zapisi su ostali sačuvani, ali dio fotografija možda je već uklonjen; pokušaj ponovno.',
+      'storage', [],
     ));
     open('/restaurants/one');
 
@@ -309,7 +313,8 @@ describe('Restaurant V1 routes', () => {
     expect(within(picker.parentElement!).getByRole('status')).toHaveTextContent('Priprema fotografija');
     expect(screen.getByRole('button', { name: 'Priprema fotografija…' })).toBeDisabled();
     rejectPreparation(new Error('Fotografija „bad.heic” nije pripremljena.'));
-    expect(await screen.findByRole('alert')).toHaveTextContent('bad.heic');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Fotografija se ne može pripremiti');
+    expect(screen.queryByText('bad.heic')).not.toBeInTheDocument();
     expect(restaurantVisitPhotos.create).not.toHaveBeenCalled();
   });
 
@@ -339,6 +344,34 @@ describe('Restaurant V1 routes', () => {
     await waitFor(() => expect(screen.getByTestId('route')).toHaveTextContent('/restaurants/restaurant-1'));
     expect(state.restaurants[0]).toMatchObject({ name: 'Bistro', category: 'restaurant', city_id: null, lat: null, lng: null });
     expect(await screen.findByRole('heading', { name: 'Bistro' })).toBeInTheDocument();
+  });
+
+  it('validates a required restaurant name in Croatian without sending a request', async () => {
+    open('/restaurants/new');
+    const name = screen.getByLabelText('Naziv restorana');
+    fireEvent.change(name, { target: { value: '   ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Spremi restoran' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Upiši naziv restorana');
+    expect(name).toHaveFocus();
+    expect(restaurants.create).not.toHaveBeenCalled();
+  });
+
+  it('prevents a same-frame double submit while saving a restaurant', async () => {
+    let rejectSave!: (error: Error) => void;
+    vi.mocked(restaurants.create).mockImplementationOnce(() => new Promise((_, reject) => { rejectSave = reject; }));
+    open('/restaurants/new');
+    fireEvent.change(screen.getByLabelText('Naziv restorana'), { target: { value: 'Bistro' } });
+    const form = screen.getByRole('button', { name: 'Spremi restoran' }).closest('form')!;
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+
+    expect(restaurants.create).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'Spremanje…' })).toBeDisabled();
+    rejectSave(new Error('raw database response'));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Restoran nije spremljen');
+    expect(screen.queryByText('raw database response')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Naziv restorana')).toHaveValue('Bistro');
   });
 
   it('edits a restaurant address while keeping its ID and optional location', async () => {
@@ -382,6 +415,34 @@ describe('Restaurant V1 routes', () => {
     const cards = await screen.findAllByRole('article');
     expect(within(cards[0]).getByText('18. 9. 2026.')).toHaveAttribute('datetime', '2026-09-18');
     expect(within(cards[1]).getByText('17. 9. 2026.')).toHaveAttribute('datetime', '2026-09-17');
+  });
+
+  it('validates the visit date in Croatian without sending a request', async () => {
+    addRestaurant('one', 'Bistro');
+    open('/restaurants/one/visits/new');
+    const date = await screen.findByLabelText('Datum');
+    fireEvent.change(date, { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Spremi posjet' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Odaberi valjan datum posjeta');
+    expect(date).toHaveFocus();
+    expect(restaurantVisitPhotos.create).not.toHaveBeenCalled();
+  });
+
+  it('prevents a same-frame double submit while saving a visit', async () => {
+    addRestaurant('one', 'Bistro');
+    let rejectSave!: (error: Error) => void;
+    vi.mocked(restaurantVisitPhotos.create).mockImplementationOnce(() => new Promise((_, reject) => { rejectSave = reject; }));
+    open('/restaurants/one/visits/new');
+    const form = (await screen.findByRole('button', { name: 'Spremi posjet' })).closest('form')!;
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+
+    expect(restaurantVisitPhotos.create).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'Spremanje…' })).toBeDisabled();
+    rejectSave(new Error('raw storage response'));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Posjet nije spremljen');
+    expect(screen.queryByText('raw storage response')).not.toBeInTheDocument();
   });
 
   it('edits a visit by deep link and deletes it only after confirmation', async () => {

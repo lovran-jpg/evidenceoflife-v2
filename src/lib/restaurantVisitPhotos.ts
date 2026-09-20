@@ -54,7 +54,7 @@ export function createRestaurantVisitPhotoService(db: typeof supabase = supabase
     for (const file of files) {
       const path = `${userId}/restaurants/${visitId}/${crypto.randomUUID()}.${EXTENSIONS[file.type]}`;
       const { error } = await bucket().upload(path, file, { contentType: file.type, upsert: false });
-      if (error) throw new VisitPhotoError(`Prijenos fotografije nije uspio: ${error.message}`, false, [], error);
+      if (error) throw new VisitPhotoError('Prijenos fotografije nije uspio. Provjeri vezu i pokušaj ponovno.', false, [], error);
       uploaded.push(path);
     }
   }
@@ -63,8 +63,7 @@ export function createRestaurantVisitPhotoService(db: typeof supabase = supabase
     try { return await action(); }
     catch (cause) {
       const orphaned = await cleanup(uploaded);
-      const reason = cause instanceof Error ? cause.message : 'Nepoznata greška.';
-      throw new VisitPhotoError(`Posjet nije spremljen. ${reason}${orphaned.length ? ' Čišćenje novih fotografija nije uspjelo.' : ''}`, false, orphaned, cause);
+      throw new VisitPhotoError(`Posjet nije spremljen. Pokušaj ponovno.${orphaned.length ? ' Čišćenje novih fotografija nije uspjelo.' : ''}`, false, orphaned, cause);
     }
   }
 
@@ -112,7 +111,7 @@ export function createRestaurantVisitPhotoService(db: typeof supabase = supabase
       if (/^data:image\/(?:png|jpeg|webp|gif);base64,/i.test(path)) return path; // Read-only legacy record.
       requireCanonicalPhotos(userId, [path]);
       const { data, error } = await bucket().createSignedUrl(path, 3600);
-      if (error || !data?.signedUrl) throw new VisitPhotoError(`Fotografija nije dostupna. ${error?.message ?? ''}`);
+      if (error || !data?.signedUrl) throw new VisitPhotoError('Fotografija nije dostupna.');
       return data.signedUrl;
     },
   };

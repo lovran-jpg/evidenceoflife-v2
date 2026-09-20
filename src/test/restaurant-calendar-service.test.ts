@@ -88,10 +88,12 @@ describe('Restaurant Calendar dates and ownership', () => {
     expect(empty.queries).toHaveLength(1);
     const broken = fakeDatabase();
     broken.fail('visits');
-    await expect(broken.service.listMonth(alice, { year: 2026, month: 9 })).rejects.toThrow('query failed');
+    await expect(broken.service.listMonth(alice, { year: 2026, month: 9 }))
+      .rejects.toThrow('Podaci trenutačno nisu dostupni');
     const missingNames = fakeDatabase();
     missingNames.visits.push(visit('one', 'restaurant', '2026-09-19'));
     missingNames.fail('places');
-    await expect(missingNames.service.listMonth(alice, { year: 2026, month: 9 })).rejects.toThrow('query failed');
+    await expect(missingNames.service.listMonth(alice, { year: 2026, month: 9 }))
+      .rejects.toThrow('Podaci trenutačno nisu dostupni');
   });
 });

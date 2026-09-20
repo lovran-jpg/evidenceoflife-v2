@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { LogOut } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -9,20 +9,23 @@ export function RestaurantShell({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const { signOut } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
+  const signingOutRef = useRef(false);
 
   async function handleSignOut() {
-    if (signingOut) return;
+    if (signingOutRef.current) return;
+    signingOutRef.current = true;
     setSigningOut(true);
     try {
       await signOut();
       navigate('/auth', { replace: true });
     } finally {
+      signingOutRef.current = false;
       setSigningOut(false);
     }
   }
 
   return (
-    <div className="min-h-dvh min-w-0 bg-background text-foreground">
+    <div className="min-h-dvh min-w-0 overflow-x-hidden bg-background text-foreground">
       <header className="border-b border-border/70 bg-background/95 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <div className="mx-auto max-w-3xl">
           <div className="flex items-center justify-between gap-3">

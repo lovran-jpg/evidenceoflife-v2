@@ -139,7 +139,8 @@ describe('Restaurant V1 Calendar', () => {
   it('shows a query error rather than a false empty state', async () => {
     state.fail = true;
     open();
-    expect(await screen.findByRole('alert')).toHaveTextContent('Query failed');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Kalendar se ne može učitati');
+    expect(screen.queryByText('Query failed')).not.toBeInTheDocument();
     expect(screen.queryByText('Ovaj mjesec nema posjeta.')).not.toBeInTheDocument();
   });
 });

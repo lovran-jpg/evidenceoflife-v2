@@ -7,6 +7,7 @@ import { RestaurantVisitPhoto } from '@/components/RestaurantVisitPhoto';
 import { restaurantCalendar, dateKey, localTodayKey, monthCells, shiftMonth } from '@/lib/restaurantCalendar';
 import type { CalendarMonth, CalendarVisit } from '@/lib/restaurantCalendar';
 import { Button } from '@/components/ui/button';
+import { visitCountLabel } from '@/lib/restaurantUi';
 
 const weekdays = ['pon', 'uto', 'sri', 'čet', 'pet', 'sub', 'ned'];
 
@@ -30,11 +31,11 @@ function VisitCard({ item, userId }: { item: CalendarVisit; userId: string }) {
   return <article className="min-w-0 rounded-2xl border border-border bg-card p-4 shadow-sm">
     <div className="flex min-w-0 gap-3">
       <div className="min-w-0 flex-1">
-        <Link to={`/restaurants/${restaurant.id}`} className="inline-flex min-h-11 items-center break-words font-semibold text-primary underline-offset-2 hover:underline">{restaurant.name}</Link>
+        <Link to={`/restaurants/${restaurant.id}`} className="inline-flex min-h-11 max-w-full items-center font-semibold text-primary [overflow-wrap:anywhere] underline-offset-2 hover:underline">{restaurant.name}</Link>
         <time dateTime={visit.date} className="block text-sm text-muted-foreground">{dayLabel(visit.date)}</time>
-        {visit.what_i_ate ? <p className="mt-2 break-words text-sm">Što sam jeo: {visit.what_i_ate}</p> : null}
+        {visit.what_i_ate ? <p className="mt-2 text-sm [overflow-wrap:anywhere]">Što sam jeo: {visit.what_i_ate}</p> : null}
         {visit.rating != null ? <p className="mt-2 text-sm">Ocjena: {visit.rating}/5</p> : null}
-        {note ? <p className="mt-2 whitespace-pre-wrap break-words text-sm text-muted-foreground">{note}</p> : null}
+        {note ? <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground [overflow-wrap:anywhere]">{note}</p> : null}
       </div>
       {visit.photos[0] ? <div className="shrink-0"><RestaurantVisitPhoto userId={userId} path={visit.photos[0]} small /></div> : null}
     </div>
@@ -64,8 +65,8 @@ export default function RestaurantCalendar() {
     setError('');
     void restaurantCalendar.listMonth(userId, { year: visibleYear, month: visibleMonth }).then(found => {
       if (active) setItems(found);
-    }).catch(cause => {
-      if (active) setError(`Kalendar se ne može učitati. ${cause instanceof Error ? cause.message : 'Pokušajte ponovno.'}`);
+    }).catch(() => {
+      if (active) setError('Kalendar se ne može učitati. Provjeri vezu i pokušaj ponovno.');
     }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [userId, isDemo, visibleYear, visibleMonth]);
@@ -98,7 +99,7 @@ export default function RestaurantCalendar() {
         {weekdays.map(day => <span key={day} className="py-2">{day}</span>)}
       </div>
       <div className="grid grid-cols-7 gap-1">
-        {cells.map((key, index) => key ? <button key={key} type="button" aria-label={`${dayLabel(key)}${counts.has(key) ? `, ${counts.get(key)} ${counts.get(key) === 1 ? 'posjet' : 'posjeta'}` : ''}`} aria-pressed={selected === key} onClick={() => setSelected(key)} className={`flex min-h-12 min-w-0 flex-col items-center justify-center rounded-xl text-sm transition-colors ${selected === key ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'} ${today === key ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''}`}>
+        {cells.map((key, index) => key ? <button key={key} type="button" aria-label={`${dayLabel(key)}${counts.has(key) ? `, ${visitCountLabel(counts.get(key)!)}` : ''}`} aria-pressed={selected === key} onClick={() => setSelected(key)} className={`flex min-h-12 min-w-0 flex-col items-center justify-center rounded-xl text-sm transition-colors ${selected === key ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'} ${today === key ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''}`}>
           <span>{Number(key.slice(-2))}</span>
           {counts.has(key) ? <span aria-hidden="true" className={`mt-1 h-1.5 w-1.5 rounded-full ${selected === key ? 'bg-primary-foreground' : 'bg-primary'}`} /> : null}
         </button> : <span key={`blank-${index}`} aria-hidden="true" />)}

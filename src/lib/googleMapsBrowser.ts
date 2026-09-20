@@ -75,7 +75,7 @@ export function googleMapsConfig() {
 
 export function loadGoogleMaps(): Promise<GoogleMapsApi> {
   const { apiKey } = googleMapsConfig();
-  if (!apiKey) return Promise.reject(new Error('Google Maps nije konfiguriran. Dodajte VITE_GOOGLE_MAPS_API_KEY.'));
+  if (!apiKey) return Promise.reject(new Error('Google Maps trenutačno nije dostupan.'));
   const browser = window as GoogleWindow;
   if (browser.google?.maps?.importLibrary) return Promise.resolve(browser.google.maps);
   if (loading) return loading;

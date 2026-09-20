@@ -23,21 +23,25 @@ export class RestaurantServiceError extends Error {
 
 export function requireName(name: string): string {
   const trimmed = name.trim();
-  if (!trimmed) throw new RestaurantServiceError('invalid_input', 'Restaurant name is required.');
+  if (!trimmed) throw new RestaurantServiceError('invalid_input', 'Upiši naziv restorana.');
   return trimmed;
 }
 
+export function isIsoDate(date: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(date) &&
+      !Number.isNaN(Date.parse(`${date}T00:00:00Z`)) &&
+      new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) === date;
+}
+
 export function requireIsoDate(date: string): void {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) ||
-      Number.isNaN(Date.parse(`${date}T00:00:00Z`)) ||
-      new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) !== date) {
-    throw new RestaurantServiceError('invalid_input', 'Visit date must be a valid yyyy-MM-dd date.');
+  if (!isIsoDate(date)) {
+    throw new RestaurantServiceError('invalid_input', 'Odaberi valjan datum posjeta.');
   }
 }
 
 export function requireRating(rating: number | null | undefined): void {
   if (rating != null && (!Number.isInteger(rating) || rating < 1 || rating > 5)) {
-    throw new RestaurantServiceError('invalid_input', 'Rating must be empty or an integer from 1 to 5.');
+    throw new RestaurantServiceError('invalid_input', 'Ocjena mora biti cijeli broj od 1 do 5 ili prazna.');
   }
 }
 
@@ -56,5 +60,5 @@ export function requireCanonicalPhotos(userId: string, photos: string[]): void {
 }
 
 export function databaseError(action: string, error: { message: string }): RestaurantServiceError {
-  return new RestaurantServiceError('database', `${action}: ${error.message}`, error);
+  return new RestaurantServiceError('database', 'Podaci trenutačno nisu dostupni. Pokušaj ponovno.', { action, error });
 }

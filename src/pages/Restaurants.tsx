@@ -22,10 +22,11 @@ import { RestaurantVisitPhoto as VisitPhoto } from '@/components/RestaurantVisit
 import { createGoogleRestaurantSearch, googleMapsConfig } from '@/lib/googleMapsBrowser';
 import type { GoogleRestaurantSuggestion } from '@/lib/googleMapsBrowser';
 import type { Restaurant, RestaurantVisit } from '@/lib/restaurantDomain';
+import { isIsoDate } from '@/lib/restaurantDomain';
 import { formatCroatianDate } from '@/lib/croatianDate';
+import { restaurantUiError, visitCountLabel } from '@/lib/restaurantUi';
 
 const detailPath = (id: string) => `/restaurants/${id}`;
-const errorText = (error: unknown) => error instanceof Error ? error.message : 'Pokušajte ponovno.';
 
 function BackLink({ to, label }: { to: string; label: string }) {
   return <Link to={to} className="mb-6 inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft size={18} />{label}</Link>;
@@ -68,7 +69,7 @@ function RestaurantList({ userId }: { userId: string }) {
         });
         if (active) setItems(summaries);
       } catch (cause) {
-        if (active) setError(`Restorani se ne mogu učitati. ${errorText(cause)}`);
+        if (active) setError(restaurantUiError(cause, 'Restorani se ne mogu učitati. Pokušaj ponovno.'));
       } finally {
         if (active) setLoading(false);
       }
@@ -91,7 +92,7 @@ function RestaurantList({ userId }: { userId: string }) {
             <Link key={restaurant.id} to={detailPath(restaurant.id)} className="flex min-h-20 items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm hover:border-primary/50">
               <span className="min-w-0">
                 <span className="block truncate font-semibold">{restaurant.name}</span>
-                <span className="mt-1 block text-sm text-muted-foreground">{visits.length} {visits.length === 1 ? 'posjet' : 'posjeta'}{latest ? ` · Zadnji: ${formatCroatianDate(latest)}` : ''}</span>
+                <span className="mt-1 block text-sm text-muted-foreground">{visitCountLabel(visits.length)}{latest ? ` · Zadnji: ${formatCroatianDate(latest)}` : ''}</span>
               </span>
               <ChevronRight className="shrink-0 text-muted-foreground" size={20} />
             </Link>
@@ -118,7 +119,9 @@ function RestaurantEditor({ userId, edit = false }: { userId: string; edit?: boo
   const [choosing, setChoosing] = useState(false);
   const [loading, setLoading] = useState(edit);
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   const [error, setError] = useState('');
+  const nameInput = useRef<HTMLInputElement>(null);
   const search = useRef(createGoogleRestaurantSearch());
   const { apiKey } = googleMapsConfig();
 
@@ -132,7 +135,7 @@ function RestaurantEditor({ userId, edit = false }: { userId: string; edit?: boo
         setAddress(found.address ?? '');
         setGooglePlaceId(found.google_place_id);
       } else setError('Restoran nije pronađen.');
-    }).catch(cause => { if (active) setError(`Restoran se ne može učitati. ${errorText(cause)}`); })
+    }).catch(cause => { if (active) setError(restaurantUiError(cause, 'Restoran se ne može učitati. Pokušaj ponovno.')); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [edit, restaurantId, userId]);
@@ -143,7 +146,7 @@ function RestaurantEditor({ userId, edit = false }: { userId: string; edit?: boo
     const timer = window.setTimeout(() => {
       setSearching(true);
       void search.current.suggest(name).then(found => { if (active) setSuggestions(found.slice(0, 5)); })
-        .catch(cause => { if (active) setError(`Google pretraživanje nije dostupno. ${errorText(cause)}`); })
+        .catch(() => { if (active) setError('Google pretraživanje trenutačno nije dostupno. Restoran možeš spremiti ručno.'); })
         .finally(() => { if (active) setSearching(false); });
     }, 350);
     return () => { active = false; window.clearTimeout(timer); };
@@ -158,13 +161,19 @@ function RestaurantEditor({ userId, edit = false }: { userId: string; edit?: boo
       setGooglePlaceId(found.placeId);
       setGooglePreview({ name: found.name, address: found.address });
       setSuggestions([]);
-    } catch (cause) { setError(`Google lokacija nije odabrana. ${errorText(cause)}`); }
+    } catch { setError('Google lokacija nije odabrana. Pokušaj ponovno ili spremi restoran bez nje.'); }
     finally { setChoosing(false); }
   }
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (saving || choosing || loading) return;
+    if (savingRef.current || choosing || loading) return;
+    if (!name.trim()) {
+      setError('Upiši naziv restorana.');
+      nameInput.current?.focus();
+      return;
+    }
+    savingRef.current = true;
     setError('');
     setSaving(true);
     try {
@@ -176,7 +185,8 @@ function RestaurantEditor({ userId, edit = false }: { userId: string; edit?: boo
         });
       navigate(detailPath(restaurant.id), { replace: true });
     } catch (cause) {
-      setError(`Restoran nije spremljen. ${errorText(cause)}`);
+      setError(restaurantUiError(cause, 'Restoran nije spremljen. Provjeri vezu i pokušaj ponovno.'));
+      savingRef.current = false;
       setSaving(false);
     }
   }
@@ -185,13 +195,13 @@ function RestaurantEditor({ userId, edit = false }: { userId: string; edit?: boo
     <BackLink to={edit && restaurantId ? detailPath(restaurantId) : '/restaurants'} label={edit ? 'Natrag na restoran' : 'Svi restorani'} />
     <h1 className="mb-6 text-3xl font-semibold">{edit ? 'Uredi restoran' : 'Novi restoran'}</h1>
     {loading ? <p role="status">Učitavanje restorana…</p> : null}
-    {!loading && (!edit || !error || name) ? <form onSubmit={save} className="space-y-6">
-      <div className="space-y-2"><Label htmlFor="restaurant-name">Naziv restorana</Label><Input id="restaurant-name" className="h-12" autoFocus required maxLength={160} value={name} onChange={event => { setName(event.target.value); setSearchEnabled(true); setSuggestions([]); }} /></div>
+    {!loading && (!edit || !error || name) ? <form onSubmit={save} noValidate aria-busy={saving} className="space-y-6">
+      <div className="space-y-2"><Label htmlFor="restaurant-name">Naziv restorana</Label><Input ref={nameInput} id="restaurant-name" className="h-12" autoFocus required maxLength={160} value={name} onChange={event => { setName(event.target.value); setSearchEnabled(true); setSuggestions([]); }} /></div>
       {apiKey ? <div className="space-y-2">
         <p className="text-sm text-muted-foreground">Google prijedlozi su opcionalni. Sprema se naziv koji sami upišete.</p>
         {searching ? <p role="status" className="text-sm text-muted-foreground">Traženje restorana…</p> : null}
         {suggestions.length ? <div aria-label="Google prijedlozi" className="space-y-1 rounded-xl border p-2">
-          {suggestions.map(suggestion => <button key={suggestion.placeId} type="button" disabled={choosing} onClick={() => void choose(suggestion)} className="block min-h-11 w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-muted">{suggestion.label}</button>)}
+          {suggestions.map(suggestion => <button key={suggestion.placeId} type="button" disabled={choosing} onClick={() => void choose(suggestion)} className="block min-h-11 w-full rounded-lg px-3 py-2 text-left text-sm [overflow-wrap:anywhere] hover:bg-muted">{suggestion.label}</button>)}
           <p className="px-3 text-xs text-muted-foreground" aria-label="Google Maps izvor prijedloga">Google Maps</p>
         </div> : null}
         {googlePreview ? <div className="rounded-xl border p-3 text-sm">
@@ -220,6 +230,7 @@ function RestaurantDetail({ userId }: { userId: string }) {
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deletingRestaurant, setDeletingRestaurant] = useState(false);
+  const deletingRestaurantRef = useRef(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
@@ -239,7 +250,7 @@ function RestaurantDetail({ userId }: { userId: string }) {
           setVisits([...foundVisits].sort((a, b) => b.date.localeCompare(a.date) || b.created_at.localeCompare(a.created_at)));
         }
       } catch (cause) {
-        if (active) setError(`Podaci se ne mogu učitati. ${errorText(cause)}`);
+        if (active) setError(restaurantUiError(cause, 'Podaci se ne mogu učitati. Pokušaj ponovno.'));
       } finally {
         if (active) setLoading(false);
       }
@@ -257,21 +268,25 @@ function RestaurantDetail({ userId }: { userId: string }) {
       setVisits(current => current.filter(visit => visit.id !== id));
     } catch (cause) {
       if (cause instanceof VisitPhotoError && cause.committed) setVisits(current => current.filter(visit => visit.id !== id));
-      setError(cause instanceof VisitPhotoError && cause.committed ? errorText(cause) : `Posjet nije obrisan. ${errorText(cause)}`);
+      setError(cause instanceof VisitPhotoError && cause.committed
+        ? cause.message
+        : restaurantUiError(cause, 'Posjet nije obrisan. Pokušaj ponovno.'));
     } finally {
       setDeletingId(null);
     }
   }
 
   async function deleteRestaurant() {
-    if (!restaurant || deletingRestaurant) return;
+    if (!restaurant || deletingRestaurantRef.current) return;
+    deletingRestaurantRef.current = true;
     setError('');
     setDeletingRestaurant(true);
     try {
       await restaurantDeletion.delete(userId, restaurant.id);
       navigate('/restaurants', { replace: true });
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Restoran nije obrisan. Pokušaj ponovno.');
+      setError(restaurantUiError(cause, 'Restoran nije obrisan. Pokušaj ponovno.'));
+      deletingRestaurantRef.current = false;
       setDeletingRestaurant(false);
       setDeleteDialogOpen(false);
     }
@@ -286,22 +301,22 @@ function RestaurantDetail({ userId }: { userId: string }) {
     {cleanupWarning ? <ErrorNotice message={cleanupWarning} /> : null}
     {!loading && !restaurant && !error ? <p role="alert">Restoran nije pronađen.</p> : null}
     {restaurant ? <>
-      <h1 className="break-words text-3xl font-semibold">{restaurant.name}</h1>
-      {restaurant.address ? <p className="mt-2 text-sm text-muted-foreground">{restaurant.address}</p> : null}
+      <h1 className="text-3xl font-semibold [overflow-wrap:anywhere]">{restaurant.name}</h1>
+      {restaurant.address ? <p className="mt-2 text-sm text-muted-foreground [overflow-wrap:anywhere]">{restaurant.address}</p> : null}
       <div className="mt-3 flex flex-col gap-2 sm:flex-row">
         <Button asChild className="min-h-11"><Link to={hasLocation ? `/map?restaurantId=${encodeURIComponent(restaurant.id)}` : `${detailPath(restaurant.id)}/edit`}>
           <MapPin aria-hidden="true" />{hasLocation ? 'Prikaži na mapi' : 'Dodaj lokaciju'}
         </Link></Button>
         <Button asChild variant="outline" className="min-h-11"><Link to={`${detailPath(restaurant.id)}/edit`}>Uredi restoran</Link></Button>
       </div>
-      <p className="mb-7 mt-2 text-muted-foreground">{visits.length} {visits.length === 1 ? 'posjet' : 'posjeta'}</p>
+      <p className="mb-7 mt-2 text-muted-foreground">{visitCountLabel(visits.length)}</p>
       <h2 className="mb-4 text-xl font-semibold">Posjeti</h2>
       {visits.length === 0 ? <p className="rounded-2xl border border-dashed p-6 text-muted-foreground">Još nema posjeta ovom restoranu.</p> : null}
       <div className="space-y-3">
         {visits.map(visit => <article key={visit.id} className="min-w-0 rounded-2xl border border-border bg-card p-4 shadow-sm">
           <time dateTime={visit.date} className="font-semibold">{formatCroatianDate(visit.date)}</time>
-          {visit.what_i_ate ? <p className="mt-2 break-words">Što sam jeo: {visit.what_i_ate}</p> : null}
-          {visit.note ? <p className="mt-2 whitespace-pre-wrap break-words text-muted-foreground">{visit.note}</p> : null}
+          {visit.what_i_ate ? <p className="mt-2 [overflow-wrap:anywhere]">Što sam jeo: {visit.what_i_ate}</p> : null}
+          {visit.note ? <p className="mt-2 whitespace-pre-wrap text-muted-foreground [overflow-wrap:anywhere]">{visit.note}</p> : null}
           {visit.rating != null ? <p className="mt-2 text-sm">Ocjena: {visit.rating}/5</p> : null}
           {visit.photos.length > 0 ? <div className="mt-3 flex max-w-full gap-2 overflow-x-auto pb-2">{visit.photos.map((path, index) => <VisitPhoto key={`${path}-${index}`} userId={userId} path={path} />)}</div> : null}
           <div className="mt-4 flex gap-2 border-t pt-3">
@@ -322,7 +337,7 @@ function RestaurantDetail({ userId }: { userId: string }) {
             <AlertDialogDescription>
               {visits.length === 0
                 ? 'Želiš li trajno obrisati ovaj restoran?'
-                : `Ovim ćeš trajno obrisati restoran, ${visits.length} posjeta i sve njihove fotografije. Ova radnja se ne može poništiti.`}
+                : `Ovim ćeš trajno obrisati restoran, ${visitCountLabel(visits.length)} i sve njihove fotografije. Ova radnja se ne može poništiti.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -352,6 +367,7 @@ function VisitForm({ userId, edit }: { userId: string; edit: boolean }) {
   const preparingRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -377,7 +393,7 @@ function VisitForm({ userId, edit }: { userId: string; edit: boolean }) {
         }
         if (active) setRestaurant(found);
       } catch (cause) {
-        if (active) setError(`Podaci se ne mogu učitati. ${errorText(cause)}`);
+        if (active) setError(restaurantUiError(cause, 'Podaci se ne mogu učitati. Pokušaj ponovno.'));
       } finally {
         if (active) setLoading(false);
       }
@@ -388,7 +404,13 @@ function VisitForm({ userId, edit }: { userId: string; edit: boolean }) {
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (saving || preparingRef.current || !restaurant) return;
+    if (savingRef.current || preparingRef.current || !restaurant) return;
+    if (!isIsoDate(date)) {
+      setError('Odaberi valjan datum posjeta.');
+      document.getElementById('visit-date')?.focus();
+      return;
+    }
+    savingRef.current = true;
     setError('');
     setSaving(true);
     const values = {
@@ -404,10 +426,11 @@ function VisitForm({ userId, edit }: { userId: string; edit: boolean }) {
       navigate(detailPath(restaurant.id), { replace: true });
     } catch (cause) {
       if (cause instanceof VisitPhotoError && cause.committed) {
-        navigate(detailPath(restaurant.id), { replace: true, state: { cleanupWarning: errorText(cause) } });
+        navigate(detailPath(restaurant.id), { replace: true, state: { cleanupWarning: cause.message } });
         return;
       }
-      setError(`Posjet nije spremljen. ${errorText(cause)}`);
+      setError(restaurantUiError(cause, 'Posjet nije spremljen. Provjeri vezu i pokušaj ponovno.'));
+      savingRef.current = false;
       setSaving(false);
     }
   }
@@ -418,9 +441,9 @@ function VisitForm({ userId, edit }: { userId: string; edit: boolean }) {
     {!loading && !restaurant && !error ? <p role="alert">Restoran ili posjet nije pronađen.</p> : null}
     {error ? <ErrorNotice message={error} /> : null}
     {restaurant ? <>
-      <p className="mb-1 break-words text-sm text-muted-foreground">{restaurant.name}</p>
+      <p className="mb-1 text-sm text-muted-foreground [overflow-wrap:anywhere]">{restaurant.name}</p>
       <h1 className="mb-6 text-3xl font-semibold">{edit ? 'Uredi posjet' : 'Novi posjet'}</h1>
-      <form onSubmit={save} className="space-y-5">
+      <form onSubmit={save} noValidate aria-busy={saving || preparing} className="space-y-5">
         <div className="space-y-2"><Label htmlFor="visit-date">Datum</Label><Input id="visit-date" type="date" required className="h-12" value={date} onChange={event => setDate(event.target.value)} /></div>
         <div className="space-y-2"><Label htmlFor="visit-food">Što sam jeo</Label><Input id="visit-food" className="h-12" value={whatIAte} onChange={event => setWhatIAte(event.target.value)} /></div>
         <div className="space-y-2"><Label htmlFor="visit-note">Dojam / bilješka</Label><Textarea id="visit-note" className="min-h-28 text-base" value={note} onChange={event => setNote(event.target.value)} /></div>
@@ -440,14 +463,14 @@ function VisitForm({ userId, edit }: { userId: string; edit: boolean }) {
                 const prepared = await optimizeRestaurantPhotos(selected);
                 validateVisitFiles(prepared.map(photo => photo.file), existingPhotos.length + newPhotos.length);
                 setNewPhotos(current => [...current, ...prepared]);
-              } catch (cause) { setError(errorText(cause)); }
+              } catch (cause) { setError(restaurantUiError(cause, 'Fotografija se ne može pripremiti. Odaberi drugu fotografiju.')); }
               finally { preparingRef.current = false; setPreparing(false); }
             })();
           }} />
           {preparing ? <p role="status" className="text-sm text-muted-foreground">Priprema fotografija…</p> : null}
           {(existingPhotos.length > 0 || newPhotos.length > 0) ? <div className="flex max-w-full gap-3 overflow-x-auto pb-2">
-            {existingPhotos.map((path, index) => <div key={`${path}-${index}`} className="shrink-0"><VisitPhoto userId={userId} path={path} /><Button type="button" variant="outline" className="mt-1 min-h-11 w-full" onClick={() => setExistingPhotos(current => current.filter((_, i) => i !== index))}>Ukloni</Button></div>)}
-            {newPhotos.map((photo, index) => <div key={`${photo.file.name}-${index}`} className="shrink-0"><LocalPhoto file={photo.file} /><p className="mt-1 text-xs text-muted-foreground">{(photo.originalBytes / 1048576).toFixed(1)} → {(photo.optimizedBytes / 1048576).toFixed(1)} MB</p><Button type="button" variant="outline" className="mt-1 min-h-11 w-full" onClick={() => setNewPhotos(current => current.filter((_, i) => i !== index))}>Ukloni</Button></div>)}
+            {existingPhotos.map((path, index) => <div key={`${path}-${index}`} className="shrink-0"><VisitPhoto userId={userId} path={path} /><Button type="button" variant="outline" disabled={saving || preparing} className="mt-1 min-h-11 w-full" onClick={() => setExistingPhotos(current => current.filter((_, i) => i !== index))}>Ukloni</Button></div>)}
+            {newPhotos.map((photo, index) => <div key={`${photo.file.name}-${index}`} className="shrink-0"><LocalPhoto file={photo.file} /><p className="mt-1 text-xs text-muted-foreground">{(photo.originalBytes / 1048576).toFixed(1)} → {(photo.optimizedBytes / 1048576).toFixed(1)} MB</p><Button type="button" variant="outline" disabled={saving || preparing} className="mt-1 min-h-11 w-full" onClick={() => setNewPhotos(current => current.filter((_, i) => i !== index))}>Ukloni</Button></div>)}
           </div> : null}
         </div>
         <div className="sticky bottom-[max(1rem,env(safe-area-inset-bottom))] pt-3"><Button size="lg" className="h-12 w-full rounded-xl shadow-lg" disabled={saving || preparing}>{preparing ? 'Priprema fotografija…' : saving ? 'Spremanje…' : edit ? 'Spremi izmjene' : 'Spremi posjet'}</Button></div>

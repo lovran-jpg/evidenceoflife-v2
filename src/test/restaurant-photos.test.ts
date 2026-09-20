@@ -99,7 +99,7 @@ describe('RestaurantVisit private photos', () => {
   it('rolls back new objects when DB insert fails', async () => {
     const f = fixture();
     f.failWrite();
-    await expect(f.service.create(alice, input, [file(), file('two.jpg')])).rejects.toThrow('DB failed');
+    await expect(f.service.create(alice, input, [file(), file('two.jpg')])).rejects.toThrow('Posjet nije spremljen');
     expect(f.rows).toHaveLength(0);
     expect(f.objects.size).toBe(0);
   });
@@ -107,7 +107,7 @@ describe('RestaurantVisit private photos', () => {
   it('rolls back uploaded objects on partial batch failure', async () => {
     const f = fixture();
     f.failUploadAt(2);
-    await expect(f.service.create(alice, input, [file(), file('two.jpg')])).rejects.toThrow('upload failed');
+    await expect(f.service.create(alice, input, [file(), file('two.jpg')])).rejects.toThrow('Posjet nije spremljen');
     expect(f.rows).toHaveLength(0);
     expect(f.objects.size).toBe(0);
   });
@@ -117,7 +117,7 @@ describe('RestaurantVisit private photos', () => {
     const visit = await f.service.create(alice, input, [file()]);
     const old = visit.photos[0];
     f.failWrite();
-    await expect(f.service.update(alice, visit.id, {}, [], [file('new.jpg')])).rejects.toThrow('DB failed');
+    await expect(f.service.update(alice, visit.id, {}, [], [file('new.jpg')])).rejects.toThrow('Posjet nije spremljen');
     expect(f.objects.size).toBe(1);
     expect(f.objects.has(old)).toBe(true);
     expect(visit.photos).toEqual([old]);

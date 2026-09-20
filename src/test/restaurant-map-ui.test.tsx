@@ -113,7 +113,8 @@ describe('Restaurant V1 map', () => {
   it('shows a data error clearly', async () => {
     state.fail = true;
     open();
-    expect(await screen.findByRole('alert')).toHaveTextContent('Query failed');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Mapa se ne može učitati');
+    expect(screen.queryByText('Query failed')).not.toBeInTheDocument();
   });
 
   it('focuses the requested ID among equal names and automatically opens its card', async () => {

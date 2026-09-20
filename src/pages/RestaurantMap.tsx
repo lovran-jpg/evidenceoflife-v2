@@ -6,6 +6,7 @@ import { restaurantMap } from '@/lib/restaurantMap';
 import type { MappedRestaurant } from '@/lib/restaurantMap';
 import { fetchGooglePlaceLocation, googleMapsConfig, loadGoogleMaps } from '@/lib/googleMapsBrowser';
 import { formatCroatianDate } from '@/lib/croatianDate';
+import { visitCountLabel } from '@/lib/restaurantUi';
 
 function GoogleRestaurantMap({ items, focusId, onSelect }: { items: MappedRestaurant[]; focusId: string | null; onSelect: (id: string) => void }) {
   const container = useRef<HTMLDivElement>(null);
@@ -14,7 +15,7 @@ function GoogleRestaurantMap({ items, focusId, onSelect }: { items: MappedRestau
   useEffect(() => {
     if (!container.current || !items.length) return;
     const { mapId } = googleMapsConfig();
-    if (!mapId) { setError('Google karta nije konfigurirana. Dodajte VITE_GOOGLE_MAPS_MAP_ID.'); return; }
+    if (!mapId) { setError('Google karta trenutačno nije dostupna.'); return; }
     let active = true;
     const markerCleanup: Array<() => void> = [];
     setError('');
@@ -39,7 +40,7 @@ function GoogleRestaurantMap({ items, focusId, onSelect }: { items: MappedRestau
         bounds?.extend(position);
       }
       if (bounds) map.fitBounds(bounds, 48);
-    }).catch(cause => { if (active) setError(cause instanceof Error ? cause.message : 'Google karta nije dostupna.'); });
+    }).catch(() => { if (active) setError('Google karta trenutačno nije dostupna. Pokušaj ponovno kasnije.'); });
     return () => { active = false; markerCleanup.forEach(cleanup => cleanup()); };
   }, [items, focusId, onSelect]);
 
@@ -66,7 +67,7 @@ export default function RestaurantMap() {
     setError('');
     setItems([]);
     void restaurantMap.list(userId, fetchGooglePlaceLocation).then(found => { if (active) setItems(found); })
-      .catch(cause => { if (active) setError(`Mapa se ne može učitati. ${cause instanceof Error ? cause.message : 'Pokušajte ponovno.'}`); })
+      .catch(() => { if (active) setError('Mapa se ne može učitati. Provjeri vezu i pokušaj ponovno.'); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [userId, isDemo]);
@@ -90,14 +91,14 @@ export default function RestaurantMap() {
     {!loading && !error && items.length > 0 ? <>
       <GoogleRestaurantMap items={items} focusId={focusId} onSelect={setSelectedId} />
       {selected ? <section aria-label="Odabrani restoran" className="mt-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
-        <h2 className="break-words text-lg font-semibold">{selected.restaurant.name}</h2>
-        {selected.restaurant.address ? <p className="mt-1 break-words text-sm text-muted-foreground">{selected.restaurant.address}</p> : null}
-        <p className="mt-2 text-sm">{selected.visitCount} {selected.visitCount === 1 ? 'posjet' : 'posjeta'}</p>
+        <h2 className="text-lg font-semibold [overflow-wrap:anywhere]">{selected.restaurant.name}</h2>
+        {selected.restaurant.address ? <p className="mt-1 text-sm text-muted-foreground [overflow-wrap:anywhere]">{selected.restaurant.address}</p> : null}
+        <p className="mt-2 text-sm">{visitCountLabel(selected.visitCount)}</p>
         {selected.lastVisit ? <p className="mt-1 text-sm">Zadnji posjet: {formatCroatianDate(selected.lastVisit)}</p> : null}
         <Link to={`/restaurants/${selected.restaurant.id}`} className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground">Otvori restoran</Link>
       </section> : null}
       <div className="mt-4 flex flex-wrap gap-2" aria-label="Restorani na mapi">
-        {items.map(item => <button type="button" key={item.restaurant.id} onClick={() => setSelectedId(item.restaurant.id)} className="min-h-11 rounded-xl border border-border px-3 py-2 text-sm hover:bg-muted">{item.restaurant.name}</button>)}
+        {items.map(item => <button type="button" key={item.restaurant.id} onClick={() => setSelectedId(item.restaurant.id)} className="max-w-full min-h-11 rounded-xl border border-border px-3 py-2 text-sm [overflow-wrap:anywhere] hover:bg-muted">{item.restaurant.name}</button>)}
       </div>
     </> : null}
   </RestaurantShell>;
