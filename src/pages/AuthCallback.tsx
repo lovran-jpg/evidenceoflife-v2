@@ -2,11 +2,10 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { consumePendingSignup, trackEvent } from '@/lib/analytics';
-import { getErrorMessage } from '@/lib/utils';
 
 export default function AuthCallback() {
   const navigate = useNavigate();
-  const [message, setMessage] = useState('Signing you in...');
+  const [message, setMessage] = useState('Prijava je u tijeku…');
 
   useEffect(() => {
     let mounted = true;
@@ -34,14 +33,14 @@ export default function AuthCallback() {
               method: signupMethod,
             });
           }
-          navigate('/app', { replace: true });
+          navigate('/restaurants', { replace: true });
           return;
         }
 
-        setMessage('No active session found. Please sign in again.');
+        setMessage('Aktivna sesija nije pronađena. Prijavi se ponovno.');
       } catch (error: unknown) {
         console.error('OAuth callback error:', error);
-        setMessage(getErrorMessage(error, 'Authentication failed. Please try again.'));
+        setMessage('Prijava nije uspjela. Pokušaj ponovno.');
       }
     };
 
@@ -55,7 +54,7 @@ export default function AuthCallback() {
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="text-center space-y-3">
-        <h1 className="text-2xl font-semibold">Authenticating...</h1>
+        <h1 className="text-2xl font-semibold">Prijava</h1>
         <p className="text-muted-foreground">{message}</p>
       </div>
     </div>

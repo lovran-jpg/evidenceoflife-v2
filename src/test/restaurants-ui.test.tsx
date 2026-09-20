@@ -380,8 +380,8 @@ describe('Restaurant V1 routes', () => {
     expect(state.visits[0]).toMatchObject({ place_id: 'one', moment_id: null, what_i_ate: 'Rižoto', note: 'Vrlo dobro', rating: 5, photos: [] });
     expect(state.visits[1]).toMatchObject({ place_id: 'one', moment_id: null, rating: null });
     const cards = await screen.findAllByRole('article');
-    expect(within(cards[0]).getByText('2026-09-18')).toBeInTheDocument();
-    expect(within(cards[1]).getByText('2026-09-17')).toBeInTheDocument();
+    expect(within(cards[0]).getByText('18. 9. 2026.')).toHaveAttribute('datetime', '2026-09-18');
+    expect(within(cards[1]).getByText('17. 9. 2026.')).toHaveAttribute('datetime', '2026-09-17');
   });
 
   it('edits a visit by deep link and deletes it only after confirmation', async () => {

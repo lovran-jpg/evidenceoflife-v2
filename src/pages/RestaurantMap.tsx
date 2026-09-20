@@ -5,6 +5,7 @@ import { RestaurantShell } from '@/components/RestaurantShell';
 import { restaurantMap } from '@/lib/restaurantMap';
 import type { MappedRestaurant } from '@/lib/restaurantMap';
 import { fetchGooglePlaceLocation, googleMapsConfig, loadGoogleMaps } from '@/lib/googleMapsBrowser';
+import { formatCroatianDate } from '@/lib/croatianDate';
 
 function GoogleRestaurantMap({ items, focusId, onSelect }: { items: MappedRestaurant[]; focusId: string | null; onSelect: (id: string) => void }) {
   const container = useRef<HTMLDivElement>(null);
@@ -92,7 +93,7 @@ export default function RestaurantMap() {
         <h2 className="break-words text-lg font-semibold">{selected.restaurant.name}</h2>
         {selected.restaurant.address ? <p className="mt-1 break-words text-sm text-muted-foreground">{selected.restaurant.address}</p> : null}
         <p className="mt-2 text-sm">{selected.visitCount} {selected.visitCount === 1 ? 'posjet' : 'posjeta'}</p>
-        {selected.lastVisit ? <p className="mt-1 text-sm">Zadnji posjet: {selected.lastVisit}</p> : null}
+        {selected.lastVisit ? <p className="mt-1 text-sm">Zadnji posjet: {formatCroatianDate(selected.lastVisit)}</p> : null}
         <Link to={`/restaurants/${selected.restaurant.id}`} className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground">Otvori restoran</Link>
       </section> : null}
       <div className="mt-4 flex flex-wrap gap-2" aria-label="Restorani na mapi">

@@ -14,7 +14,6 @@ const Index = lazy(() => import("./pages/Index"));
 const Auth = lazy(() => import("./pages/Auth"));
 const AuthCallback = lazy(() => import("./pages/AuthCallback"));
 const NotFound = lazy(() => import("./pages/NotFound"));
-const Landing = lazy(() => import("./pages/Landing"));
 const PublicDemo = lazy(() => import("./pages/PublicDemo"));
 const Restaurants = lazy(() => import("./pages/Restaurants"));
 const RestaurantCalendar = lazy(() => import("./pages/RestaurantCalendar"));
@@ -22,15 +21,15 @@ const RestaurantMap = lazy(() => import("./pages/RestaurantMap"));
 
 const queryClient = new QueryClient();
 
-function LoadingScreen() {
+export function LoadingScreen() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center">
-      <span className="text-muted-foreground">Loading...</span>
+      <span className="text-muted-foreground">Učitavanje…</span>
     </div>
   );
 }
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading, authReady } = useAuth();
 
   if (!authReady || loading) return <LoadingScreen />;
@@ -39,23 +38,23 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function AuthRoute({ children }: { children: React.ReactNode }) {
+export function AuthRoute({ children }: { children: React.ReactNode }) {
   const { user, isDemo, loading, authReady } = useAuth();
 
   if (!authReady || loading) return <LoadingScreen />;
 
-  if (user && !isDemo) return <Navigate to="/app" replace />;
+  if (user && !isDemo) return <Navigate to="/restaurants" replace />;
   return <>{children}</>;
 }
 
-function HomeRoute() {
+export function HomeRoute() {
   const { user, isDemo, loading, authReady } = useAuth();
 
   if (!authReady || loading) return <LoadingScreen />;
 
-  if (user && !isDemo) return <Navigate to="/app" replace />;
+  if (user && !isDemo) return <Navigate to="/restaurants" replace />;
   if (isDemo) return <Navigate to="/demo-app" replace />;
-  return <Landing />;
+  return <Navigate to="/auth" replace />;
 }
 
 function AnalyticsIdentity() {

@@ -22,6 +22,7 @@ import { RestaurantVisitPhoto as VisitPhoto } from '@/components/RestaurantVisit
 import { createGoogleRestaurantSearch, googleMapsConfig } from '@/lib/googleMapsBrowser';
 import type { GoogleRestaurantSuggestion } from '@/lib/googleMapsBrowser';
 import type { Restaurant, RestaurantVisit } from '@/lib/restaurantDomain';
+import { formatCroatianDate } from '@/lib/croatianDate';
 
 const detailPath = (id: string) => `/restaurants/${id}`;
 const errorText = (error: unknown) => error instanceof Error ? error.message : 'Pokušajte ponovno.';
@@ -90,7 +91,7 @@ function RestaurantList({ userId }: { userId: string }) {
             <Link key={restaurant.id} to={detailPath(restaurant.id)} className="flex min-h-20 items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm hover:border-primary/50">
               <span className="min-w-0">
                 <span className="block truncate font-semibold">{restaurant.name}</span>
-                <span className="mt-1 block text-sm text-muted-foreground">{visits.length} {visits.length === 1 ? 'posjet' : 'posjeta'}{latest ? ` · Zadnji: ${latest}` : ''}</span>
+                <span className="mt-1 block text-sm text-muted-foreground">{visits.length} {visits.length === 1 ? 'posjet' : 'posjeta'}{latest ? ` · Zadnji: ${formatCroatianDate(latest)}` : ''}</span>
               </span>
               <ChevronRight className="shrink-0 text-muted-foreground" size={20} />
             </Link>
@@ -298,7 +299,7 @@ function RestaurantDetail({ userId }: { userId: string }) {
       {visits.length === 0 ? <p className="rounded-2xl border border-dashed p-6 text-muted-foreground">Još nema posjeta ovom restoranu.</p> : null}
       <div className="space-y-3">
         {visits.map(visit => <article key={visit.id} className="min-w-0 rounded-2xl border border-border bg-card p-4 shadow-sm">
-          <time dateTime={visit.date} className="font-semibold">{visit.date}</time>
+          <time dateTime={visit.date} className="font-semibold">{formatCroatianDate(visit.date)}</time>
           {visit.what_i_ate ? <p className="mt-2 break-words">Što sam jeo: {visit.what_i_ate}</p> : null}
           {visit.note ? <p className="mt-2 whitespace-pre-wrap break-words text-muted-foreground">{visit.note}</p> : null}
           {visit.rating != null ? <p className="mt-2 text-sm">Ocjena: {visit.rating}/5</p> : null}

@@ -7,7 +7,17 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { markPendingSignup, trackEvent } from '@/lib/analytics';
 import { getErrorMessage } from '@/lib/utils';
-import { BrandLogo } from '@/components/BrandLogo';
+import { Utensils } from 'lucide-react';
+
+function authErrorMessage(error: unknown, fallback: string): string {
+  const message = getErrorMessage(error, fallback);
+  if (/invalid login credentials/i.test(message)) return 'Email ili lozinka nisu ispravni.';
+  if (/email not confirmed/i.test(message)) return 'Potvrdi email adresu prije prijave.';
+  if (/user already registered/i.test(message)) return 'Korisnik s ovom email adresom već postoji.';
+  if (/rate limit|too many requests/i.test(message)) return 'Previše pokušaja. Pričekaj malo pa pokušaj ponovno.';
+  if (/prijav|račun|zahtjev|sesij|registracij|provjer/i.test(message)) return message;
+  return fallback;
+}
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -23,7 +33,7 @@ export default function Auth() {
   const withTimeout = async <T,>(
     promise: Promise<T>,
     timeoutMs = 30000,
-    timeoutMessage = 'Request timed out. Please try again.'
+    timeoutMessage = 'Zahtjev je trajao predugo. Pokušaj ponovno.'
   ): Promise<T> => {
     let timer: number | null = null;
 
@@ -63,7 +73,7 @@ export default function Auth() {
           let { error } = await withTimeout(
             supabase.auth.signInWithPassword({ email, password }),
             30000,
-            'Sign-in took too long. Please retry.'
+            'Prijava traje predugo. Pokušaj ponovno.'
           );
 
           if (error && isTimeoutError(error)) {
@@ -71,7 +81,7 @@ export default function Auth() {
             const retry = await withTimeout(
               supabase.auth.signInWithPassword({ email, password }),
               30000,
-              'Sign-in took too long. Please retry.'
+              'Prijava traje predugo. Pokušaj ponovno.'
             );
             error = retry.error;
           }
@@ -82,16 +92,16 @@ export default function Auth() {
 
           const recovered = await waitForUserSession(24, 400);
           if (!recovered) {
-            throw new Error('Login request timed out. Please try again.');
+            throw new Error('Prijava traje predugo. Pokušaj ponovno.');
           }
         }
 
         const hasUserSession = await waitForUserSession(16, 250);
         if (!hasUserSession) {
-          throw new Error('Login succeeded but session sync is delayed. Please try again.');
+          throw new Error('Prijava je uspjela, ali sesija još nije spremna. Pokušaj ponovno.');
         }
 
-        navigate('/app');
+        navigate('/restaurants');
         return;
       }
 
@@ -111,7 +121,7 @@ export default function Auth() {
             },
           }),
           15000,
-          'Sign-up took too long. Please retry.'
+          'Registracija traje predugo. Pokušaj ponovno.'
         );
 
         if (error) throw error;
@@ -120,13 +130,13 @@ export default function Auth() {
           trackEvent('account_created', {
             method: 'email',
           });
-          navigate('/app');
+          navigate('/restaurants');
           return;
         }
 
         toast({
-          title: 'Account created',
-          description: 'Please check your email to confirm your account.',
+          title: 'Račun je izrađen',
+          description: 'Provjeri email i potvrdi svoj račun.',
         });
 
         setIsLogin(true);
@@ -137,13 +147,13 @@ export default function Auth() {
         const { error: signInError } = await withTimeout(
           supabase.auth.signInWithPassword({ email, password }),
           10000,
-          'Sign-in check took too long. Please retry.'
+          'Provjera prijave traje predugo. Pokušaj ponovno.'
         );
 
         if (!signInError) {
           const hasUserSession = await waitForUserSession(12, 250);
           if (hasUserSession) {
-            navigate('/app');
+            navigate('/restaurants');
             return;
           }
         }
@@ -151,10 +161,10 @@ export default function Auth() {
         throw signupErr;
       }
     } catch (err: unknown) {
-      const msg = getErrorMessage(err, 'Authentication failed. Please try again.');
+      const msg = authErrorMessage(err, 'Prijava nije uspjela. Pokušaj ponovno.');
       setErrorMsg(msg);
       toast({
-        title: 'Error',
+        title: 'Greška',
         description: msg,
         variant: 'destructive',
       });
@@ -187,15 +197,15 @@ export default function Auth() {
           },
         }),
         15000,
-        'Google sign-in took too long. Please retry.'
+        'Google prijava traje predugo. Pokušaj ponovno.'
       );
 
       if (error) throw error;
     } catch (err: unknown) {
-      const msg = getErrorMessage(err, 'Google sign-in failed. Please try again.');
+      const msg = authErrorMessage(err, 'Google prijava nije uspjela. Pokušaj ponovno.');
       setErrorMsg(msg);
       toast({
-        title: 'Error',
+        title: 'Greška',
         description: msg,
         variant: 'destructive',
       });
@@ -208,9 +218,9 @@ export default function Auth() {
     <div className="min-h-screen bg-background flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-[400px] rounded-2xl border border-border bg-card px-7 py-8 shadow-soft">
         <div className="flex flex-col items-center gap-2 text-center">
-          <BrandLogo alt="Logo" className="w-16 h-16" />
-          <h1 className="font-brand text-[34px] text-foreground">Evidence of life</h1>
-          <p className="text-sm text-muted-foreground">Record your daily moments</p>
+          <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground" aria-hidden="true"><Utensils size={30} /></span>
+          <h1 className="text-3xl font-semibold text-foreground">Dnevnik restorana</h1>
+          <p className="text-sm text-muted-foreground">Tvoja privatna mjesta, posjeti i uspomene</p>
         </div>
 
         <div className="mt-7">
@@ -239,7 +249,7 @@ export default function Auth() {
                 fill="#EA4335"
               />
             </svg>
-            {googleLoading ? 'Signing in...' : 'Continue with Google'}
+            {googleLoading ? 'Prijava…' : 'Nastavi s Googleom'}
           </Button>
         </div>
 
@@ -258,7 +268,7 @@ export default function Auth() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">Lozinka</Label>
             <Input
               id="password"
               type="password"
@@ -276,20 +286,20 @@ export default function Auth() {
             disabled={loading || googleLoading}
             className="mt-2 w-full h-11 rounded-xl text-base"
           >
-            {loading ? '...' : isLogin ? 'Sign in' : 'Create account'}
+            {loading ? '…' : isLogin ? 'Prijavi se' : 'Izradi račun'}
           </Button>
 
           {errorMsg && <p className="text-sm text-destructive text-center">{errorMsg}</p>}
         </form>
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
-          {isLogin ? "Don't have an account?" : 'Already have an account?'}{' '}
+          {isLogin ? 'Nemaš račun?' : 'Već imaš račun?'}{' '}
           <button
             type="button"
             onClick={() => setIsLogin(!isLogin)}
             className="text-primary hover:underline font-medium"
           >
-            {isLogin ? 'Sign up' : 'Sign in'}
+            {isLogin ? 'Registriraj se' : 'Prijavi se'}
           </button>
         </p>
       </div>

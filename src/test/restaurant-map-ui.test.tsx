@@ -102,7 +102,7 @@ describe('Restaurant V1 map', () => {
     expect(await screen.findByRole('img', { name: 'Karta restorana' })).toBeInTheDocument();
     await waitFor(() => expect(state.callbacks).toHaveLength(2));
     act(() => state.callbacks[0]());
-    expect(await screen.findByText('Zadnji posjet: 2026-09-19')).toBeInTheDocument();
+    expect(await screen.findByText('Zadnji posjet: 19. 9. 2026.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Otvori restoran' })).toHaveAttribute('href', '/restaurants/first');
     fireEvent.click(screen.getAllByRole('button', { name: 'Bistro' })[1]);
     expect(screen.getByRole('link', { name: 'Otvori restoran' })).toHaveAttribute('href', '/restaurants/second');
