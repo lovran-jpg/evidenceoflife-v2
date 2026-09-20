@@ -126,13 +126,16 @@ function addVisit(id: string, placeId: string, date: string, userId = alice, ext
 function Location() {
   const location = useLocation();
   const navigate = useNavigate();
-  return <><output data-testid="route">{location.pathname}</output><button onClick={() => navigate(-1)}>Browser Back</button></>;
+  return <><output data-testid="route">{location.pathname}{location.search}</output><button onClick={() => navigate(-1)}>Browser Back</button></>;
 }
 
 function open(path = '/restaurants') {
   render(<MemoryRouter initialEntries={[path]}>
     <Location />
-    <Routes><Route path="/restaurants/*" element={<Restaurants />} /></Routes>
+    <Routes>
+      <Route path="/restaurants/*" element={<Restaurants />} />
+      <Route path="/map" element={<p>Mapa</p>} />
+    </Routes>
   </MemoryRouter>);
 }
 
@@ -147,6 +150,44 @@ beforeEach(() => {
 });
 
 describe('Restaurant V1 routes', () => {
+  it.each([
+    { google_place_id: 'google-123', lat: null, lng: null },
+    { google_place_id: null, lat: 0, lng: 0 },
+  ])('links a located restaurant to the map using its Restaurant ID: %j', async location => {
+    const id = '33333333-3333-4333-8333-333333333333';
+    addRestaurant(id, 'Bistro');
+    Object.assign(state.restaurants[0], location);
+    open(`/restaurants/${id}`);
+
+    const link = await screen.findByRole('link', { name: 'Prikaži na mapi' });
+    expect(link).toHaveAttribute('href', `/map?restaurantId=${id}`);
+    expect(screen.getByRole('link', { name: 'Uredi restoran' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Dodaj lokaciju' })).not.toBeInTheDocument();
+    fireEvent.click(link);
+    expect(screen.getByTestId('route').textContent).toBe(`/map?restaurantId=${id}`);
+  });
+
+  it.each([
+    { lat: null, lng: null, address: null },
+    { lat: 45.8, lng: null, address: 'Samo adresa 1' },
+    { lat: 91, lng: 15.9, address: null },
+  ])('offers the existing editor for a restaurant without a usable location: %j', async location => {
+    addRestaurant('one', 'Bistro');
+    Object.assign(state.restaurants[0], location);
+    state.googleKey = 'test';
+    open('/restaurants/one');
+
+    const link = await screen.findByRole('link', { name: 'Dodaj lokaciju' });
+    expect(link).toHaveAttribute('href', '/restaurants/one/edit');
+    expect(screen.queryByRole('link', { name: 'Prikaži na mapi' })).not.toBeInTheDocument();
+    fireEvent.click(link);
+    expect(await screen.findByRole('heading', { name: 'Uredi restoran' })).toBeInTheDocument();
+    const name = await screen.findByLabelText('Naziv restorana');
+    expect(name).toHaveValue('Bistro');
+    fireEvent.change(name, { target: { value: 'Bistro Zagreb' } });
+    expect(await screen.findByRole('button', { name: 'Google Bistro, Zagreb' })).toBeInTheDocument();
+  });
+
   it('associates a selected Google Place ID without replacing the user-entered restaurant name', async () => {
     state.googleKey = 'test';
     open('/restaurants/new');

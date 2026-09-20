@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { format } from 'date-fns';
-import { ArrowLeft, ChevronRight, Plus } from 'lucide-react';
+import { ArrowLeft, ChevronRight, MapPin, Plus } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { restaurants } from '@/lib/restaurants';
+import { hasMapLocation } from '@/lib/restaurantMap';
 import { restaurantVisits } from '@/lib/restaurantVisits';
 import { restaurantVisitPhotos, validateVisitFiles, VisitPhotoError } from '@/lib/restaurantVisitPhotos';
 import { optimizeRestaurantPhotos, type OptimizedPhoto } from '@/lib/optimizeRestaurantPhoto';
@@ -253,6 +254,8 @@ function RestaurantDetail({ userId }: { userId: string }) {
     }
   }
 
+  const hasLocation = restaurant && (Boolean(restaurant.google_place_id?.trim()) || hasMapLocation(restaurant));
+
   return <Page>
     <BackLink to="/restaurants" label="Svi restorani" />
     {loading ? <p role="status">Učitavanje restorana…</p> : null}
@@ -262,7 +265,12 @@ function RestaurantDetail({ userId }: { userId: string }) {
     {restaurant ? <>
       <h1 className="break-words text-3xl font-semibold">{restaurant.name}</h1>
       {restaurant.address ? <p className="mt-2 text-sm text-muted-foreground">{restaurant.address}</p> : null}
-      <Button asChild variant="outline" className="mt-3 min-h-11"><Link to={`${detailPath(restaurant.id)}/edit`}>Uredi restoran</Link></Button>
+      <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+        <Button asChild className="min-h-11"><Link to={hasLocation ? `/map?restaurantId=${encodeURIComponent(restaurant.id)}` : `${detailPath(restaurant.id)}/edit`}>
+          <MapPin aria-hidden="true" />{hasLocation ? 'Prikaži na mapi' : 'Dodaj lokaciju'}
+        </Link></Button>
+        <Button asChild variant="outline" className="min-h-11"><Link to={`${detailPath(restaurant.id)}/edit`}>Uredi restoran</Link></Button>
+      </div>
       <p className="mb-7 mt-2 text-muted-foreground">{visits.length} {visits.length === 1 ? 'posjet' : 'posjeta'}</p>
       <h2 className="mb-4 text-xl font-semibold">Posjeti</h2>
       {visits.length === 0 ? <p className="rounded-2xl border border-dashed p-6 text-muted-foreground">Još nema posjeta ovom restoranu.</p> : null}
