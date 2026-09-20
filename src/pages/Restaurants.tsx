@@ -98,7 +98,7 @@ function RestaurantList({ userId }: { userId: string }) {
           );
         })}
       </div>
-      <div className="sticky bottom-4 mt-8">
+      <div className="sticky bottom-[max(1rem,env(safe-area-inset-bottom))] mt-8">
         <Button asChild size="lg" className="h-12 w-full rounded-xl shadow-lg"><Link to="/restaurants/new"><Plus /> Novi restoran</Link></Button>
       </div>
     </Page>
@@ -204,7 +204,7 @@ function RestaurantEditor({ userId, edit = false }: { userId: string; edit?: boo
       </div> : <p className="text-sm text-muted-foreground">Google pretraživanje nije dostupno; restoran možete spremiti samo s imenom.</p>}
       <div className="space-y-2"><Label htmlFor="restaurant-address">Adresa (opcionalno, vaš unos)</Label><Input id="restaurant-address" className="h-12" maxLength={300} value={address} onChange={event => setAddress(event.target.value)} /></div>
       {error ? <ErrorNotice message={error} /> : null}
-      <div className="sticky bottom-4"><Button size="lg" className="h-12 w-full rounded-xl shadow-lg" disabled={saving || choosing}>{saving ? 'Spremanje…' : edit ? 'Spremi izmjene' : 'Spremi restoran'}</Button></div>
+      <div className="sticky bottom-[max(1rem,env(safe-area-inset-bottom))]"><Button size="lg" className="h-12 w-full rounded-xl shadow-lg" disabled={saving || choosing}>{saving ? 'Spremanje…' : edit ? 'Spremi izmjene' : 'Spremi restoran'}</Button></div>
     </form> : error ? <ErrorNotice message={error} /> : null}
   </Page>;
 }
@@ -333,7 +333,7 @@ function RestaurantDetail({ userId }: { userId: string }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <div className="sticky bottom-4 mt-8"><Button asChild size="lg" className="h-12 w-full rounded-xl shadow-lg"><Link to={`${detailPath(restaurant.id)}/visits/new`}><Plus /> Dodaj posjet</Link></Button></div>
+      <div className="sticky bottom-[max(1rem,env(safe-area-inset-bottom))] mt-8"><Button asChild size="lg" className="h-12 w-full rounded-xl shadow-lg"><Link to={`${detailPath(restaurant.id)}/visits/new`}><Plus /> Dodaj posjet</Link></Button></div>
     </> : null}
   </Page>;
 }
@@ -450,7 +450,7 @@ function VisitForm({ userId, edit }: { userId: string; edit: boolean }) {
             {newPhotos.map((photo, index) => <div key={`${photo.file.name}-${index}`} className="shrink-0"><LocalPhoto file={photo.file} /><p className="mt-1 text-xs text-muted-foreground">{(photo.originalBytes / 1048576).toFixed(1)} → {(photo.optimizedBytes / 1048576).toFixed(1)} MB</p><Button type="button" variant="outline" className="mt-1 min-h-11 w-full" onClick={() => setNewPhotos(current => current.filter((_, i) => i !== index))}>Ukloni</Button></div>)}
           </div> : null}
         </div>
-        <div className="sticky bottom-4 pt-3"><Button size="lg" className="h-12 w-full rounded-xl shadow-lg" disabled={saving || preparing}>{preparing ? 'Priprema fotografija…' : saving ? 'Spremanje…' : edit ? 'Spremi izmjene' : 'Spremi posjet'}</Button></div>
+        <div className="sticky bottom-[max(1rem,env(safe-area-inset-bottom))] pt-3"><Button size="lg" className="h-12 w-full rounded-xl shadow-lg" disabled={saving || preparing}>{preparing ? 'Priprema fotografija…' : saving ? 'Spremanje…' : edit ? 'Spremi izmjene' : 'Spremi posjet'}</Button></div>
       </form>
     </> : null}
   </Page>;

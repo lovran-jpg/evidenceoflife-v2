@@ -1,0 +1,31 @@
+{
+  "name": "Dnevnik restorana",
+  "short_name": "Dnevnik",
+  "description": "Privatni dnevnik restorana, posjeta, jela, ocjena i fotografija.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fffaf5",
+  "theme_color": "#d4875f",
+  "icons": [
+    {
+      "src": "/icons/dnevnik-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/dnevnik-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/dnevnik-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
