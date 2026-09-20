@@ -364,30 +364,36 @@ export type Database = {
       }
       places: {
         Row: {
+          address: string | null
           category: string
           city_id: string | null
           created_at: string
           id: string
+          google_place_id: string | null
           lat: number | null
           lng: number | null
           name: string
           user_id: string
         }
         Insert: {
+          address?: string | null
           category?: string
           city_id?: string | null
           created_at?: string
           id?: string
+          google_place_id?: string | null
           lat?: number | null
           lng?: number | null
           name: string
           user_id: string
         }
         Update: {
+          address?: string | null
           category?: string
           city_id?: string | null
           created_at?: string
           id?: string
+          google_place_id?: string | null
           lat?: number | null
           lng?: number | null
           name?: string

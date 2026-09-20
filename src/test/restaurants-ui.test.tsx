@@ -13,6 +13,15 @@ const state = vi.hoisted(() => ({
   restaurants: [] as Restaurant[],
   visits: [] as RestaurantVisit[],
   sequence: 0,
+  googleKey: '',
+}));
+
+vi.mock('@/lib/googleMapsBrowser', () => ({
+  googleMapsConfig: () => ({ apiKey: state.googleKey, mapId: 'test-map' }),
+  createGoogleRestaurantSearch: () => ({
+    suggest: vi.fn(async () => [{ placeId: 'google-123', label: 'Google Bistro, Zagreb', prediction: {} }]),
+    select: vi.fn(async () => ({ placeId: 'google-123', name: 'Google Bistro', address: 'Ulica 1, Zagreb' })),
+  }),
 }));
 
 vi.mock('@/hooks/useAuth', () => ({
@@ -31,10 +40,17 @@ vi.mock('@/lib/restaurants', () => ({
     get: vi.fn(async (userId: string, id: string) => state.restaurants.find(item => item.user_id === userId && item.category === 'restaurant' && item.id === id) ?? null),
     create: vi.fn(async (userId: string, input: { name: string }) => {
       const item = {
-        id: `restaurant-${++state.sequence}`, user_id: userId, name: input.name.trim(),
-        category: 'restaurant', city_id: null, lat: null, lng: null, created_at: '2026-09-19T00:00:00Z',
+        id: `restaurant-${++state.sequence}`, user_id: userId,
+        category: 'restaurant', city_id: null, lat: null, lng: null, address: null, google_place_id: null,
+        ...input, name: input.name.trim(), created_at: '2026-09-19T00:00:00Z',
       } as Restaurant;
       state.restaurants.push(item);
+      return item;
+    }),
+    update: vi.fn(async (userId: string, id: string, changes: Partial<Restaurant>) => {
+      const item = state.restaurants.find(row => row.user_id === userId && row.id === id);
+      if (!item) throw new Error('Restaurant not found');
+      Object.assign(item, changes);
       return item;
     }),
   },
@@ -94,7 +110,7 @@ vi.mock('@/lib/restaurantVisitPhotos', () => ({
 
 function addRestaurant(id: string, name: string, userId = alice, category = 'restaurant') {
   state.restaurants.push({
-    id, name, user_id: userId, category, city_id: null, lat: null, lng: null,
+    id, name, user_id: userId, category, city_id: null, lat: null, lng: null, address: null, google_place_id: null,
     created_at: '2026-09-19T00:00:00Z',
   });
 }
@@ -125,11 +141,26 @@ beforeEach(() => {
   state.restaurants = [];
   state.visits = [];
   state.sequence = 0;
+  state.googleKey = '';
   vi.restoreAllMocks();
   vi.clearAllMocks();
 });
 
 describe('Restaurant V1 routes', () => {
+  it('associates a selected Google Place ID without replacing the user-entered restaurant name', async () => {
+    state.googleKey = 'test';
+    open('/restaurants/new');
+    fireEvent.change(screen.getByLabelText('Naziv restorana'), { target: { value: 'Moj Bistro' } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Google Bistro, Zagreb' }));
+    expect(await screen.findByText('Google lokacija: Google Bistro')).toBeInTheDocument();
+    expect(screen.getByLabelText('Naziv restorana')).toHaveValue('Moj Bistro');
+    fireEvent.change(screen.getByLabelText(/Adresa/), { target: { value: 'Moja adresa 4' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Spremi restoran' }));
+    await waitFor(() => expect(state.restaurants[0]).toMatchObject({
+      name: 'Moj Bistro', address: 'Moja adresa 4', google_place_id: 'google-123', lat: null, lng: null,
+    }));
+  });
+
   it('offers multiple local photos and lets a selected photo be removed before saving', async () => {
     addRestaurant('one', 'Bistro');
     const createObjectURL = vi.fn(() => 'blob:preview');
@@ -187,6 +218,15 @@ describe('Restaurant V1 routes', () => {
     await waitFor(() => expect(screen.getByTestId('route')).toHaveTextContent('/restaurants/restaurant-1'));
     expect(state.restaurants[0]).toMatchObject({ name: 'Bistro', category: 'restaurant', city_id: null, lat: null, lng: null });
     expect(await screen.findByRole('heading', { name: 'Bistro' })).toBeInTheDocument();
+  });
+
+  it('edits a restaurant address while keeping its ID and optional location', async () => {
+    addRestaurant('one', 'Bistro');
+    open('/restaurants/one/edit');
+    expect(await screen.findByRole('heading', { name: 'Uredi restoran' })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/Adresa/), { target: { value: 'Moja ulica 2' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Spremi izmjene' }));
+    await waitFor(() => expect(state.restaurants[0]).toMatchObject({ id: 'one', address: 'Moja ulica 2', lat: null, lng: null }));
   });
 
   it('loads a direct detail URL and lets browser Back return to the list', async () => {

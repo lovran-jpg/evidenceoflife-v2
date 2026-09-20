@@ -4,7 +4,7 @@ export type Restaurant = Tables<'places'>;
 export type RestaurantVisit = Tables<'visits'>;
 
 export type RestaurantInput = Pick<Restaurant, 'name'> &
-  Partial<Pick<Restaurant, 'city_id' | 'lat' | 'lng'>>;
+  Partial<Pick<Restaurant, 'address' | 'google_place_id' | 'city_id' | 'lat' | 'lng'>>;
 export type RestaurantChanges = Partial<RestaurantInput>;
 export type VisitInput = Pick<RestaurantVisit, 'place_id' | 'date'> &
   Partial<Pick<RestaurantVisit, 'id' | 'what_i_ate' | 'note' | 'rating' | 'photos'>>;

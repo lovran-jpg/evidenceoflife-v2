@@ -13,6 +13,7 @@ export function RestaurantShell({ children }: { children: React.ReactNode }) {
           <nav aria-label="Dnevnik restorana" className="mt-3 flex gap-2">
             <Link to="/restaurants" aria-current={pathname.startsWith('/restaurants') ? 'page' : undefined} className={`min-h-11 flex-1 rounded-xl px-4 py-3 text-center text-sm font-medium ${pathname.startsWith('/restaurants') ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'}`}>Restorani</Link>
             <Link to="/calendar" aria-current={pathname === '/calendar' ? 'page' : undefined} className={`min-h-11 flex-1 rounded-xl px-4 py-3 text-center text-sm font-medium ${pathname === '/calendar' ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'}`}>Kalendar</Link>
+            <Link to="/map" aria-current={pathname === '/map' ? 'page' : undefined} className={`min-h-11 flex-1 rounded-xl px-4 py-3 text-center text-sm font-medium ${pathname === '/map' ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'}`}>Mapa</Link>
           </nav>
         </div>
       </header>

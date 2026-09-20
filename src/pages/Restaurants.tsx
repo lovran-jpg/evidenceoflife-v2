@@ -13,6 +13,8 @@ import { restaurantVisitPhotos, validateVisitFiles, VisitPhotoError } from '@/li
 import { optimizeRestaurantPhotos, type OptimizedPhoto } from '@/lib/optimizeRestaurantPhoto';
 import { RestaurantShell as Page } from '@/components/RestaurantShell';
 import { RestaurantVisitPhoto as VisitPhoto } from '@/components/RestaurantVisitPhoto';
+import { createGoogleRestaurantSearch, googleMapsConfig } from '@/lib/googleMapsBrowser';
+import type { GoogleRestaurantSuggestion } from '@/lib/googleMapsBrowser';
 import type { Restaurant, RestaurantVisit } from '@/lib/restaurantDomain';
 
 const detailPath = (id: string) => `/restaurants/${id}`;
@@ -96,19 +98,75 @@ function RestaurantList({ userId }: { userId: string }) {
   );
 }
 
-function NewRestaurant({ userId }: { userId: string }) {
+function RestaurantEditor({ userId, edit = false }: { userId: string; edit?: boolean }) {
   const navigate = useNavigate();
+  const { restaurantId } = useParams();
   const [name, setName] = useState('');
+  const [address, setAddress] = useState('');
+  const [googlePlaceId, setGooglePlaceId] = useState<string | null>(null);
+  const [googlePreview, setGooglePreview] = useState<{ name: string; address: string | null } | null>(null);
+  const [searchEnabled, setSearchEnabled] = useState(false);
+  const [suggestions, setSuggestions] = useState<GoogleRestaurantSuggestion[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [choosing, setChoosing] = useState(false);
+  const [loading, setLoading] = useState(edit);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const search = useRef(createGoogleRestaurantSearch());
+  const { apiKey } = googleMapsConfig();
+
+  useEffect(() => {
+    if (!edit || !restaurantId) return;
+    let active = true;
+    void restaurants.get(userId, restaurantId).then(found => {
+      if (!active) return;
+      if (found) {
+        setName(found.name);
+        setAddress(found.address ?? '');
+        setGooglePlaceId(found.google_place_id);
+      } else setError('Restoran nije pronađen.');
+    }).catch(cause => { if (active) setError(`Restoran se ne može učitati. ${errorText(cause)}`); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [edit, restaurantId, userId]);
+
+  useEffect(() => {
+    if (!apiKey || !searchEnabled || name.trim().length < 3 || googlePreview) { setSuggestions([]); return; }
+    let active = true;
+    const timer = window.setTimeout(() => {
+      setSearching(true);
+      void search.current.suggest(name).then(found => { if (active) setSuggestions(found.slice(0, 5)); })
+        .catch(cause => { if (active) setError(`Google pretraživanje nije dostupno. ${errorText(cause)}`); })
+        .finally(() => { if (active) setSearching(false); });
+    }, 350);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [apiKey, name, googlePreview, searchEnabled]);
+
+  async function choose(suggestion: GoogleRestaurantSuggestion) {
+    if (choosing) return;
+    setChoosing(true);
+    setError('');
+    try {
+      const found = await search.current.select(suggestion);
+      setGooglePlaceId(found.placeId);
+      setGooglePreview({ name: found.name, address: found.address });
+      setSuggestions([]);
+    } catch (cause) { setError(`Google lokacija nije odabrana. ${errorText(cause)}`); }
+    finally { setChoosing(false); }
+  }
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (saving) return;
+    if (saving || choosing || loading) return;
     setError('');
     setSaving(true);
     try {
-      const restaurant = await restaurants.create(userId, { name });
+      const restaurant = edit && restaurantId
+        ? await restaurants.update(userId, restaurantId, { name, address: address.trim() || null, google_place_id: googlePlaceId })
+        : await restaurants.create(userId, { name,
+          ...(address.trim() ? { address: address.trim() } : {}),
+          ...(googlePlaceId ? { google_place_id: googlePlaceId } : {}),
+        });
       navigate(detailPath(restaurant.id), { replace: true });
     } catch (cause) {
       setError(`Restoran nije spremljen. ${errorText(cause)}`);
@@ -117,13 +175,30 @@ function NewRestaurant({ userId }: { userId: string }) {
   }
 
   return <Page>
-    <BackLink to="/restaurants" label="Svi restorani" />
-    <h1 className="mb-6 text-3xl font-semibold">Novi restoran</h1>
-    <form onSubmit={save} className="space-y-6">
-      <div className="space-y-2"><Label htmlFor="restaurant-name">Naziv restorana</Label><Input id="restaurant-name" className="h-12" autoFocus required maxLength={160} value={name} onChange={event => setName(event.target.value)} /></div>
+    <BackLink to={edit && restaurantId ? detailPath(restaurantId) : '/restaurants'} label={edit ? 'Natrag na restoran' : 'Svi restorani'} />
+    <h1 className="mb-6 text-3xl font-semibold">{edit ? 'Uredi restoran' : 'Novi restoran'}</h1>
+    {loading ? <p role="status">Učitavanje restorana…</p> : null}
+    {!loading && (!edit || !error || name) ? <form onSubmit={save} className="space-y-6">
+      <div className="space-y-2"><Label htmlFor="restaurant-name">Naziv restorana</Label><Input id="restaurant-name" className="h-12" autoFocus required maxLength={160} value={name} onChange={event => { setName(event.target.value); setSearchEnabled(true); setSuggestions([]); }} /></div>
+      {apiKey ? <div className="space-y-2">
+        <p className="text-sm text-muted-foreground">Google prijedlozi su opcionalni. Sprema se naziv koji sami upišete.</p>
+        {searching ? <p role="status" className="text-sm text-muted-foreground">Traženje restorana…</p> : null}
+        {suggestions.length ? <div aria-label="Google prijedlozi" className="space-y-1 rounded-xl border p-2">
+          {suggestions.map(suggestion => <button key={suggestion.placeId} type="button" disabled={choosing} onClick={() => void choose(suggestion)} className="block min-h-11 w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-muted">{suggestion.label}</button>)}
+          <p className="px-3 text-xs text-muted-foreground" aria-label="Google Maps izvor prijedloga">Google Maps</p>
+        </div> : null}
+        {googlePreview ? <div className="rounded-xl border p-3 text-sm">
+          <p>Google lokacija: {googlePreview.name}</p>
+          {googlePreview.address ? <p className="text-muted-foreground">{googlePreview.address}</p> : null}
+          <p className="mt-1 text-xs text-muted-foreground">Google Maps</p>
+          <p className="mt-1 text-xs text-muted-foreground">Sprema se samo Google Place ID. Naziv i adresu za dnevnik upišite sami.</p>
+          <Button type="button" variant="outline" className="mt-2 min-h-11" onClick={() => { setGooglePlaceId(null); setGooglePreview(null); }}>Ukloni Google lokaciju</Button>
+        </div> : null}
+      </div> : <p className="text-sm text-muted-foreground">Google pretraživanje nije dostupno; restoran možete spremiti samo s imenom.</p>}
+      <div className="space-y-2"><Label htmlFor="restaurant-address">Adresa (opcionalno, vaš unos)</Label><Input id="restaurant-address" className="h-12" maxLength={300} value={address} onChange={event => setAddress(event.target.value)} /></div>
       {error ? <ErrorNotice message={error} /> : null}
-      <div className="sticky bottom-4"><Button size="lg" className="h-12 w-full rounded-xl shadow-lg" disabled={saving}>{saving ? 'Spremanje…' : 'Spremi restoran'}</Button></div>
-    </form>
+      <div className="sticky bottom-4"><Button size="lg" className="h-12 w-full rounded-xl shadow-lg" disabled={saving || choosing}>{saving ? 'Spremanje…' : edit ? 'Spremi izmjene' : 'Spremi restoran'}</Button></div>
+    </form> : error ? <ErrorNotice message={error} /> : null}
   </Page>;
 }
 
@@ -186,6 +261,8 @@ function RestaurantDetail({ userId }: { userId: string }) {
     {!loading && !restaurant && !error ? <p role="alert">Restoran nije pronađen.</p> : null}
     {restaurant ? <>
       <h1 className="break-words text-3xl font-semibold">{restaurant.name}</h1>
+      {restaurant.address ? <p className="mt-2 text-sm text-muted-foreground">{restaurant.address}</p> : null}
+      <Button asChild variant="outline" className="mt-3 min-h-11"><Link to={`${detailPath(restaurant.id)}/edit`}>Uredi restoran</Link></Button>
       <p className="mb-7 mt-2 text-muted-foreground">{visits.length} {visits.length === 1 ? 'posjet' : 'posjeta'}</p>
       <h2 className="mb-4 text-xl font-semibold">Posjeti</h2>
       {visits.length === 0 ? <p className="rounded-2xl border border-dashed p-6 text-muted-foreground">Još nema posjeta ovom restoranu.</p> : null}
@@ -330,8 +407,9 @@ export default function Restaurants() {
   if (!user || isDemo) return <Page><p role="alert">Prijavite se svojim računom za pristup restoranima.</p></Page>;
   return <Routes>
     <Route index element={<RestaurantList userId={user.id} />} />
-    <Route path="new" element={<NewRestaurant userId={user.id} />} />
+    <Route path="new" element={<RestaurantEditor userId={user.id} />} />
     <Route path=":restaurantId" element={<RestaurantDetail userId={user.id} />} />
+    <Route path=":restaurantId/edit" element={<RestaurantEditor userId={user.id} edit />} />
     <Route path=":restaurantId/visits/new" element={<VisitForm userId={user.id} edit={false} />} />
     <Route path=":restaurantId/visits/:visitId/edit" element={<VisitForm userId={user.id} edit />} />
     <Route path="*" element={<Page><p role="alert">Stranica nije pronađena.</p></Page>} />

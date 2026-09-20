@@ -18,6 +18,7 @@ const Landing = lazy(() => import("./pages/Landing"));
 const PublicDemo = lazy(() => import("./pages/PublicDemo"));
 const Restaurants = lazy(() => import("./pages/Restaurants"));
 const RestaurantCalendar = lazy(() => import("./pages/RestaurantCalendar"));
+const RestaurantMap = lazy(() => import("./pages/RestaurantMap"));
 
 const queryClient = new QueryClient();
 
@@ -87,6 +88,7 @@ const App = () => (
                     <Route path="/app" element={<ProtectedRoute><Index /></ProtectedRoute>} />
                     <Route path="/restaurants/*" element={<ProtectedRoute><Restaurants /></ProtectedRoute>} />
                     <Route path="/calendar" element={<ProtectedRoute><RestaurantCalendar /></ProtectedRoute>} />
+                    <Route path="/map" element={<ProtectedRoute><RestaurantMap /></ProtectedRoute>} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>

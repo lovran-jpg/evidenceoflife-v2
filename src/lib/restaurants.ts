@@ -22,6 +22,8 @@ export function createRestaurantService(db: typeof supabase = supabase) {
       const { data, error } = await db.from('places').insert({
         ...input, name: requireName(input.name), category: 'restaurant', user_id: userId,
         city_id: input.city_id ?? null, lat: input.lat ?? null, lng: input.lng ?? null,
+        ...(input.address === undefined ? {} : { address: input.address?.trim() || null }),
+        ...(input.google_place_id === undefined ? {} : { google_place_id: input.google_place_id?.trim() || null }),
       }).select('*').single();
       if (error) throw databaseError('Could not create restaurant', error);
       return data;
@@ -29,7 +31,12 @@ export function createRestaurantService(db: typeof supabase = supabase) {
     async update(userId: string, id: string, changes: RestaurantChanges): Promise<Restaurant> {
       const current = await get(userId, id);
       if (!current) throw new RestaurantServiceError('not_found', 'Restaurant not found.');
-      const payload = { ...changes, ...(changes.name === undefined ? {} : { name: requireName(changes.name) }) };
+      const payload = {
+        ...changes,
+        ...(changes.name === undefined ? {} : { name: requireName(changes.name) }),
+        ...(changes.address === undefined ? {} : { address: changes.address?.trim() || null }),
+        ...(changes.google_place_id === undefined ? {} : { google_place_id: changes.google_place_id?.trim() || null }),
+      };
       const { data, error } = await db.from('places').update(payload)
         .eq('id', id).eq('user_id', userId).eq('category', 'restaurant').select('*').maybeSingle();
       if (error) throw databaseError('Could not update restaurant', error);
