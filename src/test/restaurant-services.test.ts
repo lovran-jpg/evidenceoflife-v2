@@ -127,6 +127,19 @@ describe('Restaurant and RestaurantVisit services', () => {
     expect(db.places.every(place => place.category === 'restaurant')).toBe(true);
   });
 
+  it('deletes only the owned restaurant selected by ID', async () => {
+    const db = fakeDatabase();
+    const service = createRestaurantService(db.client);
+    const first = await restaurantFor(db);
+    const second = await restaurantFor(db);
+    const foreign = await restaurantFor(db, bob);
+
+    await service.delete(alice, first.id);
+    expect(db.places.map(place => place.id)).toEqual([second.id, foreign.id]);
+    await expect(service.delete(alice, foreign.id)).rejects.toMatchObject({ code: 'not_found' });
+    expect(db.places.map(place => place.id)).toEqual([second.id, foreign.id]);
+  });
+
   it('creates two independent visits for the same restaurant without a Moment and supports CRUD', async () => {
     const db = fakeDatabase();
     const restaurant = await restaurantFor(db);

@@ -43,6 +43,13 @@ export function createRestaurantService(db: typeof supabase = supabase) {
       if (!data) throw new RestaurantServiceError('not_found', 'Restaurant not found.');
       return data;
     },
+    async delete(userId: string, id: string): Promise<void> {
+      if (!await get(userId, id)) throw new RestaurantServiceError('not_found', 'Restaurant not found.');
+      const { data, error } = await db.from('places').delete()
+        .eq('id', id).eq('user_id', userId).eq('category', 'restaurant').select('id').maybeSingle();
+      if (error) throw databaseError('Could not delete restaurant', error);
+      if (!data) throw new RestaurantServiceError('not_found', 'Restaurant not found.');
+    },
   };
 }
 

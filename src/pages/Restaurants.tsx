@@ -1,13 +1,18 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { format } from 'date-fns';
-import { ArrowLeft, ChevronRight, MapPin, Plus } from 'lucide-react';
+import { ArrowLeft, ChevronRight, MapPin, Plus, Trash2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { restaurants } from '@/lib/restaurants';
+import { restaurantDeletion } from '@/lib/restaurantDeletion';
 import { hasMapLocation } from '@/lib/restaurantMap';
 import { restaurantVisits } from '@/lib/restaurantVisits';
 import { restaurantVisitPhotos, validateVisitFiles, VisitPhotoError } from '@/lib/restaurantVisitPhotos';
@@ -204,6 +209,7 @@ function RestaurantEditor({ userId, edit = false }: { userId: string; edit?: boo
 }
 
 function RestaurantDetail({ userId }: { userId: string }) {
+  const navigate = useNavigate();
   const location = useLocation();
   const cleanupWarning = (location.state as { cleanupWarning?: string } | null)?.cleanupWarning;
   const { restaurantId } = useParams();
@@ -212,6 +218,8 @@ function RestaurantDetail({ userId }: { userId: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deletingRestaurant, setDeletingRestaurant] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -254,6 +262,20 @@ function RestaurantDetail({ userId }: { userId: string }) {
     }
   }
 
+  async function deleteRestaurant() {
+    if (!restaurant || deletingRestaurant) return;
+    setError('');
+    setDeletingRestaurant(true);
+    try {
+      await restaurantDeletion.delete(userId, restaurant.id);
+      navigate('/restaurants', { replace: true });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Restoran nije obrisan. Pokušaj ponovno.');
+      setDeletingRestaurant(false);
+      setDeleteDialogOpen(false);
+    }
+  }
+
   const hasLocation = restaurant && (Boolean(restaurant.google_place_id?.trim()) || hasMapLocation(restaurant));
 
   return <Page>
@@ -287,6 +309,29 @@ function RestaurantDetail({ userId }: { userId: string }) {
           </div>
         </article>)}
       </div>
+      <AlertDialog open={deleteDialogOpen} onOpenChange={open => { if (!deletingRestaurant) setDeleteDialogOpen(open); }}>
+        <AlertDialogTrigger asChild>
+          <Button type="button" variant="ghost" className="mt-6 min-h-11 w-full text-destructive hover:bg-destructive/10 hover:text-destructive">
+            <Trash2 aria-hidden="true" /> Obriši restoran
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent className="max-w-[calc(100%-2rem)] rounded-2xl sm:max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Obriši restoran?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {visits.length === 0
+                ? 'Želiš li trajno obrisati ovaj restoran?'
+                : `Ovim ćeš trajno obrisati restoran, ${visits.length} posjeta i sve njihove fotografije. Ova radnja se ne može poništiti.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingRestaurant}>Odustani</AlertDialogCancel>
+            <AlertDialogAction disabled={deletingRestaurant} onClick={event => { event.preventDefault(); void deleteRestaurant(); }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {deletingRestaurant ? 'Brisanje…' : 'Trajno obriši'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <div className="sticky bottom-4 mt-8"><Button asChild size="lg" className="h-12 w-full rounded-xl shadow-lg"><Link to={`${detailPath(restaurant.id)}/visits/new`}><Plus /> Dodaj posjet</Link></Button></div>
     </> : null}
   </Page>;

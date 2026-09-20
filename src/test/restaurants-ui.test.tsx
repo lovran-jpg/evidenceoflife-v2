@@ -5,6 +5,7 @@ import type { Restaurant, RestaurantVisit } from '@/lib/restaurantDomain';
 import Restaurants from '@/pages/Restaurants';
 import { restaurantVisitPhotos } from '@/lib/restaurantVisitPhotos';
 import { optimizeRestaurantPhotos } from '@/lib/optimizeRestaurantPhoto';
+import { restaurantDeletion } from '@/lib/restaurantDeletion';
 
 const alice = '11111111-1111-4111-8111-111111111111';
 const bob = '22222222-2222-4222-8222-222222222222';
@@ -52,6 +53,17 @@ vi.mock('@/lib/restaurants', () => ({
       if (!item) throw new Error('Restaurant not found');
       Object.assign(item, changes);
       return item;
+    }),
+  },
+}));
+
+vi.mock('@/lib/restaurantDeletion', () => ({
+  restaurantDeletion: {
+    delete: vi.fn(async (userId: string, restaurantId: string) => {
+      const index = state.restaurants.findIndex(item => item.user_id === userId && item.id === restaurantId);
+      if (index < 0) throw new Error('Restoran nije pronađen ili ga nemaš pravo obrisati.');
+      state.restaurants.splice(index, 1);
+      state.visits = state.visits.filter(visit => !(visit.user_id === userId && visit.place_id === restaurantId));
     }),
   },
 }));
@@ -150,6 +162,74 @@ beforeEach(() => {
 });
 
 describe('Restaurant V1 routes', () => {
+  it('confirms and deletes a restaurant without visits, then returns to the list', async () => {
+    addRestaurant('one', 'Bistro');
+    addRestaurant('other', 'Drugi');
+    open('/restaurants/one');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Obriši restoran' }));
+    expect(screen.getByText('Želiš li trajno obrisati ovaj restoran?')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Trajno obriši' }));
+
+    await waitFor(() => expect(screen.getByTestId('route')).toHaveTextContent('/restaurants'));
+    expect(restaurantDeletion.delete).toHaveBeenCalledWith(alice, 'one');
+    expect(state.restaurants.map(item => item.id)).toEqual(['other']);
+  });
+
+  it('shows the visit count and deletes only the selected ID when names are equal', async () => {
+    addRestaurant('first', 'Bistro');
+    addRestaurant('second', 'Bistro');
+    addVisit('visit-1', 'first', '2026-09-18', alice, { photos: [`${alice}/restaurants/visit-1/one.jpg`] });
+    addVisit('visit-2', 'first', '2026-09-19', alice, { photos: [`${alice}/restaurants/visit-2/two.jpg`] });
+    addVisit('visit-other', 'second', '2026-09-20');
+    open('/restaurants/first');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Obriši restoran' }));
+    expect(screen.getByText('Ovim ćeš trajno obrisati restoran, 2 posjeta i sve njihove fotografije. Ova radnja se ne može poništiti.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Trajno obriši' }));
+
+    await waitFor(() => expect(screen.getByTestId('route')).toHaveTextContent('/restaurants'));
+    expect(state.restaurants.map(item => item.id)).toEqual(['second']);
+    expect(state.visits.map(item => item.id)).toEqual(['visit-other']);
+  });
+
+  it('cancel confirmation leaves the restaurant and visits untouched', async () => {
+    addRestaurant('one', 'Bistro');
+    addVisit('visit-1', 'one', '2026-09-18');
+    open('/restaurants/one');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Obriši restoran' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Odustani' }));
+    expect(restaurantDeletion.delete).not.toHaveBeenCalled();
+    expect(state.restaurants).toHaveLength(1);
+    expect(state.visits).toHaveLength(1);
+    expect(screen.getByTestId('route')).toHaveTextContent('/restaurants/one');
+  });
+
+  it('keeps the restaurant and shows the cleanup state when deletion fails', async () => {
+    addRestaurant('one', 'Bistro');
+    vi.mocked(restaurantDeletion.delete).mockRejectedValueOnce(new Error(
+      'Restoran nije obrisan jer čišćenje fotografija nije potpuno uspjelo. Zapisi su ostali sačuvani, ali dio fotografija možda je već uklonjen; pokušaj ponovno.',
+    ));
+    open('/restaurants/one');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Obriši restoran' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Trajno obriši' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('dio fotografija možda je već uklonjen');
+    expect(state.restaurants.map(item => item.id)).toEqual(['one']);
+    expect(screen.getByTestId('route')).toHaveTextContent('/restaurants/one');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('does not expose restaurant deletion for another user through a direct URL', async () => {
+    addRestaurant('foreign', 'Privatno', bob);
+    open('/restaurants/foreign');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Restoran nije pronađen');
+    expect(screen.queryByRole('button', { name: 'Obriši restoran' })).not.toBeInTheDocument();
+    expect(restaurantDeletion.delete).not.toHaveBeenCalled();
+  });
+
   it.each([
     { google_place_id: 'google-123', lat: null, lng: null },
     { google_place_id: null, lat: 0, lng: 0 },
