@@ -102,12 +102,44 @@ describe('Restaurant V1 map', () => {
     expect(await screen.findByRole('img', { name: 'Karta restorana' })).toBeInTheDocument();
     await waitFor(() => expect(state.callbacks).toHaveLength(2));
     act(() => state.callbacks[0]());
-    expect(await screen.findByText('Zadnji posjet: 19. 9. 2026.')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Otvori restoran' })).toHaveAttribute('href', '/restaurants/first');
-    fireEvent.click(screen.getAllByRole('button', { name: 'Bistro' })[1]);
-    expect(screen.getByRole('link', { name: 'Otvori restoran' })).toHaveAttribute('href', '/restaurants/second');
-    fireEvent.click(screen.getByRole('link', { name: 'Otvori restoran' }));
+    let card = await screen.findByRole('region', { name: 'Odabrani restoran' });
+    expect(within(card).getByRole('heading', { name: 'Bistro' })).toBeInTheDocument();
+    expect(within(card).getByText('Zagreb')).toBeInTheDocument();
+    expect(within(card).getByText('2 posjeta')).toBeInTheDocument();
+    expect(within(card).getByText('Zadnji posjet: 19. 9. 2026.')).toBeInTheDocument();
+    expect(within(card).getByRole('link', { name: 'Otvori restoran' })).toHaveAttribute('href', '/restaurants/first');
+
+    act(() => state.callbacks[1]());
+    card = screen.getByRole('region', { name: 'Odabrani restoran' });
+    expect(within(card).getByRole('link', { name: 'Otvori restoran' })).toHaveAttribute('href', '/restaurants/second');
+    fireEvent.click(within(card).getByRole('link', { name: 'Otvori restoran' }));
     expect(screen.getByTestId('route')).toHaveTextContent('/restaurants/second');
+  });
+
+  it('shows a natural empty-visit state after tapping a pin', async () => {
+    state.items = [item('new', 'Novi restoran')];
+    open();
+    await waitFor(() => expect(state.callbacks).toHaveLength(1));
+
+    act(() => state.callbacks[0]());
+    const card = screen.getByRole('region', { name: 'Odabrani restoran' });
+    expect(within(card).getByText('Još nema posjeta')).toBeInTheDocument();
+    expect(within(card).queryByText(/Zadnji posjet:/)).not.toBeInTheDocument();
+  });
+
+  it('closes the card without recreating or resetting the map', async () => {
+    state.items = [item('first', 'Prvi'), item('second', 'Drugi')];
+    open();
+    await waitFor(() => expect(state.callbacks).toHaveLength(2));
+    expect(state.mapOptions).toHaveLength(1);
+
+    act(() => state.callbacks[0]());
+    fireEvent.click(screen.getByRole('button', { name: 'Zatvori karticu restorana' }));
+
+    expect(screen.queryByRole('region', { name: 'Odabrani restoran' })).not.toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Karta restorana' })).toBeInTheDocument();
+    expect(state.mapOptions).toHaveLength(1);
+    expect(state.markers).toHaveLength(2);
   });
 
   it('shows a data error clearly', async () => {

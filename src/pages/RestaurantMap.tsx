@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { X } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { RestaurantShell } from '@/components/RestaurantShell';
+import { Button } from '@/components/ui/button';
 import { restaurantMap } from '@/lib/restaurantMap';
 import type { MappedRestaurant } from '@/lib/restaurantMap';
 import { fetchGooglePlaceLocation, googleMapsConfig, loadGoogleMaps } from '@/lib/googleMapsBrowser';
@@ -50,6 +52,32 @@ function GoogleRestaurantMap({ items, focusId, onSelect }: { items: MappedRestau
   </>;
 }
 
+function RestaurantMapCard({ item, onClose }: { item: MappedRestaurant; onClose: () => void }) {
+  return <section
+    aria-label="Odabrani restoran"
+    aria-live="polite"
+    className="absolute inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-10 max-h-[45dvh] overflow-y-auto rounded-2xl border border-border bg-card/95 p-4 pr-14 shadow-lg backdrop-blur"
+  >
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      aria-label="Zatvori karticu restorana"
+      onClick={onClose}
+      className="absolute right-2 top-2 min-h-11 min-w-11 rounded-full"
+    >
+      <X aria-hidden="true" />
+    </Button>
+    <h2 className="text-lg font-semibold [overflow-wrap:anywhere]">{item.restaurant.name}</h2>
+    {item.restaurant.address ? <p className="mt-1 text-sm text-muted-foreground [overflow-wrap:anywhere]">{item.restaurant.address}</p> : null}
+    <p className="mt-2 text-sm">{item.visitCount > 0 ? visitCountLabel(item.visitCount) : 'Još nema posjeta'}</p>
+    {item.lastVisit ? <p className="mt-1 text-sm">Zadnji posjet: {formatCroatianDate(item.lastVisit)}</p> : null}
+    <Button asChild className="mt-4 min-h-11 w-full rounded-xl">
+      <Link to={`/restaurants/${item.restaurant.id}`}>Otvori restoran</Link>
+    </Button>
+  </section>;
+}
+
 export default function RestaurantMap() {
   const { user, isDemo } = useAuth();
   const [searchParams] = useSearchParams();
@@ -89,14 +117,10 @@ export default function RestaurantMap() {
     {!loading && !error && missingFocus ? <p role="status" className="mb-4 rounded-xl border border-border bg-muted p-4 text-sm">Traženi restoran nije pronađen ili nema dostupnu lokaciju.</p> : null}
     {!loading && !error && items.length === 0 ? <p className="rounded-2xl border border-dashed p-6 text-muted-foreground">Još nema restorana s lokacijom. Restoran možeš spremiti i bez nje.</p> : null}
     {!loading && !error && items.length > 0 ? <>
-      <GoogleRestaurantMap items={items} focusId={focusId} onSelect={setSelectedId} />
-      {selected ? <section aria-label="Odabrani restoran" className="mt-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
-        <h2 className="text-lg font-semibold [overflow-wrap:anywhere]">{selected.restaurant.name}</h2>
-        {selected.restaurant.address ? <p className="mt-1 text-sm text-muted-foreground [overflow-wrap:anywhere]">{selected.restaurant.address}</p> : null}
-        <p className="mt-2 text-sm">{visitCountLabel(selected.visitCount)}</p>
-        {selected.lastVisit ? <p className="mt-1 text-sm">Zadnji posjet: {formatCroatianDate(selected.lastVisit)}</p> : null}
-        <Link to={`/restaurants/${selected.restaurant.id}`} className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground">Otvori restoran</Link>
-      </section> : null}
+      <div className="relative min-w-0">
+        <GoogleRestaurantMap items={items} focusId={focusId} onSelect={setSelectedId} />
+        {selected ? <RestaurantMapCard item={selected} onClose={() => setSelectedId(null)} /> : null}
+      </div>
       <div className="mt-4 flex flex-wrap gap-2" aria-label="Restorani na mapi">
         {items.map(item => <button type="button" key={item.restaurant.id} onClick={() => setSelectedId(item.restaurant.id)} className="max-w-full min-h-11 rounded-xl border border-border px-3 py-2 text-sm [overflow-wrap:anywhere] hover:bg-muted">{item.restaurant.name}</button>)}
       </div>
